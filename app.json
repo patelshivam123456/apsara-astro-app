@@ -5,21 +5,22 @@
     "scheme": "apsaraastro",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/logo_apsara.jpeg",
+    "icon": "./src/assets/logo_apsara.png",
     "jsEngine": "jsc",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "**/*"
     ],
     "splash": {
-      "image": "./src/assets/logo_apsara.jpeg",
+      "image": "./src/assets/logo_apsara.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-font"
     ],
     "ios": {
       "supportsTablet": true,
@@ -28,7 +29,7 @@
     "android": {
       "package": "com.apsaraastro.mobile",
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/logo_apsara.jpeg",
+        "foregroundImage": "./src/assets/logo_apsara.png",
         "backgroundColor": "#fff7e8"
       }
     },
