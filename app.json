@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "ApsaraAstro",
+    "slug": "apsara-astro-mobile",
+    "scheme": "apsaraastro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/logo_apsara.jpeg",
+    "jsEngine": "jsc",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "splash": {
+      "image": "./src/assets/logo_apsara.jpeg",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.apsaraastro.mobile"
+    },
+    "android": {
+      "package": "com.apsaraastro.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/logo_apsara.jpeg",
+        "backgroundColor": "#fff7e8"
+      }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "apiUrl": "http://66.116.242.35:8080",
+      "astroApiUrl": "http://66.116.242.35:8080",
+      "eas": {
+        "projectId": "234d0b67-97f0-4d04-93df-e50e01f538e6"
+      }
+    }
+  }
+}
