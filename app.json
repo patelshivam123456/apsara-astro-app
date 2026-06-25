@@ -15,18 +15,18 @@
       "backgroundColor": "#ffffff"
     },
     "plugins": [
-      "expo-router",
-      "expo-secure-store",
-      "@react-native-community/datetimepicker",
-      "expo-font"
-    ],
+  "expo-router",
+  "expo-secure-store",
+  "@react-native-community/datetimepicker",
+  "expo-font",
+  "./plugins/withCleartextTraffic"
+],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.apsaraastro.mobile"
     },
     "android": {
       "package": "com.apsaraastro.mobile",
-      "usesCleartextTraffic": true,
       "permissions": ["INTERNET"],
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/logo_apsara.png",

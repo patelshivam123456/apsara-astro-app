@@ -1,11 +1,8 @@
-import Constants from "expo-constants";
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL || "http://66.116.242.35:8080";
 
-const extra = Constants.expoConfig?.extra as
-  | { apiUrl?: string; astroApiUrl?: string }
-  | undefined;
-
-export const API_BASE_URL = extra?.apiUrl || "http://localhost:5000/api";
-export const ASTRO_API_BASE_URL = extra?.astroApiUrl || API_BASE_URL;
+export const ASTRO_API_BASE_URL =
+  process.env.EXPO_PUBLIC_ASTRO_API_URL || API_BASE_URL;
 
 export const ENDPOINTS = {
   login: "/authorization/auth/login",
