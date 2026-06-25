@@ -1,3 +1,5 @@
+import "react-native-gesture-handler";
+
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
@@ -7,13 +9,13 @@ export default function RootLayout() {
   return (
     <AppProviders>
       <StatusBar style="auto" />
+
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="wallet" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(drawer)" />
-        <Stack.Screen name="astrologer" />
-        <Stack.Screen name="wallet" />
-        <Stack.Screen name="astrologers" />
         <Stack.Screen name="feature/[name]" />
       </Stack>
     </AppProviders>

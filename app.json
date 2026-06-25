@@ -6,11 +6,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./src/assets/logo_apsara.png",
-    "jsEngine": "jsc",
+    "jsEngine": "hermes",
     "userInterfaceStyle": "automatic",
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "splash": {
       "image": "./src/assets/logo_apsara.png",
       "resizeMode": "contain",
@@ -28,6 +26,8 @@
     },
     "android": {
       "package": "com.apsaraastro.mobile",
+      "usesCleartextTraffic": true,
+      "permissions": ["INTERNET"],
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/logo_apsara.png",
         "backgroundColor": "#fff7e8"

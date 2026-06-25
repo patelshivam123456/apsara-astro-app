@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { Drawer } from "expo-router/drawer";
+import { router } from "expo-router";
 
 import { colors } from "@/constants/theme";
 import { useAuthStore } from "@/store/auth.store";
@@ -20,7 +20,7 @@ const drawerItems = [
   ["remedies", "Remedies", "flower"],
   ["store", "Store", "shopping"],
   ["customer-care", "Customer Care", "headset"],
-  ["settings", "Settings", "cog"]
+  ["settings", "Settings", "cog"],
 ] as const;
 
 export default function DrawerLayout() {
@@ -33,7 +33,7 @@ export default function DrawerLayout() {
         headerTintColor: colors.ink,
         drawerActiveTintColor: colors.amber,
         drawerInactiveTintColor: colors.cocoa,
-        drawerStyle: { backgroundColor: colors.cream }
+        drawerStyle: { backgroundColor: colors.cream },
       }}
     >
       {drawerItems.map(([name, title, icon]) => (
@@ -42,25 +42,31 @@ export default function DrawerLayout() {
           name={name}
           options={{
             title,
-            headerShown: name === "numerology" ? false : undefined,
-            swipeEnabled: name === "numerology" ? false : undefined,
             drawerIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} color={color} size={size} />
-            )
+              <MaterialCommunityIcons
+                name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
+                color={color}
+                size={size}
+              />
+            ),
           }}
         />
       ))}
+
       <Drawer.Screen
         name="logout"
         listeners={{
-          drawerItemPress: (event) => {
+          drawerItemPress: async (event) => {
             event.preventDefault();
-            signOut().finally(() => router.replace("/(auth)/login"));
-          }
+            await signOut();
+            router.replace("/(auth)/login");
+          },
         }}
         options={{
           title: "Logout",
-          drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="logout" color={color} size={size} />
+          drawerIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="logout" color={color} size={size} />
+          ),
         }}
       />
     </Drawer>
