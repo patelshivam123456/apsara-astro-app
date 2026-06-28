@@ -6,8 +6,8 @@ export const ASTRO_API_BASE_URL =
 
 export const ENDPOINTS = {
   login: "/authorization/auth/login",
-  signUp: "/authorization/auth/sign-up",
   createUser: "/authorization/auth/create-user",
+  astrologerRegistration: "/authorization/auth/astrologer-registration",
   forgotPassword: "/authorization/auth/forgot-password",
   resetPassword: "/authorization/auth/reset-password",
   updatePassword: "/authorization/auth/update-password",

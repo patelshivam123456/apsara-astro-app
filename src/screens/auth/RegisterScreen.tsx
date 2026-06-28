@@ -1,9 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useRef } from "react";
+import { useMemo, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -16,9 +12,6 @@ import {
   Button,
   Checkbox,
   Chip,
-  Dialog,
-  HelperText,
-  Portal,
   Snackbar,
   Text,
   TextInput,
@@ -26,7 +19,7 @@ import {
 
 import { colors, spacing } from "@/constants/theme";
 import { getApiErrorMessage } from "@/services/apiClient";
-import { registerAstrologer, requestOtp } from "@/services/auth.service";
+import { registerAstrologer } from "@/services/auth.service";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
@@ -48,88 +41,10 @@ const expertiseOptions = [
 const consultationModeOptions = ["Chat", "Call", "Video"];
 const genderOptions = ["Male", "Female", "Other"];
 
-const stepLabels = ["Account", "Personal", "Identity", "Education", "Submit"];
-
-function OtpBoxes({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (text: string) => void;
-}) {
-  const inputsRef = useRef<any[]>([]);
-
-  const handleChange = (text: string, index: number) => {
-    const digit = text.replace(/\D/g, "").slice(-1);
-
-    const otpArray = value.split("");
-    otpArray[index] = digit;
-
-    const nextOtp = otpArray.join("").slice(0, 6);
-    onChange(nextOtp);
-
-    if (digit && index < 5) {
-      inputsRef.current[index + 1]?.focus();
-    }
-  };
-
-  const handleKeyPress = (e: any, index: number) => {
-    if (e.nativeEvent.key === "Backspace") {
-      if (!value[index] && index > 0) {
-        inputsRef.current[index - 1]?.focus();
-
-        const otpArray = value.split("");
-        otpArray[index - 1] = "";
-        onChange(otpArray.join(""));
-      }
-    }
-  };
-
-  return (
-    <View style={styles.otpContainer}>
-      {[0, 1, 2, 3, 4, 5].map((index) => (
-        <TextInput
-          key={index}
-          ref={(ref: any) => {
-            inputsRef.current[index] = ref;
-          }}
-          value={value[index] || ""}
-          onChangeText={(text) => handleChange(text, index)}
-          onKeyPress={(e) => handleKeyPress(e, index)}
-          keyboardType="number-pad"
-          maxLength={1}
-          mode="outlined"
-          style={styles.otpDigitInput}
-          outlineStyle={styles.otpDigitOutline}
-          contentStyle={styles.otpDigitContent}
-          theme={{
-            colors: {
-              background: "#fff",
-              primary: "#b6f000",
-              outline: "#ead27a",
-            },
-          }}
-        />
-      ))}
-    </View>
-  );
-}
+const stepLabels = ["Personal", "Identity", "Education", "Submit"];
 
 export function RegisterScreen() {
-  const [phase, setPhase] = useState<"account" | "profile">("account");
   const [step, setStep] = useState<Step>(1);
-  const [emailLocked, setEmailLocked] = useState(false);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [secure, setSecure] = useState(true);
-
-  const [otp, setOtp] = useState("");
-  const [otpDialog, setOtpDialog] = useState(false);
-  const [otpError, setOtpError] = useState("");
-  const [counter, setCounter] = useState(60);
-
-  const [sendingOtp, setSendingOtp] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pincodeLoading, setPincodeLoading] = useState(false);
 
@@ -137,15 +52,20 @@ export function RegisterScreen() {
   const [error, setError] = useState("");
 
   const [fullName, setFullName] = useState("");
-  const [mobileNumber, setMobileNumber] = useState("");
+  const [mobileNo, setMobileNo] = useState("");
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [pincode, setPincode] = useState("");
   const [city, setCity] = useState("");
   const [stateName, setStateName] = useState("");
+  const [country, setCountry] = useState("India");
   const [gender, setGender] = useState("");
   const [genderOpen, setGenderOpen] = useState(false);
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [showDobPicker, setShowDobPicker] = useState(false);
   const [address, setAddress] = useState("");
+  const [religion, setReligion] = useState("");
+  const [specialization, setSpecialization] = useState("");
 
   const [languageInput, setLanguageInput] = useState("");
   const [languagesKnown, setLanguagesKnown] = useState<string[]>([]);
@@ -153,8 +73,10 @@ export function RegisterScreen() {
   const [expertise, setExpertise] = useState<string[]>([]);
   const [aboutYourself, setAboutYourself] = useState("");
 
-  const [aadharFront, setAadharFront] = useState<any>(null);
-  const [aadharBack, setAadharBack] = useState<any>(null);
+  const [aadhaarNo, setAadhaarNo] = useState("");
+  const [aadhaarFile, setAadhaarFile] = useState<any>(null);
+  const [educationalQualification, setEducationalQualification] = useState("");
+  const [yearsOfExperience, setYearsOfExperience] = useState("");
   const [educationDoc, setEducationDoc] = useState<any>(null);
   const [certificateDoc, setCertificateDoc] = useState<any>(null);
   const [experienceLetter, setExperienceLetter] = useState<any>(null);
@@ -167,25 +89,14 @@ export function RegisterScreen() {
   );
   const [showDeclarationDate, setShowDeclarationDate] = useState(false);
 
-  const activeStepNumber = phase === "account" ? 0 : step;
+  const activeStepNumber = step - 1;
 
   const stepTitle = useMemo(() => {
-    if (phase === "account") return "Account Setup";
     if (step === 1) return "Personal & Professional Information";
     if (step === 2) return "Identity Verification";
     if (step === 3) return "Education & Certification";
-    return "Account & Declaration";
-  }, [phase, step]);
-
- useEffect(() => {
-  if (counter <= 0) return;
-
-  const timer = setTimeout(() => {
-    setCounter((prev) => prev - 1);
-  }, 1000);
-
-  return () => clearTimeout(timer);
-}, [counter]);
+    return "Declaration";
+  }, [step]);
 
   const inputTheme = {
   colors: {
@@ -203,62 +114,6 @@ export function RegisterScreen() {
   const showError = (text: string) => {
     setMessage("");
     setError(text);
-  };
-
-  const validateAccount = () => {
-    if (!/^\S+@\S+\.\S+$/.test(username.trim())) {
-      return "Enter a valid email address.";
-    }
-
-    if (password.length < 6) {
-      return "Password must be at least 6 characters.";
-    }
-
-    if (password !== confirmPassword) {
-      return "Passwords do not match.";
-    }
-
-    return "";
-  };
-
-  const sendOtp = async () => {
-    const validationError = validateAccount();
-
-    if (validationError) {
-      showError(validationError);
-      return;
-    }
-
-    try {
-      setSendingOtp(true);
-      setOtp("");
-      setOtpError("");
-
-      const response = await requestOtp(username.trim(), password);
-      const apiMessage =
-        (response as { message?: string })?.message ||
-        "OTP sent. Please check your email.";
-
-      showMessage(apiMessage);
-      setCounter(60);
-      setOtpDialog(true);
-      setEmailLocked(true);
-    } catch (err) {
-      showError(getApiErrorMessage(err, "Failed to send OTP"));
-    } finally {
-      setSendingOtp(false);
-    }
-  };
-
-  const confirmOtp = () => {
-    if (!/^[0-9]{6}$/.test(otp)) {
-      setOtpError("Please enter valid 6 digit OTP.");
-      return;
-    }
-
-    setOtpDialog(false);
-    setPhase("profile");
-    showMessage("OTP verified successfully. Complete your profile.");
   };
 
   const lookupPincode = async (value: string) => {
@@ -344,7 +199,11 @@ export function RegisterScreen() {
   const validateStep = () => {
     if (step === 1) {
       if (!fullName.trim()) return "Full name is required.";
-      if (!/^[0-9]{10}$/.test(mobileNumber.trim())) {
+      if (!displayName.trim()) return "Display name is required.";
+      if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+        return "Enter a valid email address.";
+      }
+      if (!/^[0-9]{10}$/.test(mobileNo.trim())) {
         return "Mobile number must be 10 digits.";
       }
       if (!/^[0-9]{6}$/.test(pincode)) return "Pincode must be 6 digits.";
@@ -353,6 +212,23 @@ export function RegisterScreen() {
       }
       if (!gender.trim()) return "Gender is required.";
       if (!dateOfBirth.trim()) return "Date of birth is required.";
+      if (!country.trim()) return "Country is required.";
+      if (!religion.trim()) return "Religion is required.";
+      if (!specialization.trim()) return "Specialization is required.";
+    }
+
+    if (step === 2) {
+      if (!/^[0-9]{12}$/.test(aadhaarNo.trim())) {
+        return "Aadhaar number must be 12 digits.";
+      }
+      if (!aadhaarFile) return "Aadhaar upload is required.";
+    }
+
+    if (step === 3) {
+      if (!educationalQualification.trim()) {
+        return "Educational qualification is required.";
+      }
+      if (!yearsOfExperience.trim()) return "Years of experience is required.";
     }
 
     if (step === 4) {
@@ -388,27 +264,29 @@ export function RegisterScreen() {
 
       await registerAstrologer({
         fullName,
-        mobileNumber,
-        email: username,
-        password,
-        otp,
+        mobileNo,
+        email,
         gender,
         dateOfBirth,
-        pincode,
+        pinCode: pincode,
         city,
         state: stateName,
+        country,
         languagesKnown,
+        religion,
+        specialization,
+        displayName,
         expertise,
+        yearsOfExperience,
+        educationalQualification,
+        aadhaarNo,
         consultationModes,
         aboutYourself,
-        fullAddress: address,
+        address,
         documents: {
-          aadharFront,
-          aadharBack,
-          educationDoc,
-          certificateDoc,
-          experienceLetter,
-          profilePhoto,
+          aadhaarFile,
+          educationalQualificationFile: educationDoc,
+          experienceFile: experienceLetter,
         },
         declaration: {
           accepted: declarationAccepted,
@@ -428,13 +306,7 @@ export function RegisterScreen() {
       }, 900);
     } catch (err) {
       const apiError = getApiErrorMessage(err, "Registration failed");
-
-      if (apiError.toLowerCase().includes("otp")) {
-        setOtpDialog(true);
-        setOtpError(apiError || "Invalid OTP. Please enter correct OTP.");
-      } else {
-        showError(apiError);
-      }
+      showError(apiError);
     } finally {
       setSubmitting(false);
     }
@@ -465,18 +337,9 @@ export function RegisterScreen() {
 
     <StepIndicator activeStep={activeStepNumber} />
 
-    {/* <View style={styles.formPanel}>
-      {phase === "account" ? renderAccount() : renderStep()}
-    </View> */}
-
-    {/* <OtpPopup /> */}
-    {phase === "account" && otpDialog ? (
-  <OtpScreen />
-) : (
-  <View style={styles.formPanel}>
-    {phase === "account" ? renderAccount() : renderStep()}
-  </View>
-)}
+    <View style={styles.formPanel}>
+      {renderStep()}
+    </View>
 
     <Snackbar visible={!!message} onDismiss={() => setMessage("")} duration={3500}>
       {message}
@@ -493,91 +356,6 @@ export function RegisterScreen() {
   </KeyboardAwareScrollView>
 </SafeAreaView>
   )
-  function renderAccount() {
-    return (
-      <View style={styles.section}>
-        <SectionHeader
-          stepLabel="Account setup"
-          title="Create your login"
-          description="Enter your email and password, then verify OTP."
-        />
-
-        <TextInput
-          label="Email / Username"
-          value={username}
-          onChangeText={setUsername}
-          editable={!emailLocked}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          mode="outlined"
-          theme={inputTheme}
-          style={styles.input}
-          outlineStyle={{
-  borderRadius: 12,
-}}
-
-contentStyle={{
-  paddingVertical: 2,
-}}
-        />
-
-        <TextInput
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={secure}
-          mode="outlined"
-          theme={inputTheme}
-          style={styles.input}
-          outlineStyle={{
-  borderRadius: 12,
-}}
-
-contentStyle={{
-  paddingVertical: 2,
-}}
-          right={
-            <TextInput.Icon
-              icon={secure ? "eye" : "eye-off"}
-              onPress={() => setSecure((value) => !value)}
-            />
-          }
-        />
-
-        <TextInput
-          label="Confirm Password"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry={secure}
-          mode="outlined"
-          theme={inputTheme}
-          style={styles.input}
-          outlineStyle={{
-  borderRadius: 12,
-}}
-
-contentStyle={{
-  paddingVertical: 2,
-}}
-        />
-
-        <Button
-          mode="contained"
-          loading={sendingOtp}
-          onPress={sendOtp}
-          style={styles.primaryBtn}
-          labelStyle={styles.primaryBtnText}
-        >
-          Continue to Astrologer Registration
-        </Button>
-
-        <HelperText type="info" visible>
-          Already have an account? <Text style={{ color: "#b94717",fontWeight:"900" }} onPress={() => router.push("/(auth)/login")}>Login here</Text>
-        </HelperText>
-      </View>
-    );
-  }
-
   function renderStep() {
     if (step === 1) {
       return (
@@ -607,9 +385,9 @@ contentStyle={{
 
             <TextInput
               label="Mobile Number *"
-              value={mobileNumber}
+              value={mobileNo}
               onChangeText={(value) =>
-                setMobileNumber(value.replace(/\D/g, "").slice(0, 10))
+                setMobileNo(value.replace(/\D/g, "").slice(0, 10))
               }
               keyboardType="phone-pad"
               mode="outlined"
@@ -626,8 +404,26 @@ contentStyle={{
 
             <TextInput
               label="Email Address *"
-              value={username}
-              editable={false}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              mode="outlined"
+              theme={inputTheme}
+              style={[styles.input, styles.field]}
+              outlineStyle={{
+  borderRadius: 12,
+}}
+
+contentStyle={{
+  paddingVertical: 2,
+}}
+            />
+
+            <TextInput
+              label="Display Name *"
+              value={displayName}
+              onChangeText={setDisplayName}
               mode="outlined"
               theme={inputTheme}
               style={[styles.input, styles.field]}
@@ -693,6 +489,22 @@ contentStyle={{
 }}
             />
 
+            <TextInput
+              label="Country *"
+              value={country}
+              onChangeText={setCountry}
+              mode="outlined"
+              theme={inputTheme}
+              style={[styles.input, styles.field]}
+              outlineStyle={{
+  borderRadius: 12,
+}}
+
+contentStyle={{
+  paddingVertical: 2,
+}}
+            />
+
             <View style={styles.field}>
               <TouchableOpacity
                 style={styles.dropdownBox}
@@ -728,6 +540,38 @@ contentStyle={{
                 {dateOfBirth || "Date of Birth *"}
               </Text>
             </TouchableOpacity>
+
+            <TextInput
+              label="Religion *"
+              value={religion}
+              onChangeText={setReligion}
+              mode="outlined"
+              theme={inputTheme}
+              style={[styles.input, styles.field]}
+              outlineStyle={{
+  borderRadius: 12,
+}}
+
+contentStyle={{
+  paddingVertical: 2,
+}}
+            />
+
+            <TextInput
+              label="Specialization *"
+              value={specialization}
+              onChangeText={setSpecialization}
+              mode="outlined"
+              theme={inputTheme}
+              style={[styles.input, styles.field]}
+              outlineStyle={{
+  borderRadius: 12,
+}}
+
+contentStyle={{
+  paddingVertical: 2,
+}}
+            />
           </View>
 
           {showDobPicker && (
@@ -845,20 +689,34 @@ contentStyle={{
           <SectionHeader
             stepLabel="Step 2 of 4"
             title="Identity Verification"
-            description="Upload Aadhar front and back document."
+            description="Add Aadhaar number and upload Aadhaar document."
           />
 
           <View style={styles.twoColumns}>
-            <UploadCard
-              title="Aadhar Card Front"
-              file={aadharFront}
-              onPick={() => pickDocument(setAadharFront)}
+            <TextInput
+              label="Aadhaar Number *"
+              value={aadhaarNo}
+              onChangeText={(value) =>
+                setAadhaarNo(value.replace(/\D/g, "").slice(0, 12))
+              }
+              keyboardType="number-pad"
+              maxLength={12}
+              mode="outlined"
+              theme={inputTheme}
+              style={[styles.input, styles.field]}
+              outlineStyle={{
+  borderRadius: 12,
+}}
+
+contentStyle={{
+  paddingVertical: 2,
+}}
             />
 
             <UploadCard
-              title="Aadhar Card Back"
-              file={aadharBack}
-              onPick={() => pickDocument(setAadharBack)}
+              title="Aadhaar Upload"
+              file={aadhaarFile}
+              onPick={() => pickDocument(setAadhaarFile)}
             />
           </View>
 
@@ -877,6 +735,41 @@ contentStyle={{
           />
 
           <View style={styles.twoColumns}>
+            <TextInput
+              label="Educational Qualification *"
+              value={educationalQualification}
+              onChangeText={setEducationalQualification}
+              mode="outlined"
+              theme={inputTheme}
+              style={[styles.input, styles.field]}
+              outlineStyle={{
+  borderRadius: 12,
+}}
+
+contentStyle={{
+  paddingVertical: 2,
+}}
+            />
+
+            <TextInput
+              label="Years of Experience *"
+              value={yearsOfExperience}
+              onChangeText={(value) =>
+                setYearsOfExperience(value.replace(/[^0-9.]/g, "").slice(0, 4))
+              }
+              keyboardType="decimal-pad"
+              mode="outlined"
+              theme={inputTheme}
+              style={[styles.input, styles.field]}
+              outlineStyle={{
+  borderRadius: 12,
+}}
+
+contentStyle={{
+  paddingVertical: 2,
+}}
+            />
+
             <UploadCard
               title="Higher Education Degree / Diploma"
               file={educationDoc}
@@ -912,7 +805,7 @@ contentStyle={{
       <View style={styles.section}>
         <SectionHeader
           stepLabel="Step 4 of 4"
-          title="Account & Declaration"
+          title="Declaration"
           description="Accept declaration and submit your application."
         />
 
@@ -981,135 +874,6 @@ contentStyle={{
     );
   }
 
-//   function OtpPopup() {
-//     return (
-//       <Portal>
-//         <Dialog visible={otpDialog} dismissable={false}>
-//           <Dialog.Content style={styles.otpBox}>
-//             <Text style={styles.brand}>
-//               Apsara<Text style={styles.green}>Astro</Text> Verification
-//             </Text>
-
-//             <Text style={styles.otpTitle}>OTP Verification</Text>
-
-//             <Text style={styles.otpSub}>
-//               Enter the OTP sent to{" "}
-//               <Text style={styles.green}>{username}</Text>
-//             </Text>
-
-//             {/* <TextInput
-//               value={otp}
-//               onChangeText={(value) => {
-//                 setOtp(value.replace(/\D/g, "").slice(0, 6));
-//                 setOtpError("");
-//               }}
-//               keyboardType="number-pad"
-//               maxLength={6}
-//               mode="outlined"
-//               placeholder="Enter 6 digit OTP"
-//               theme={inputTheme}
-//               style={styles.input}
-//               outlineStyle={{
-//   borderRadius: 12,
-// }}
-
-// contentStyle={{
-//   paddingVertical: 2,
-// }}
-//             /> */}
-
-//             <OtpBoxes
-//   value={otp}
-//   onChange={(value) => {
-//     setOtp(value);
-//     setOtpError("");
-//   }}
-// />
-
-//             {!!otpError && <Text style={styles.otpError}>{otpError}</Text>}
-
-//             <View style={styles.otpFooter}>
-//               <View style={styles.resendBox}>
-//                 <Text style={styles.resendTitle}>
-//                   Didn't get OTP or try another username?
-//                 </Text>
-
-//                 {counter > 0 ? (
-//                   <Text style={styles.counter}>
-//                     Resend OTP available in 00:
-//                     {String(counter).padStart(2, "0")}
-//                   </Text>
-//                 ) : (
-//                   <Button
-//                     mode="text"
-//                     loading={sendingOtp}
-//                     onPress={sendOtp}
-//                     compact
-//                   >
-//                     Resend OTP
-//                   </Button>
-//                 )}
-//               </View>
-
-//               <Button
-//                 mode="contained"
-//                 onPress={confirmOtp}
-//                 style={styles.verifyBtn}
-//                 labelStyle={styles.verifyBtnText}
-//               >
-//                 Verify
-//               </Button>
-//             </View>
-//           </Dialog.Content>
-//         </Dialog>
-//       </Portal>
-//     );
-//   }
-function OtpScreen() {
-  return (
-    <View style={styles.otpScreen}>
-      <Text style={styles.brand}>
-        Apsara<Text style={styles.green}>Astro</Text> Verification
-      </Text>
-
-      <Text style={styles.otpTitle}>Enter OTP</Text>
-
-      <Text style={styles.otpSub}>
-        Enter the 6 digit OTP sent to{" "}
-        <Text style={styles.green}>{username}</Text>
-      </Text>
-
-      <OtpBoxes
-        value={otp}
-        onChange={(value) => {
-          setOtp(value);
-          setOtpError("");
-        }}
-      />
-
-      {!!otpError && <Text style={styles.otpError}>{otpError}</Text>}
-
-      {counter > 0 ? (
-        <Text style={styles.counter}>
-          Resend OTP available in 00:{String(counter).padStart(2, "0")}
-        </Text>
-      ) : (
-        <Button mode="text" loading={sendingOtp} onPress={sendOtp}>
-          Resend OTP
-        </Button>
-      )}
-
-      <Button
-        mode="contained"
-        onPress={confirmOtp}
-        style={styles.verifyBtn}
-        labelStyle={styles.verifyBtnText}
-      >
-        Verify
-      </Button>
-    </View>
-  );
-}
 }
 
 function StepIndicator({ activeStep }: { activeStep: number }) {
@@ -1567,134 +1331,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 
-  otpBox: {
-    borderRadius: 20,
-    paddingVertical: 8,
-  },
-
-  brand: {
-    fontWeight: "900",
-    marginBottom: 20,
-    color: "#111",
-  },
-
-  green: {
-    color: "#b6f000",
-    fontWeight: "900",
-  },
-
-  otpTitle: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#111",
-  },
-
-  otpSub: {
-    color: "#555",
-    marginBottom: 16,
-  },
-
-  otpError: {
-    color: "red",
-    marginTop: 6,
-    fontSize: 13,
-  },
-
-  otpFooter: {
-    marginTop: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 10,
-  },
-
-  resendBox: {
-    flex: 1,
-  },
-
-  resendTitle: {
-    fontWeight: "800",
-    color: "#596000",
-    fontSize: 12,
-  },
-
-  counter: {
-    color: "#555",
-    fontSize: 12,
-    marginTop: 4,
-  },
-
-  verifyBtn: {
-    borderRadius: 14,
-    backgroundColor: "#b6f000",
-  },
-
-  verifyBtnText: {
-    color: "#111",
-    fontWeight: "900",
-  },
-
   errorSnack: {
     backgroundColor: colors.danger,
   },
-
-//   otpContainer: {
-//   flexDirection: "row",
-//   justifyContent: "space-between",
-//   marginVertical: 20,
-// },
-
-// otpDigit: {
-//   width: 48,
-//   height: 56,
-//   borderWidth: 1,
-//   borderColor: "#ead27a",
-//   borderRadius: 12,
-//   justifyContent: "center",
-//   alignItems: "center",
-//   backgroundColor: "#fff",
-// },
-
-// otpDigitText: {
-//   fontSize: 22,
-//   fontWeight: "700",
-//   color: "#111",
-// },
-
-// hiddenOtpInput: {
-//   position: "absolute",
-//   opacity: 0,
-// },
-otpContainer: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  gap: 8,
-  marginVertical: 20,
-},
-
-otpDigitInput: {
-  flex: 1,
-  height: 56,
-  backgroundColor: "#fff",
-},
-
-otpDigitOutline: {
-  borderRadius: 10,
-  borderColor: "#ead27a",
-},
-
-otpDigitContent: {
-  textAlign: "center",
-  fontSize: 22,
-  fontWeight: "800",
-  paddingHorizontal: 0,
-},
-otpScreen: {
-  borderRadius: 12,
-  borderWidth: 1,
-  borderColor: "#ead27a",
-  backgroundColor: "#fffaf0",
-  padding: spacing.lg,
-  gap: spacing.sm,
-},
 });

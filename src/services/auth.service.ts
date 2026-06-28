@@ -6,7 +6,6 @@ import { ApiResponse, Astrologer, ClientProfile } from "@/types/api";
 import { decodeAccessToken, extractAccessToken, normalizeRoles, stripAuthFields } from "@/utils/jwt";
 
 export const CLIENT_ROLE_ID = 2;
-export const ASTROLOGER_ROLE_ID = 3;
 export const ASTROLOGER_ROLE = "ROLE_ASTROLOGER";
 
 export type LoginPayload = { username: string; password: string };
@@ -26,20 +25,30 @@ export type ClientRegisterPayload = {
 
 export type AstrologerRegisterPayload = {
   fullName: string;
-  mobileNumber: string;
+  mobileNo: string;
   email: string;
   gender: string;
   dateOfBirth: string;
-  fullAddress?: string;
-  pincode: string;
+  address?: string;
+  pinCode: string;
   city: string;
   state: string;
+  country: string;
   languagesKnown: string[];
+  religion: string;
+  specialization: string;
+  displayName: string;
   expertise: string[];
   aboutYourself?: string;
+  yearsOfExperience: string;
+  educationalQualification: string;
+  aadhaarNo: string;
   consultationModes: string[];
-  password: string;
-  otp: string;
+  documents?: {
+    aadhaarFile?: UploadFile | null;
+    educationalQualificationFile?: UploadFile | null;
+    experienceFile?: UploadFile | null;
+  };
   declaration?: {
     accepted: boolean;
     digitalSignature: string;
@@ -47,6 +56,33 @@ export type AstrologerRegisterPayload = {
     text?: string;
   };
 };
+
+type UploadFile = {
+  uri?: string;
+  name?: string;
+  fileName?: string;
+  mimeType?: string;
+  type?: string;
+};
+
+function appendArray(formData: FormData, key: string, values: string[]) {
+  values
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .forEach((value, index) => {
+      formData.append(`${key}[${index}]`, value);
+    });
+}
+
+function appendFile(formData: FormData, key: string, file?: UploadFile | null) {
+  if (!file?.uri) return;
+
+  formData.append(key, {
+    uri: file.uri,
+    name: file.name || file.fileName || `${key}.jpg`,
+    type: file.mimeType || file.type || "application/octet-stream"
+  } as unknown as Blob);
+}
 
 export async function login(payload: LoginPayload) {
   console.log("[auth.login] starting", {
@@ -78,12 +114,6 @@ export async function login(payload: LoginPayload) {
   });
 
   return { response, accessToken, claims };
-}
-
-export async function requestOtp(username: string, password: string) {
-  return api.post<ApiResponse>(ENDPOINTS.signUp, { username, password }, {
-    headers: { "Content-Type": "application/json", Accept: "*/*" }
-  });
 }
 
 export async function registerClient(payload: ClientRegisterPayload) {
@@ -129,37 +159,38 @@ export async function registerClient(payload: ClientRegisterPayload) {
 }
 
 export async function registerAstrologer(payload: AstrologerRegisterPayload) {
-  return api.post<ApiResponse>(ENDPOINTS.createUser, {
-    username: payload.email.trim(),
-    password: payload.password,
-    otp: payload.otp.trim(),
-    roleId: ASTROLOGER_ROLE_ID,
-    astrologerDto: {
-      fullName: payload.fullName.trim(),
-      mobileNumber: payload.mobileNumber.trim(),
-      email: payload.email.trim(),
-      otp: payload.otp.trim(),
-      gender: payload.gender.trim(),
-      dateOfBirth: payload.dateOfBirth.trim(),
-      address: payload.fullAddress?.trim() || "",
-      pincode: payload.pincode.trim(),
-      city: payload.city.trim(),
-      state: payload.state.trim(),
-      languagesKnown: payload.languagesKnown.join(", "),
-      expertise: payload.expertise,
-      aboutYourself: payload.aboutYourself?.trim() || "",
-      consultationModes: payload.consultationModes,
-      identityVerification: { aadharFront: [], aadharBack: [] },
-      educationCertification: { educationalCertificates: [], certificateDocuments: [] },
-      experienceDocuments: { experienceLetter: [], passportPhoto: [] },
-      declaration: {
-        accepted: payload.declaration?.accepted ?? false,
-        digitalSignature: payload.declaration?.digitalSignature?.trim() || "",
-        date: payload.declaration?.date?.trim() || "",
-        text: payload.declaration?.text || "I hereby declare that all information provided is true and I have no criminal record."
-      },
-      verificationStatus: "PENDING"
-    }
+  const formData = new FormData();
+
+  formData.append("fullName", payload.fullName.trim());
+  formData.append("email", payload.email.trim());
+  formData.append("mobileNo", payload.mobileNo.trim());
+  formData.append("dateOfBirth", payload.dateOfBirth.trim());
+  formData.append("gender", payload.gender.trim());
+  formData.append("address", payload.address?.trim() || "");
+  formData.append("city", payload.city.trim());
+  formData.append("state", payload.state.trim());
+  formData.append("pinCode", payload.pinCode.trim());
+  formData.append("country", payload.country.trim());
+  appendArray(formData, "languagesKnown", payload.languagesKnown);
+  formData.append("religion", payload.religion.trim());
+  formData.append("specialization", payload.specialization.trim());
+  appendArray(formData, "expertise", payload.expertise);
+  formData.append("aboutYourself", payload.aboutYourself?.trim() || "");
+  formData.append("displayName", payload.displayName.trim());
+  formData.append("yearsOfExperience", payload.yearsOfExperience.trim());
+  appendArray(formData, "consultationModes", payload.consultationModes);
+  formData.append("aadhaarNo", payload.aadhaarNo.trim());
+  formData.append("educationalQualification", payload.educationalQualification.trim());
+  appendFile(formData, "aadhaarFile", payload.documents?.aadhaarFile);
+  appendFile(
+    formData,
+    "educationalQualificationFile",
+    payload.documents?.educationalQualificationFile
+  );
+  appendFile(formData, "experienceFile", payload.documents?.experienceFile);
+
+  return api.post<ApiResponse>(ENDPOINTS.astrologerRegistration, formData, {
+    headers: { "Content-Type": "multipart/form-data", Accept: "*/*" }
   });
 }
 
