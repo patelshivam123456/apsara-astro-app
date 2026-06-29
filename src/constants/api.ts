@@ -19,6 +19,7 @@ export const ENDPOINTS = {
   astrologerProfile: "/authorization/astrologer/profile-me",
   astrologerClients: "/authorization/astrologer/clients",
   astrologers: "/authorization/info/get-all-astrologers",
-  loShu: "/astrology-services/home-page/lo-su",
-  personalYear: "/astrology-services/home-page/personal-year"
+  loShuGrid: "/astrology-services/home-page/lo-shu-grid",
+  personalYear: "/astrology-services/home-page/personal-year",
+  personalYearMatrix: "/astrology-services/home-page/personal-year-matrix"
 } as const;
