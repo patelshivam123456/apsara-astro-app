@@ -290,7 +290,6 @@ export function NumerologyResultScreen() {
           <NumberCard label="Zodiac" value={loShu?.zodiacNumber} note={loShu?.zodiacSign || "Zodiac Sign"} />
         </View>
         <RelationTable />
-        <StaticAdvice />
         <View style={styles.yearCards}>
           <NumberCard label="Current Personal Year" value={personalYear?.personalYear} />
           <NumberCard label="Current Personal Month" value={personalYear?.personalMonth} />
@@ -306,6 +305,7 @@ export function NumerologyResultScreen() {
         </View>
         {error ? <Text style={styles.validation}>{error}</Text> : null}
         <MatrixTable rows={matrix} />
+        <StaticAdvice />
         <PersonalYearReading value={personalYear?.personalYear} />
       </ScrollView>
       <AstrologerBottomNav active="home" respectSafeArea />
@@ -336,7 +336,7 @@ function LoShuGrid({ grid }: { grid?: LoShuGridResponse["grid"] }) {
       {rows.flatMap((row, rowIndex) =>
         row.map((value, colIndex) => (
           <View key={`${rowIndex}-${colIndex}`} style={styles.loShuCell}>
-            <Text style={styles.loShuText}>{value || ""}</Text>
+            <Text style={styles.loShuText}>{value || "-"}</Text>
           </View>
         ))
       )}
@@ -356,7 +356,7 @@ function NumberCard({ label, value, note }: { label: string; value?: string | nu
 
 function RelationTable() {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+    <ScrollView >
       <View style={styles.relationTable}>
         <View style={styles.relationHeader}>
           <Text style={[styles.relationHeadText, styles.relationNumberHead]}>Number</Text>
@@ -516,35 +516,35 @@ const styles = StyleSheet.create({
   loShuGrid: { alignSelf: "center", width: 192, height: 144, flexDirection: "row", flexWrap: "wrap", borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#111", backgroundColor: "#fff" },
   loShuCell: { width: 63.66, height: 47.66, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", alignItems: "center", justifyContent: "center" },
   loShuText: { fontSize: 18, fontWeight: "900", color: "#111" },
-  cardGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: spacing.md },
+  cardGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10, columnGap: 10 },
   yearCards: { flexDirection: "row", gap: spacing.sm },
   numberCard: { flexGrow: 1, flexBasis: "31%", minHeight: 66, borderRadius: 8, borderWidth: 2, borderColor: "#68ad62", backgroundColor: "#fff", alignItems: "center", justifyContent: "center", paddingHorizontal: 5, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 2, elevation: 2 },
   numberLabel: { color: "#777", fontSize: 9, fontWeight: "900", textAlign: "center" },
   numberValue: { color: "#136a28", fontSize: 24, lineHeight: 28, fontWeight: "900" },
   numberNote: { color: "#777", fontSize: 7, fontWeight: "800" },
-  relationTable: { width: 584, backgroundColor: "#cfcfcf", borderWidth: 2, borderTopColor: "#f3fff0", borderLeftColor: "#f3fff0", borderRightColor: "#6d806d", borderBottomColor: "#6d806d" },
+  relationTable: {backgroundColor: "#cfcfcf", borderWidth: 1.5, borderTopColor: "#f3fff0", borderLeftColor: "#f3fff0", borderRightColor: "#6d806d", borderBottomColor: "#6d806d" },
   relationHeader: { flexDirection: "row", minHeight: 58 },
-  relationHeadText: { textAlign: "center", textAlignVertical: "center", fontFamily: "serif", fontSize: 18, fontWeight: "900", color: "#111", backgroundColor: "#a9d4ad", borderWidth: 3, borderTopColor: "#eaffdf", borderLeftColor: "#eaffdf", borderRightColor: "#5f7a63", borderBottomColor: "#5f7a63" },
-  relationNumberHead: { width: 222, fontSize: 27 },
-  relationFriendHead: { width: 114 },
-  relationEnemyHead: { width: 114 },
-  relationNeutralHead: { width: 126 },
+  relationHeadText: { textAlign: "center", textAlignVertical: "center", fontFamily: "serif", fontSize: 10, fontWeight: "900", color: "#111", backgroundColor: "#a9d4ad", borderWidth: 1.5, borderTopColor: "#eaffdf", borderLeftColor: "#eaffdf", borderRightColor: "#5f7a63", borderBottomColor: "#5f7a63" },
+  relationNumberHead: { width: 90, fontSize: 12 },
+  relationFriendHead: { width: 76 },
+  relationEnemyHead: { width: 80 },
+  relationNeutralHead: { width: 80 },
   relationRow: { flexDirection: "row", minHeight: 52 },
-  relationLabel: { textAlign: "center", textAlignVertical: "center", fontFamily: "serif", fontSize: 19, fontWeight: "900", color: "#174f1d", backgroundColor: "#b8ddb9", borderWidth: 3, borderTopColor: "#eaffdf", borderLeftColor: "#eaffdf", borderRightColor: "#5f7a63", borderBottomColor: "#5f7a63" },
-  relationNameCell: { width: 136 },
-  relationCell: { textAlign: "center", textAlignVertical: "center", fontSize: 20, fontWeight: "900", color: "#111", backgroundColor: "#d8d8d8", borderWidth: 3, borderTopColor: "#f8f8f8", borderLeftColor: "#f8f8f8", borderRightColor: "#858585", borderBottomColor: "#858585" },
-  relationNumberCell: { width: 86 },
-  relationFriendCell: { width: 114 },
-  relationEnemyCell: { width: 114 },
-  relationNeutralCell: { width: 126 },
+  relationLabel: { textAlign: "center", textAlignVertical: "center", fontFamily: "serif", fontSize: 8, fontWeight: "900", color: "#174f1d", backgroundColor: "#b8ddb9", borderWidth: 1.5, borderTopColor: "#eaffdf", borderLeftColor: "#eaffdf", borderRightColor: "#5f7a63", borderBottomColor: "#5f7a63" },
+  relationNameCell: { width: 60 },
+  relationCell: { textAlign: "center", textAlignVertical: "center", fontSize: 13, fontWeight: "900", color: "#111", backgroundColor: "#d8d8d8", borderWidth: 1.5, borderTopColor: "#f8f8f8", borderLeftColor: "#f8f8f8", borderRightColor: "#858585", borderBottomColor: "#858585" },
+  relationNumberCell: { width: 30 },
+  relationFriendCell: { width: 76 },
+  relationEnemyCell: { width: 80 },
+  relationNeutralCell: { width: 80 },
   friendText: { color: "#00a84f" },
   enemyText: { color: "#f00" },
   neutralText: { color: "#858585" },
   relationFoot: { flexDirection: "row", minHeight: 56 },
-  relationFootLabel: { width: 222, fontSize: 19, lineHeight: 22 },
-  relationFootValue: { width: 354, textAlign: "center", textAlignVertical: "center", color: "#111", fontSize: 18, fontWeight: "900", backgroundColor: "#d8d8d8", borderWidth: 3, borderTopColor: "#f8f8f8", borderLeftColor: "#f8f8f8", borderRightColor: "#858585", borderBottomColor: "#858585" },
+  relationFootLabel: { width: 90, fontSize: 10, lineHeight: 15 },
+  relationFootValue: { width: 235, textAlign: "center", textAlignVertical: "center", color: "#111", fontSize: 14, fontWeight: "900", backgroundColor: "#d8d8d8", borderWidth: 1.5, borderTopColor: "#f8f8f8", borderLeftColor: "#f8f8f8", borderRightColor: "#858585", borderBottomColor: "#858585" },
   adviceStack: { gap: spacing.md },
-  adviceBox: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 2, borderColor: "#0d3440", backgroundColor: "#fffde5", paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
+  adviceBox: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1.5, borderColor: "#0d3440", backgroundColor: "#fffde5", paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
   adviceCopy: { flex: 1 },
   adviceTitle: { fontFamily: "serif", fontSize: 27, lineHeight: 31, fontWeight: "900" },
   adviceText: { fontFamily: "serif", color: "#111", fontSize: 16, lineHeight: 20 },
