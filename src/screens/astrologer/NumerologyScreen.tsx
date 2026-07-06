@@ -65,6 +65,7 @@ const personalYearNotes = [
   "Avoid business expansion until the existing venture is stronger.",
   "Useful connections may be established through focused communication."
 ];
+const minimumDobDate = new Date(1900, 0, 1);
 
 export function NumerologyScreen() {
   const [fullName, setFullName] = useState("");
@@ -130,6 +131,7 @@ export function NumerologyScreen() {
             <DateTimePicker
               value={parseDob(dob) || new Date(1990, 0, 1)}
               mode="date"
+              minimumDate={minimumDobDate}
               maximumDate={new Date()}
               onChange={(_, selectedDate) => {
                 setShowDobPicker(false);
