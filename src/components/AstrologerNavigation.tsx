@@ -6,13 +6,13 @@ import { Text } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import { useAuthStore } from "@/store/auth.store";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
 const drawerItems: [string, IconName, boolean, () => void][] = [
   ["Home", "home", true, () => router.replace("/astrologer")],
-  ["Language", "translate", false, () => {}],
   ["My Horoscope", "zodiac-aries", false, () => {}],
   ["Numerology", "numeric", true, () => router.push("/astrologer/numerology")],
   ["Tarot Reading", "cards", false, () => {}],
@@ -31,6 +31,7 @@ const drawerItems: [string, IconName, boolean, () => void][] = [
 export function AstrologerSideDrawer({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const user = useAuthStore((state) => state.user);
   const signOut = useAuthStore((state) => state.signOut);
+  const { t } = useTranslation();
   const name = useMemo(() => {
     const profile = user as { firstName?: string; displayName?: string; fullName?: string } | null;
     return profile?.displayName || profile?.fullName || profile?.firstName || "Ananya";
@@ -39,6 +40,7 @@ export function AstrologerSideDrawer({ visible, onClose }: { visible: boolean; o
     const profile = user as { mobileNo?: string; mobileNumber?: string; phone?: string } | null;
     return profile?.mobileNo || profile?.mobileNumber || profile?.phone || "1231231236";
   }, [user]);
+  const initial = name.trim().charAt(0).toUpperCase() || "A";
 
   const openProfile = () => {
     onClose();
@@ -63,7 +65,7 @@ export function AstrologerSideDrawer({ visible, onClose }: { visible: boolean; o
         >
           <View style={styles.drawerHead}>
             <Pressable style={styles.drawerAvatar} onPress={openProfile}>
-              <MaterialCommunityIcons name="account-circle" size={54} color="#111" />
+              <Text style={styles.drawerAvatarText}>{initial}</Text>
             </Pressable>
             <Pressable style={styles.drawerTitle} onPress={openProfile}>
               <Text style={styles.drawerName}>{name}</Text>
@@ -87,12 +89,12 @@ export function AstrologerSideDrawer({ visible, onClose }: { visible: boolean; o
               style={[styles.drawerItem, !enabled && styles.drawerItemDisabled]}
             >
               <MaterialCommunityIcons name={icon} size={21} color="#111" />
-              <Text style={styles.drawerText}>{label}</Text>
+              <Text style={styles.drawerText}>{t(label)}</Text>
             </Pressable>
           ))}
           <Pressable style={styles.drawerItem} onPress={handleLogout}>
             <MaterialCommunityIcons name="logout" size={21} color="#111" />
-            <Text style={styles.drawerText}>Logout</Text>
+            <Text style={styles.drawerText}>{t("Logout")}</Text>
           </Pressable>
         </ScrollView>
       </View>
@@ -108,14 +110,15 @@ type BottomNavProps = {
 export function AstrologerBottomNav({ active = "home", respectSafeArea = false }: BottomNavProps) {
   const insets = useSafeAreaInsets();
   const bottomInset = respectSafeArea ? insets.bottom : 0;
+  const { t } = useTranslation();
 
   return (
     <View style={[styles.bottomNav, { height: 56 + bottomInset, paddingBottom: bottomInset }]}>
-      <NavItem icon="home" label="Home" active={active === "home"} onPress={() => router.replace("/astrologer")} />
-      <NavItem icon="chat" label="Chat" active={active === "chat"} />
-      <NavItem icon="phone" label="Call" active={active === "call"} />
-      <NavItem icon="flower" label="Remedy" active={active === "remedy"} />
-      <NavItem icon="account" label="Profile" active={active === "profile"} onPress={() => router.push("/astrologer/profile-me")} />
+      <NavItem icon="home" label={t("Home")} active={active === "home"} onPress={() => router.replace("/astrologer")} />
+      <NavItem icon="chat" label={t("Chat")} active={active === "chat"} />
+      <NavItem icon="phone" label={t("Call")} active={active === "call"} />
+      <NavItem icon="flower" label={t("Remedy")} active={active === "remedy"} />
+      <NavItem icon="account" label={t("Profile")} active={active === "profile"} onPress={() => router.push("/astrologer/profile-me")} />
     </View>
   );
 }
@@ -132,17 +135,18 @@ function NavItem({ icon, label, active, onPress }: { icon: IconName; label: stri
 }
 
 const styles = StyleSheet.create({
-  drawerLayer: { ...StyleSheet.absoluteFillObject, flexDirection: "row", zIndex: 20 },
+  drawerLayer: { ...StyleSheet.absoluteFillObject, flexDirection: "row", zIndex: 60 },
   drawerDim: { flex: 1, backgroundColor: "rgba(0,0,0,0.18)" },
   drawerPanel: { position: "absolute", left: 0, top: 0, bottom: 0, width: "82%", maxWidth: 330, backgroundColor: "#fff" },
   drawerContent: { paddingTop: 14, paddingHorizontal: 14, paddingBottom: 100 },
   drawerHead: { flexDirection: "row", alignItems: "center", marginBottom: 14, borderBottomWidth: 1, borderBottomColor: "#e9e0c4", paddingBottom: 14 },
-  drawerAvatar: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: "#111", backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+  drawerAvatar: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: "#111", backgroundColor: "#fff4c6", alignItems: "center", justifyContent: "center" },
+  drawerAvatarText: { color: "#111", fontSize: 30, lineHeight: 34, fontWeight: "900" },
   drawerTitle: { flex: 1, marginLeft: 13 },
   drawerName: { fontFamily: "serif", fontSize: 26, lineHeight: 29, color: "#111", fontWeight: "900" },
   phoneText: { fontSize: 13, color: "#111", marginTop: 2 },
   editBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: "#f3edd7", alignItems: "center", justifyContent: "center" },
-  closeBtn: { marginLeft: 13, width: 24, height: 24, alignItems: "center", justifyContent: "center" },
+  closeBtn: { marginLeft: 8, width: 24, height: 24, alignItems: "center", justifyContent: "center" },
   drawerItem: { minHeight: 39, flexDirection: "row", alignItems: "center", gap: 13, borderRadius: 8, paddingHorizontal: 8 },
   drawerItemDisabled: { opacity: 0.55 },
   drawerText: { fontSize: 13, color: "#111", fontWeight: "600" },

@@ -4,6 +4,7 @@ import { Text } from "react-native-paper";
 
 import { Screen } from "@/components/Screen";
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 
 type Props = {
   title: string;
@@ -13,17 +14,19 @@ type Props = {
 };
 
 export function FeatureListScreen({ title, subtitle, items, icon = "star-four-points" }: Props) {
+  const { t } = useTranslation();
+
   return (
     <Screen>
       <View style={styles.hero}>
         <MaterialCommunityIcons name={icon} size={32} color={colors.amber} />
-        <Text variant="headlineSmall">{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
+        <Text variant="headlineSmall">{t(title)}</Text>
+        <Text style={styles.subtitle}>{t(subtitle)}</Text>
       </View>
       {items.map((item) => (
         <View key={item} style={styles.row}>
           <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-          <Text style={{ flex: 1 }}>{item}</Text>
+          <Text style={{ flex: 1 }}>{t(item)}</Text>
         </View>
       ))}
     </Screen>

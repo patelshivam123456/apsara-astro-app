@@ -3,6 +3,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Text } from "react-native-paper";
 
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 
 type Props = {
   title: string;
@@ -11,11 +12,13 @@ type Props = {
 };
 
 export function ServiceTile({ title, icon, onPress }: Props) {
+  const { t } = useTranslation();
+
   return (
     <Pressable style={styles.tile} onPress={onPress}>
       <MaterialCommunityIcons name={icon} size={24} color={colors.amber} />
       <Text variant="labelLarge" style={styles.title}>
-        {title}
+        {t(title)}
       </Text>
     </Pressable>
   );

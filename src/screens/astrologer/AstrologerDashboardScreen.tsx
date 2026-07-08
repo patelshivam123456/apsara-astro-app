@@ -6,7 +6,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Text } from "react-native-paper";
 
 import { AstrologerBottomNav, AstrologerSideDrawer } from "@/components/AstrologerNavigation";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { LoadingState } from "@/components/StateViews";
+import { useTranslation } from "@/context/LanguageContext";
 import { useAstrologers } from "@/hooks/useAstrologers";
 import { useAuthStore } from "@/store/auth.store";
 import { Astrologer } from "@/types/api";
@@ -35,6 +37,7 @@ const fallbackExperts: Astrologer[] = [
 
 export function AstrologerDashboardScreen() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { t } = useTranslation();
   const astrologers = useAstrologers();
   const isAuthLoaded = useAuthStore((state) => state.isAuthLoaded);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
@@ -45,6 +48,7 @@ export function AstrologerDashboardScreen() {
     const profile = user as { firstName?: string; displayName?: string; fullName?: string } | null;
     return profile?.displayName || profile?.fullName || profile?.firstName || "Ananya";
   }, [user]);
+  const initials = useMemo(() => getUserInitials(user), [user]);
   const homeExperts = useMemo(() => {
     const data = astrologers.data?.length ? astrologers.data : fallbackExperts;
     return data.slice(0, 6);
@@ -78,18 +82,19 @@ export function AstrologerDashboardScreen() {
             <Text style={styles.tagline} numberOfLines={1}>ACCOUNT PREDICTIONS SACRED RITUALS ACCESSIBLE</Text>
           </View>
           <View style={styles.wallet}>
-            <Text style={styles.walletText}>Rs. 50{"\n"}Wallet Balance</Text>
+            <Text style={styles.walletText}>Rs. 50{"\n"}{t("Wallet Balance")}</Text>
             <MaterialCommunityIcons name="plus-box" size={22} color="#0b7d39" />
           </View>
+          <LanguageSelector />
           <MaterialCommunityIcons name="bell-outline" size={24} color="#868c6e" />
         </View>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.profileRow}>
             <Pressable style={styles.avatar} onPress={() => router.push("/astrologer/profile-me")}>
-              <MaterialCommunityIcons name="account-circle" size={58} color="#111" />
+              <Text style={styles.avatarText}>{initials}</Text>
             </Pressable>
             <View>
-              <Text style={styles.welcome}>Welcome Back</Text>
+              <Text style={styles.welcome}>{t("Welcome Back")}</Text>
               <Text style={styles.name}>{name}</Text>
             </View>
           </View>
@@ -106,7 +111,7 @@ export function AstrologerDashboardScreen() {
                 <View style={styles.serviceCircle}>
                   <MaterialCommunityIcons name={icon} size={30} color="#9f6400" />
                 </View>
-                <Text style={styles.serviceText}>{label}</Text>
+                <Text style={styles.serviceText}>{t(label)}</Text>
               </Pressable>
             ))}
           </View>
@@ -114,17 +119,17 @@ export function AstrologerDashboardScreen() {
           <View style={styles.chatBanner}>
             <ImageBackground source={require("@/assets/Astrosignup.jpg")} style={styles.bannerPhoto} imageStyle={styles.bannerPhotoImage} />
             <View style={styles.bannerCopy}>
-              <Text style={styles.chatNow}>CHAT{"\n"}NOW</Text>
+              <Text style={styles.chatNow}>{t("CHAT\nNOW")}</Text>
             </View>
-            <Text style={styles.claim}>Claim Your{"\n"}First{"\n"}Free Chat</Text>
+            <Text style={styles.claim}>{t("Claim Your\nFirst\nFree Chat")}</Text>
           </View>
           <Text style={styles.caption}>Talk with any of our certified Astrologers, Numerologist, Palmist, Tarot Reader, Graphologist, Vastu Experts, Gem Stone Consultant</Text>
 
-          <SectionTitle title="Top Astrologers & Numerologist" action="View all" onAction={() => router.push("/astrologers")} />
+          <SectionTitle title={t("Top Astrologers & Numerologist")} action={t("View all")} onAction={() => router.push("/astrologers")} />
           <ExpertRow astrologers={homeExperts} />
 
           <View style={styles.pageTwo}>
-            <Text style={styles.subhead}>Gem stone & Pyrites</Text>
+            <Text style={styles.subhead}>{t("Gem stone & Pyrites")}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gems}>
               {Array.from({ length: 7 }).map((_, index) => (
                 <View key={index} style={styles.gemOuter}>
@@ -133,15 +138,15 @@ export function AstrologerDashboardScreen() {
               ))}
             </ScrollView>
 
-            <Text style={styles.subhead}>Apsra Astro Blogs</Text>
+            <Text style={styles.subhead}>{t("Apsra Astro Blogs")}</Text>
             <View style={styles.blogRow}>
               {[0, 1, 2].map((item) => <View key={item} style={styles.blogCard} />)}
             </View>
 
             <View style={styles.trustRow}>
-              <TrustItem icon="account-check" label={"Verified\nProfessionals"} />
-              <TrustItem icon="lock-check" label={"Confidential\nConsultation"} />
-              <TrustItem icon="cash-lock" label={"Seamless &\nSecure\nPayment"} />
+              <TrustItem icon="account-check" label={t("Verified\nProfessionals")} />
+              <TrustItem icon="lock-check" label={t("Confidential\nConsultation")} />
+              <TrustItem icon="cash-lock" label={t("Seamless &\nSecure\nPayment")} />
             </View>
           </View>
         </ScrollView>
@@ -171,6 +176,34 @@ function SectionTitle({ title, action, crown, onAction }: { title: string; actio
 
 function getExpertName(astrologer: Astrologer) {
   return astrologer.displayName || astrologer.fullName || [astrologer.firstName, astrologer.lastName].filter(Boolean).join(" ") || "Apsara Expert";
+}
+
+function getUserInitials(user: unknown) {
+  const profile = user as { firstName?: string; lastName?: string; displayName?: string; fullName?: string } | null;
+  if (profile?.displayName?.trim()) {
+    return profile.displayName
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part.charAt(0))
+      .join("")
+      .toUpperCase();
+  }
+
+  const firstInitial = profile?.firstName?.trim().charAt(0);
+  const lastInitial = profile?.lastName?.trim().charAt(0);
+  const initials = [firstInitial, lastInitial].filter(Boolean).join("");
+
+  if (initials) return initials.toUpperCase();
+
+  const name = profile?.fullName || profile?.displayName || "Apsara User";
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0))
+    .join("")
+    .toUpperCase();
 }
 
 function ExpertRow({ astrologers }: { astrologers: Astrologer[] }) {
@@ -220,16 +253,17 @@ const styles = StyleSheet.create({
   phone: { flex: 1, alignSelf: "center", width: "100%", maxWidth: 420, backgroundColor: "#ffffc9" },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 12, paddingBottom: 92 },
-  header: { flexDirection: "row", alignItems: "center", minHeight: 58, gap: 6, backgroundColor: "#ffffc9", borderBottomWidth: 1, borderBottomColor: "#efe6a6", paddingHorizontal: 12 },
-  iconTap: { width: 27, height: 34, alignItems: "center", justifyContent: "center" },
-  headerLogo: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#050505" },
+  header: { flexDirection: "row", alignItems: "center", minHeight: 58, gap: 4, backgroundColor: "#ffffc9", borderBottomWidth: 1, borderBottomColor: "#efe6a6", paddingHorizontal: 8 },
+  iconTap: { width: 24, height: 34, alignItems: "center", justifyContent: "center" },
+  headerLogo: { width: 32, height: 32, borderRadius: 16, backgroundColor: "#050505" },
   brandBlock: { flex: 1, minWidth: 0 },
-  logoText: { fontSize: 20, lineHeight: 23, fontWeight: "900", color: "#111" },
-  wallet: { borderWidth: 2, borderColor: "#111", flexDirection: "row", alignItems: "center", paddingLeft: 6, marginRight: 1, height: 30, backgroundColor: "#f5ffd4" },
-  walletText: { fontSize: 8, lineHeight: 9, fontWeight: "700" },
+  logoText: { fontSize: 18, lineHeight: 21, fontWeight: "900", color: "#111" },
+  wallet: { borderWidth: 1.5, borderColor: "#111", flexDirection: "row", alignItems: "center", paddingLeft: 4, marginRight: 1, height: 28, backgroundColor: "#f5ffd4" },
+  walletText: { fontSize: 7, lineHeight: 8, fontWeight: "700" },
   tagline: { color: "#f36c14", fontSize: 5, lineHeight: 7, fontWeight: "800" },
   profileRow: { flexDirection: "row", alignItems: "center", marginTop: 10, gap: 10 },
   avatar: { width: 62, height: 62, borderRadius: 31, borderWidth: 2, borderColor: "#176f89", backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+  avatarText: { color: "#111", fontSize: 24, lineHeight: 28, fontWeight: "900" },
   welcome: { fontFamily: "serif", fontSize: 14, color: "#111" },
   name: { fontFamily: "serif", fontSize: 28, lineHeight: 31, color: "#111", fontWeight: "900" },
   search: { height: 34, marginTop: 9, borderWidth: 1.5, borderColor: "#111", borderRadius: 5, backgroundColor: "#fff", flexDirection: "row", alignItems: "center", paddingHorizontal: 8 },

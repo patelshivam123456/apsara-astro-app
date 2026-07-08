@@ -2,33 +2,40 @@ import { Image, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Button, Text } from "react-native-paper";
 
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 
 export function LoadingState({ label = "Loading" }: { label?: string }) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.center}>
       <Image source={require("@/assets/logo_apsara.jpeg")} resizeMode="contain" style={styles.loadingLogo} />
       <ActivityIndicator />
-      <Text variant="bodyMedium">{label}</Text>
+      <Text variant="bodyMedium">{t(label)}</Text>
     </View>
   );
 }
 
 export function EmptyState({ title, description }: { title: string; description?: string }) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.stateBox}>
-      <Text variant="titleMedium">{title}</Text>
-      {description ? <Text style={styles.muted}>{description}</Text> : null}
+      <Text variant="titleMedium">{t(title)}</Text>
+      {description ? <Text style={styles.muted}>{t(description)}</Text> : null}
     </View>
   );
 }
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.stateBox}>
       <Text variant="titleMedium" style={styles.error}>
-        {message}
+        {t(message)}
       </Text>
-      {onRetry ? <Button mode="contained-tonal" onPress={onRetry}>Retry</Button> : null}
+      {onRetry ? <Button mode="contained-tonal" onPress={onRetry}>{t("Retry")}</Button> : null}
     </View>
   );
 }

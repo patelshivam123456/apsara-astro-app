@@ -5,6 +5,7 @@ import { PaperProvider } from "react-native-paper";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { darkTheme, lightTheme } from "@/constants/theme";
+import { LanguageProvider } from "@/context/LanguageContext";
 import { useAuthStore } from "@/store/auth.store";
 
 export function AppProviders({ children }: PropsWithChildren) {
@@ -30,7 +31,9 @@ export function AppProviders({ children }: PropsWithChildren) {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
-        <PaperProvider theme={scheme === "dark" ? darkTheme : lightTheme}>{children}</PaperProvider>
+        <PaperProvider theme={scheme === "dark" ? darkTheme : lightTheme}>
+          <LanguageProvider>{children}</LanguageProvider>
+        </PaperProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
   );

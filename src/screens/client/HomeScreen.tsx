@@ -5,9 +5,11 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Button, Text } from "react-native-paper";
 
 import { AstrologerCard } from "@/components/AstrologerCard";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { EmptyState, ErrorState, SkeletonRow } from "@/components/StateViews";
 import { ServiceTile } from "@/components/ServiceTile";
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import { useAstrologers } from "@/hooks/useAstrologers";
 import { useAuthStore } from "@/store/auth.store";
 import { useWalletStore } from "@/store/wallet.store";
@@ -22,6 +24,7 @@ const quickServices = [
 ] as const;
 
 export function HomeScreen() {
+  const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
   const balance = useWalletStore((state) => state.balance);
   const astrologers = useAstrologers();
@@ -46,10 +49,13 @@ export function HomeScreen() {
     >
       <View style={styles.header}>
         <View>
-          <Text variant="labelLarge" style={styles.muted}>Welcome</Text>
+          <Text variant="labelLarge" style={styles.muted}>{t("Welcome")}</Text>
           <Text variant="headlineSmall">{displayName}</Text>
         </View>
-        <Button mode="contained-tonal" icon="wallet" onPress={() => router.push("/wallet")}>₹{balance}</Button>
+        <View style={styles.headerActions}>
+          <LanguageSelector />
+          <Button mode="contained-tonal" icon="wallet" onPress={() => router.push("/wallet")}>₹{balance}</Button>
+        </View>
       </View>
 
       <View style={styles.services}>
@@ -61,15 +67,15 @@ export function HomeScreen() {
       <ImageBackground source={require("@/assets/Astro_Banner.jpg")} style={styles.banner} imageStyle={styles.bannerImage}>
         <View style={styles.bannerOverlay} />
         <View style={styles.bannerCopy}>
-          <Text variant="headlineSmall" style={styles.bannerTitle}>Claim Your First Free Chat</Text>
+          <Text variant="headlineSmall" style={styles.bannerTitle}>{t("Claim Your First Free Chat")}</Text>
           <Text style={styles.bannerText}>Start with a verified expert and continue when it feels right.</Text>
-          <Button mode="contained" buttonColor={colors.lime} textColor={colors.ink} onPress={() => router.push("/chat")}>Chat Now</Button>
+          <Button mode="contained" buttonColor={colors.lime} textColor={colors.ink} onPress={() => router.push("/chat")}>{t("Chat Now")}</Button>
         </View>
       </ImageBackground>
 
       <View style={styles.sectionHeader}>
-        <Text variant="titleLarge">Top Astrologers</Text>
-        <Button mode="text" onPress={() => router.push("/astrologers")}>View all</Button>
+        <Text variant="titleLarge">{t("Top Astrologers")}</Text>
+        <Button mode="text" onPress={() => router.push("/astrologers")}>{t("View all")}</Button>
       </View>
       {astrologers.isLoading ? (
         <>
@@ -93,16 +99,16 @@ export function HomeScreen() {
       )}
 
       <View style={styles.band}>
-        <Text variant="titleLarge">Store</Text>
+        <Text variant="titleLarge">{t("Store")}</Text>
         <View style={styles.pillRow}>
           {["Gemstones", "Pyrites", "Spiritual Products"].map((item) => (
-            <View key={item} style={styles.pill}><Text>{item}</Text></View>
+            <View key={item} style={styles.pill}><Text>{t(item)}</Text></View>
           ))}
         </View>
       </View>
 
       <View style={styles.band}>
-        <Text variant="titleLarge">Apsara Astro Blogs</Text>
+        <Text variant="titleLarge">{t("Apsara Astro Blogs")}</Text>
         <Text style={styles.muted}>Daily guidance, rituals, compatibility, and numerology insights.</Text>
       </View>
 
@@ -114,7 +120,7 @@ export function HomeScreen() {
         ].map(([label, icon]) => (
           <View key={label} style={styles.trustItem}>
             <MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={24} color={colors.amber} />
-            <Text style={styles.trustText}>{label}</Text>
+            <Text style={styles.trustText}>{t(label)}</Text>
           </View>
         ))}
       </View>
@@ -126,6 +132,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream },
   content: { padding: spacing.lg, gap: spacing.lg },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   muted: { color: colors.cocoa },
   services: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "space-between" },
   banner: { minHeight: 178, overflow: "hidden", borderRadius: 8, justifyContent: "flex-end" },

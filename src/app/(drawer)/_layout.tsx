@@ -2,7 +2,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Drawer } from "expo-router/drawer";
 import { router } from "expo-router";
 
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { colors } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import { useAuthStore } from "@/store/auth.store";
 
 const drawerItems = [
@@ -25,6 +27,7 @@ const drawerItems = [
 
 export default function DrawerLayout() {
   const signOut = useAuthStore((state) => state.signOut);
+  const { t } = useTranslation();
 
   return (
     <Drawer
@@ -34,6 +37,8 @@ export default function DrawerLayout() {
         drawerActiveTintColor: colors.amber,
         drawerInactiveTintColor: colors.cocoa,
         drawerStyle: { backgroundColor: colors.cream },
+        headerRight: () => <LanguageSelector />,
+        headerRightContainerStyle: { paddingRight: 12 },
       }}
     >
       {drawerItems.map(([name, title, icon]) => (
@@ -41,7 +46,7 @@ export default function DrawerLayout() {
           key={name}
           name={name}
           options={{
-            title,
+            title: t(title),
             drawerIcon: ({ color, size }) => (
               <MaterialCommunityIcons
                 name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
@@ -63,7 +68,7 @@ export default function DrawerLayout() {
           },
         }}
         options={{
-          title: "Logout",
+          title: t("Logout"),
           drawerIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="logout" color={color} size={size} />
           ),

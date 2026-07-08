@@ -7,8 +7,10 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Button, Text } from "react-native-paper";
 
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import {
   getLoShuGrid,
   getPersonalityDestinyDetails,
@@ -79,10 +81,12 @@ const detailSections = [
 const detailSectionOrder: string[] = detailSections.map(([key]) => key);
 
 export function NumerologyScreen() {
-  const [fullName, setFullName] = useState("");
-  const [dob, setDob] = useState("");
-  const [gender, setGender] = useState<Gender>("Male");
-  const [calculation, setCalculation] = useState<Calculation>("lo-shu-grid");
+  const { t } = useTranslation();
+  const formParams = useLocalSearchParams<{ fullName?: string; dob?: string; gender?: Gender; calculation?: Calculation }>();
+  const [fullName, setFullName] = useState(String(formParams.fullName || ""));
+  const [dob, setDob] = useState(String(formParams.dob || ""));
+  const [gender, setGender] = useState<Gender>(formParams.gender || "Male");
+  const [calculation, setCalculation] = useState<Calculation>(formParams.calculation || "lo-shu-grid");
   const [calculationOpen, setCalculationOpen] = useState(false);
   const [showDobPicker, setShowDobPicker] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -95,6 +99,13 @@ export function NumerologyScreen() {
 
     return () => subscription.remove();
   }, []);
+
+  useEffect(() => {
+    if (formParams.fullName !== undefined) setFullName(String(formParams.fullName));
+    if (formParams.dob !== undefined) setDob(String(formParams.dob));
+    if (formParams.gender) setGender(formParams.gender);
+    if (formParams.calculation) setCalculation(formParams.calculation);
+  }, [formParams.calculation, formParams.dob, formParams.fullName, formParams.gender]);
 
   const canSubmit =
     fullName.trim().length > 1 &&
@@ -111,13 +122,21 @@ export function NumerologyScreen() {
       params: { fullName: fullName.trim(), dob: dob.trim(), gender, calculation }
     });
   };
+  const clearForm = () => {
+    setFullName("");
+    setDob("");
+    setSubmitted(false);
+    setCalculationOpen(false);
+    setShowDobPicker(false);
+  };
+  const hasFormData = Boolean(fullName.trim() || dob.trim());
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Button mode="text" icon="arrow-left" compact onPress={() => router.replace("/astrologer")}>Back</Button>
-        <Text variant="headlineSmall" style={styles.headerTitle}>Numerology</Text>
-        <View style={styles.headerSpacer} />
+        <Button mode="text" icon="arrow-left" compact onPress={() => router.replace("/astrologer")}>{t("Back")}</Button>
+        <Text variant="headlineSmall" style={styles.headerTitle}>{t("Numerology")}</Text>
+        <LanguageSelector />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -127,7 +146,7 @@ export function NumerologyScreen() {
             <TextInput
               value={fullName}
               onChangeText={setFullName}
-              placeholder="Full Name"
+              placeholder={t("Full Name")}
               placeholderTextColor="#9c9c9c"
               style={styles.input}
             />
@@ -135,7 +154,7 @@ export function NumerologyScreen() {
           <View style={styles.formStack}>
             <FieldIcon icon="calendar-month" />
             <Pressable style={styles.dateSelect} onPress={() => setShowDobPicker(true)}>
-              <Text style={[styles.dateSelectText, !dob && styles.placeholderText]}>{dob || "Date of Birth (DD-MM-YYYY)"}</Text>
+              <Text style={[styles.dateSelectText, !dob && styles.placeholderText]}>{dob || t("Date of Birth (DD-MM-YYYY)")}</Text>
             </Pressable>
           </View>
           {showDobPicker ? (
@@ -155,7 +174,7 @@ export function NumerologyScreen() {
           <View style={styles.genderRow}>
             {(["Male", "Female", "Other"] as Gender[]).map((item) => (
               <Pressable key={item} onPress={() => setGender(item)} style={[styles.genderBtn, gender === item && styles.genderBtnActive]}>
-                <Text style={[styles.genderText, gender === item && styles.genderTextActive]}>{item}</Text>
+                <Text style={[styles.genderText, gender === item && styles.genderTextActive]}>{t(item)}</Text>
               </Pressable>
             ))}
           </View>
@@ -163,7 +182,7 @@ export function NumerologyScreen() {
             <FieldIcon icon="arrow-down-circle" />
             <View style={styles.calculationSelect}>
               <Pressable style={styles.calculationTrigger} onPress={() => setCalculationOpen((open) => !open)}>
-                <Text style={styles.calculationValue}>{calculationOptions.find((item) => item.value === calculation)?.label}</Text>
+                <Text style={styles.calculationValue}>{t(calculationOptions.find((item) => item.value === calculation)?.label || "")}</Text>
                 <MaterialCommunityIcons name={calculationOpen ? "chevron-up" : "chevron-down"} size={22} color="#111" />
               </Pressable>
               {calculationOpen ? (
@@ -178,7 +197,7 @@ export function NumerologyScreen() {
                       }}
                     >
                       <Text style={[styles.calculationOptionText, calculation === item.value && styles.calculationOptionTextActive]}>
-                        {item.label}
+                        {t(item.label)}
                       </Text>
                     </Pressable>
                   ))}
@@ -188,12 +207,20 @@ export function NumerologyScreen() {
           </View>
           {submitted && !canSubmit ? (
             <Text style={styles.validation}>
-              {calculation !== "lo-shu-grid" ? "Please select Lo Shu Grid calculation." : "Enter full name, DOB, and gender."}
+              {calculation !== "lo-shu-grid" ? t("Please select Lo Shu Grid calculation.") : t("Enter full name, DOB, and gender.")}
             </Text>
           ) : null}
-          <Pressable style={styles.submitBtn} onPress={submit}>
-            <Text style={styles.submitText}>Submit</Text>
-          </Pressable>
+          <View style={styles.actionRow}>
+            {hasFormData ? (
+              <Pressable style={styles.clearBtn} onPress={clearForm}>
+                <MaterialCommunityIcons name="close-circle-outline" size={18} color="#111" />
+                <Text style={styles.clearText}>{t("Clear")}</Text>
+              </Pressable>
+            ) : null}
+            <Pressable style={[styles.submitBtn, styles.submitBtnFlex]} onPress={submit}>
+              <Text style={styles.submitText}>{t("Submit")}</Text>
+            </Pressable>
+          </View>
         </View>
       </ScrollView>
 
@@ -219,7 +246,8 @@ function parseDob(value: string) {
 }
 
 export function NumerologyResultScreen() {
-  const params = useLocalSearchParams<{ fullName?: string; dob?: string; gender?: string }>();
+  const { t } = useTranslation();
+  const params = useLocalSearchParams<{ fullName?: string; dob?: string; gender?: string; calculation?: Calculation }>();
   const fullName = String(params.fullName || "");
   const dob = String(params.dob || "");
   const gender = String(params.gender || "Male");
@@ -297,26 +325,26 @@ export function NumerologyResultScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Button mode="text" icon="arrow-left" compact onPress={() => router.replace("/astrologer/numerology")}>Back</Button>
-        <Text variant="headlineSmall" style={styles.headerTitle}>Numerology</Text>
-        <View style={styles.headerSpacer} />
+        <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
+        <Text variant="headlineSmall" style={styles.headerTitle}>{t("Numerology")}</Text>
+        <LanguageSelector />
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.resultContent} showsVerticalScrollIndicator={false}>
         
-        <SectionLabel title="Lo Shu Grid" />
+        <SectionLabel title={t("Lo Shu Grid")} />
         <LoShuGrid grid={loShu?.grid} />
         <View style={styles.cardGrid}>
-          <NumberCard label="Personality Number" value={loShu?.driverNumber} note="Inner Nature" />
-          <NumberCard label="Destiny Number" value={loShu?.destinyNumber} note="Life Path" />
-          <NumberCard label="Kua Number" value={loShu?.kuaNumber} note="Personal Energy" />
-          <NumberCard label="Name Number" value={loShu?.nameNumber} note="Compound" />
-          <NumberCard label="Running Age" value={loShu?.runningAge} note="Years" />
-          <NumberCard label="Zodiac" value={loShu?.zodiacNumber} note={loShu?.zodiacSign || "Zodiac Sign"} />
+          <NumberCard label={t("Personality Number")} value={loShu?.driverNumber} note={t("Inner Nature")} />
+          <NumberCard label={t("Destiny Number")} value={loShu?.destinyNumber} note={t("Life Path")} />
+          <NumberCard label={t("Kua Number")} value={loShu?.kuaNumber} note={t("Personal Energy")} />
+          <NumberCard label={t("Name Number")} value={loShu?.nameNumber} note={t("Compound")} />
+          <NumberCard label={t("Running Age")} value={loShu?.runningAge} note={t("Years")} />
+          <NumberCard label={t("Zodiac")} value={loShu?.zodiacNumber} note={loShu?.zodiacSign || t("Zodiac Sign")} />
         </View>
         <Pressable style={styles.detailButton} onPress={openPersonalityDestinyDetails}>
           <View style={styles.detailButtonCopy}>
-            <Text style={styles.detailButtonTitle}>Check Personality and Destiny Details</Text>
-            <Text style={styles.detailButtonSubtitle}>Personality {loShu?.driverNumber ?? "-"}  |  Destiny {loShu?.destinyNumber ?? "-"}</Text>
+            <Text style={styles.detailButtonTitle}>{t("Check Personality and Destiny Details")}</Text>
+            <Text style={styles.detailButtonSubtitle}>{t("Personality")} {loShu?.driverNumber ?? "-"}  |  {t("Destiny")} {loShu?.destinyNumber ?? "-"}</Text>
           </View>
           <View style={styles.detailButtonArrow}>
             <MaterialCommunityIcons name="arrow-right" size={23} color="#fff" />
@@ -324,16 +352,16 @@ export function NumerologyResultScreen() {
         </Pressable>
         <RelationTable />
         <View style={styles.yearCards}>
-          <NumberCard label="Current Personal Year" value={personalYear?.personalYear} />
-          <NumberCard label="Current Personal Month" value={personalYear?.personalMonth} />
-          <NumberCard label="Current Personal Day" value={personalYear?.personalDay} />
+          <NumberCard label={t("Current Personal Year")} value={personalYear?.personalYear} />
+          <NumberCard label={t("Current Personal Month")} value={personalYear?.personalMonth} />
+          <NumberCard label={t("Current Personal Day")} value={personalYear?.personalDay} />
         </View>
-        <SectionLabel title="Matrix for Personal Year & Month" />
+        <SectionLabel title={t("Matrix for Personal Year & Month")} />
         <View style={styles.yearInputs}>
-          <TextInput value={fromYear} onChangeText={setFromYear} keyboardType="number-pad" placeholder="From Year" style={styles.yearInput} />
-          <TextInput value={toYear} onChangeText={setToYear} keyboardType="number-pad" placeholder="To Year" style={styles.yearInput} />
+          <TextInput value={fromYear} onChangeText={setFromYear} keyboardType="number-pad" placeholder={t("From Year")} style={styles.yearInput} />
+          <TextInput value={toYear} onChangeText={setToYear} keyboardType="number-pad" placeholder={t("To Year")} style={styles.yearInput} />
           <Pressable style={styles.smallBtn} onPress={refreshMatrix} disabled={matrixLoading}>
-            <Text style={styles.smallBtnText}>{matrixLoading ? "Loading" : "Apply"}</Text>
+            <Text style={styles.smallBtnText}>{matrixLoading ? t("Loading") : t("Apply")}</Text>
           </Pressable>
         </View>
         {error ? <Text style={styles.validation}>{error}</Text> : null}
@@ -347,6 +375,7 @@ export function NumerologyResultScreen() {
 }
 
 export function PersonalityDestinyScreen() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ personalityNumber?: string; destinyNumber?: string; tab?: PersonalityDestinyType }>();
   const [activeTab, setActiveTab] = useState<PersonalityDestinyType>(params.tab === "DESTINY" ? "DESTINY" : "PERSONALITY");
   const [details, setDetails] = useState<Partial<Record<PersonalityDestinyType, PersonalityDestinyDetailsResponse>>>({});
@@ -386,9 +415,9 @@ export function PersonalityDestinyScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>Back</Button>
-        <Text variant="headlineSmall" style={styles.headerTitle}>Numerology</Text>
-        <View style={styles.headerSpacer} />
+        <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
+        <Text variant="headlineSmall" style={styles.headerTitle}>{t("Numerology")}</Text>
+        <LanguageSelector />
       </View>
       <View style={styles.detailContainer}>
         <View style={styles.detailTabs}>
@@ -399,7 +428,7 @@ export function PersonalityDestinyScreen() {
               onPress={() => setActiveTab(tab)}
             >
               <Text style={[styles.detailTabText, activeTab === tab && styles.detailTabTextActive]}>
-                {tab === "PERSONALITY" ? "Personality" : "Destiny"}
+                {tab === "PERSONALITY" ? t("Personality") : t("Destiny")}
               </Text>
             </Pressable>
           ))}
@@ -459,18 +488,20 @@ function NumberCard({ label, value, note }: { label: string; value?: string | nu
 }
 
 function RelationTable() {
+  const { t } = useTranslation();
+
   return (
     <ScrollView >
       <View style={styles.relationTable}>
         <View style={styles.relationHeader}>
-          <Text style={[styles.relationHeadText, styles.relationNumberHead]}>Number</Text>
-          <Text style={[styles.relationHeadText, styles.relationFriendHead]}>Friend</Text>
-          <Text style={[styles.relationHeadText, styles.relationEnemyHead]}>Enemy</Text>
-          <Text style={[styles.relationHeadText, styles.relationNeutralHead]}>Neutral</Text>
+          <Text style={[styles.relationHeadText, styles.relationNumberHead]}>{t("Number")}</Text>
+          <Text style={[styles.relationHeadText, styles.relationFriendHead]}>{t("Friend")}</Text>
+          <Text style={[styles.relationHeadText, styles.relationEnemyHead]}>{t("Enemy")}</Text>
+          <Text style={[styles.relationHeadText, styles.relationNeutralHead]}>{t("Neutral")}</Text>
         </View>
         {relationRows.map(([label, number, friend, enemy, neutral]) => (
           <View key={label} style={styles.relationRow}>
-            <Text style={[styles.relationLabel, styles.relationNameCell]}>{label}</Text>
+            <Text style={[styles.relationLabel, styles.relationNameCell]}>{t(label)}</Text>
             <Text style={[styles.relationCell, styles.relationNumberCell]}>{number}</Text>
             <Text style={[styles.relationCell, styles.relationFriendCell, styles.friendText]}>{friend}</Text>
             <Text style={[styles.relationCell, styles.relationEnemyCell, styles.enemyText]}>{enemy}</Text>
@@ -478,7 +509,7 @@ function RelationTable() {
           </View>
         ))}
         <View style={styles.relationFoot}>
-          <Text style={[styles.relationLabel, styles.relationFootLabel]}>Relation in Personality{"\n"}& Destiny Number</Text>
+          <Text style={[styles.relationLabel, styles.relationFootLabel]}>{t("Relation in Personality\n& Destiny Number")}</Text>
           <Text style={styles.relationFootValue}>5:9 = Neutral</Text>
         </View>
       </View>
@@ -487,14 +518,16 @@ function RelationTable() {
 }
 
 function StaticAdvice() {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.adviceStack}>
       {advice.map(([icon, title, color, copy]) => (
         <View key={title} style={styles.adviceBox}>
           <MaterialCommunityIcons name={icon} size={27} color="#111" />
           <View style={styles.adviceCopy}>
-            <Text style={[styles.adviceTitle, { color }]}>{title}</Text>
-            <Text style={styles.adviceText}>{copy}</Text>
+            <Text style={[styles.adviceTitle, { color }]}>{t(title)}</Text>
+            <Text style={styles.adviceText}>{t(copy)}</Text>
           </View>
         </View>
       ))}
@@ -538,13 +571,15 @@ function getMonthValue(row: PersonalYearMatrixItem, shortMonth: string, fullMont
 }
 
 function MatrixTable({ rows }: { rows: PersonalYearMatrixItem[] }) {
+  const { t } = useTranslation();
+
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
       <View style={styles.matrixTable}>
         <View style={styles.matrixTopHeader}>
-          <Text style={[styles.matrixHeadCell, styles.matrixYear, styles.matrixTallHead]}>Year</Text>
-          <Text style={[styles.matrixHeadCell, styles.matrixPersonal, styles.matrixTallHead]}>Personal{"\n"}Year</Text>
-          <Text style={styles.matrixMonthGroup}>Personal Month</Text>
+          <Text style={[styles.matrixHeadCell, styles.matrixYear, styles.matrixTallHead]}>{t("Year")}</Text>
+          <Text style={[styles.matrixHeadCell, styles.matrixPersonal, styles.matrixTallHead]}>{t("Personal\nYear")}</Text>
+          <Text style={styles.matrixMonthGroup}>{t("Personal Month")}</Text>
         </View>
         <View style={styles.matrixMonthHeader}>
           <View style={[styles.matrixHeadSpacer, styles.matrixYear]} />
@@ -566,11 +601,13 @@ function MatrixTable({ rows }: { rows: PersonalYearMatrixItem[] }) {
 }
 
 function PersonalYearReading({ value }: { value?: string }) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.readingBox}>
-      <Text style={styles.readingTitle}>Personal Year reading</Text>
+      <Text style={styles.readingTitle}>{t("Personal Year reading")}</Text>
       {personalYearNotes.map((note, index) => (
-        <Text key={note} style={styles.readingText}>- {index === 0 && value ? `Your running personal year is ${value}.` : note}</Text>
+        <Text key={note} style={styles.readingText}>- {index === 0 && value ? `${t("Your running personal year is")} ${value}.` : t(note)}</Text>
       ))}
     </View>
   );
@@ -585,6 +622,7 @@ function PersonalityDestinyDetails({
   numberValue: number;
   details: PersonalityDestinyDetailsResponse;
 }) {
+  const { t } = useTranslation();
   const titleType = type === "PERSONALITY" ? "Personality" : "Destiny";
   const sections = getPersonalityDestinySections(details);
   const firstItem = sections.flatMap(({ items }) => items).find((item) => item?.lord || item?.colour);
@@ -592,29 +630,43 @@ function PersonalityDestinyDetails({
   return (
     <View style={styles.detailStack}>
       <View style={styles.detailSummary}>
-        <Text style={styles.detailSummaryNumber}>{titleType} Number {numberValue || "-"}</Text>
-        {firstItem?.lord ? <Text style={styles.detailSummaryText}>Lord: {firstItem.lord.trim()}</Text> : null}
-        {firstItem?.colour ? <Text style={styles.detailSummaryText}>Colour: {firstItem.colour.trim()}</Text> : null}
+        <Text style={styles.detailSummaryNumber}>{t(titleType)} {t("Number")} {numberValue || "-"}</Text>
+        {firstItem?.lord ? <Text style={styles.detailSummaryText}>{t("Lord")}: {firstItem.lord.trim()}</Text> : null}
+        {firstItem?.colour ? <Text style={styles.detailSummaryText}>{t("Colour")}: {firstItem.colour.trim()}</Text> : null}
       </View>
 
       {sections.map(({ key, title, items }) => (
         <View key={key} style={styles.detailCard}>
           <View style={styles.detailCardTitleWrap}>
             <Text style={styles.detailCardTitle}>
-              {title} of{"\n"}{titleType} Number {numberValue || items[0]?.numberValue || "-"}
+              {t(title)} {t("of")}{"\n"}{t(titleType)} {t("Number")} {numberValue || items[0]?.numberValue || "-"}
             </Text>
           </View>
           <View style={styles.detailBullets}>
             {items.map((item, index) => (
               <View key={`${key}-${index}`} style={styles.detailBulletRow}>
                 <Text style={styles.detailBulletDot}>•</Text>
-                <Text style={styles.detailBulletText}>{item.value}</Text>
+                <DetailPointText value={t(item.value || "")} />
               </View>
             ))}
           </View>
         </View>
       ))}
     </View>
+  );
+}
+
+function DetailPointText({ value }: { value: string }) {
+  const colonIndex = value.indexOf(":");
+  if (colonIndex <= 0 || colonIndex > 42) {
+    return <Text style={styles.detailBulletText}>{value}</Text>;
+  }
+
+  return (
+    <Text style={styles.detailBulletText}>
+      <Text style={styles.detailBulletLead}>{value.slice(0, colonIndex + 1)}</Text>
+      {value.slice(colonIndex + 1)}
+    </Text>
   );
 }
 
@@ -683,7 +735,11 @@ const styles = StyleSheet.create({
   calculationOptionText: { fontFamily: "serif", fontSize: 15, color: "#111" },
   calculationOptionTextActive: { color: "#145c24", fontWeight: "900" },
   validation: { color: colors.danger, fontSize: 12, fontWeight: "800", lineHeight: 17 },
+  actionRow: { flexDirection: "row", gap: spacing.sm },
+  clearBtn: { minWidth: 104, height: 32, borderRadius: 5, borderWidth: 1, borderColor: "#111", backgroundColor: "#fff", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 },
+  clearText: { fontFamily: "serif", fontWeight: "900", color: "#111", fontSize: 15 },
   submitBtn: { height: 32, borderRadius: 5, borderWidth: 1, borderColor: "#111", backgroundColor: "#ffcf28", alignItems: "center", justifyContent: "center" },
+  submitBtnFlex: { flex: 1 },
   submitText: { fontFamily: "serif", fontWeight: "900", color: "#111", fontSize: 16 },
   resultContent: { alignSelf: "center", width: "100%", maxWidth: 420, backgroundColor: "#ffffc9", padding: spacing.lg, paddingBottom: 104, gap: spacing.lg },
   sectionLabel: { alignSelf: "center", minWidth: 190, height: 30, borderRadius: 5, borderWidth: 1, borderColor: "#39a853", backgroundColor: "#bff2c6", alignItems: "center", justifyContent: "center" },
@@ -763,5 +819,6 @@ const styles = StyleSheet.create({
   detailBullets: { gap: 2 },
   detailBulletRow: { flexDirection: "row", alignItems: "flex-start" },
   detailBulletDot: { width: 14, color: "#111", fontSize: 17, lineHeight: 18, fontWeight: "900" },
+  detailBulletLead: { color: "#075416", fontWeight: "900" },
   detailBulletText: { flex: 1, color: "#111", fontSize: 12, lineHeight: 15, fontWeight: "700" }
 });
