@@ -64,9 +64,44 @@ export type PersonalYearMatrixItem = {
     | undefined;
 };
 
+export type PersonalityDestinyType = "PERSONALITY" | "DESTINY";
+
+export type PersonalityDestinyItem = {
+  type?: PersonalityDestinyType;
+  numberValue?: number;
+  lord?: string;
+  colour?: string;
+  value?: string | null;
+};
+
+export type PersonalityDestinyDetailsResponse = {
+  coreCharacteristics?: PersonalityDestinyItem[];
+  commonPitfalls?: PersonalityDestinyItem[];
+  primaryHealthVulnerabilities?: PersonalityDestinyItem[];
+  [key: string]: PersonalityDestinyItem[] | undefined;
+};
+
 export async function getLoShuGrid(payload: NumerologyPayload) {
   const response = await astroApi.post<ApiResponse<LoShuGridResponse>>(ENDPOINTS.loShuGrid, payload);
   return ((response as unknown as ApiResponse<LoShuGridResponse>).data || response) as LoShuGridResponse;
+}
+
+export async function getPersonalityDestinyDetails(type: PersonalityDestinyType, number: number) {
+  const query = new URLSearchParams({
+    type,
+    number: String(number)
+  });
+
+  const response = await astroApi.get<ApiResponse<PersonalityDestinyDetailsResponse>>(
+    `${ENDPOINTS.personalityDestinyDetails}?${query.toString()}`,
+    {
+      headers: {
+        Accept: "application/json"
+      }
+    }
+  );
+
+  return ((response as unknown as ApiResponse<PersonalityDestinyDetailsResponse>).data || response) as PersonalityDestinyDetailsResponse;
 }
 
 export async function getPersonalYear(payload: NumerologyPayload) {

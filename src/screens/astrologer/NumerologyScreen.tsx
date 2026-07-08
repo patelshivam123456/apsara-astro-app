@@ -11,9 +11,12 @@ import { ErrorState, LoadingState } from "@/components/StateViews";
 import { colors, spacing } from "@/constants/theme";
 import {
   getLoShuGrid,
+  getPersonalityDestinyDetails,
   getPersonalYear,
   getPersonalYearMatrix,
   LoShuGridResponse,
+  PersonalityDestinyDetailsResponse,
+  PersonalityDestinyType,
   PersonalYearMatrixItem,
   PersonalYearResponse
 } from "@/services/numerology.service";
@@ -66,6 +69,14 @@ const personalYearNotes = [
   "Useful connections may be established through focused communication."
 ];
 const minimumDobDate = new Date(1900, 0, 1);
+const detailSections = [
+  ["coreCharacteristics", "Core Characteristics"],
+  ["commonPitfalls", "Common Pitfalls"],
+  ["primaryHealthVulnerabilities", "Primary Health Vulnerabilities"],
+  ["topCareerRoles", "Top Career Roles"],
+  ["topCareerSectors", "Top Career Sectors"]
+] as const;
+const detailSectionOrder: string[] = detailSections.map(([key]) => key);
 
 export function NumerologyScreen() {
   const [fullName, setFullName] = useState("");
@@ -269,6 +280,17 @@ export function NumerologyResultScreen() {
     }
   };
 
+  const openPersonalityDestinyDetails = () => {
+    router.push({
+      pathname: "/astrologer/personality-destiny",
+      params: {
+        personalityNumber: String(loShu?.driverNumber || ""),
+        destinyNumber: String(loShu?.destinyNumber || ""),
+        tab: "PERSONALITY"
+      }
+    });
+  };
+
   if (loading) return <LoadingState label="Loading numerology report" />;
   if (error && !loShu) return <ErrorState message={error} onRetry={() => router.replace("/astrologer/numerology")} />;
 
@@ -291,6 +313,15 @@ export function NumerologyResultScreen() {
           <NumberCard label="Running Age" value={loShu?.runningAge} note="Years" />
           <NumberCard label="Zodiac" value={loShu?.zodiacNumber} note={loShu?.zodiacSign || "Zodiac Sign"} />
         </View>
+        <Pressable style={styles.detailButton} onPress={openPersonalityDestinyDetails}>
+          <View style={styles.detailButtonCopy}>
+            <Text style={styles.detailButtonTitle}>Check Personality and Destiny Details</Text>
+            <Text style={styles.detailButtonSubtitle}>Personality {loShu?.driverNumber ?? "-"}  |  Destiny {loShu?.destinyNumber ?? "-"}</Text>
+          </View>
+          <View style={styles.detailButtonArrow}>
+            <MaterialCommunityIcons name="arrow-right" size={23} color="#fff" />
+          </View>
+        </Pressable>
         <RelationTable />
         <View style={styles.yearCards}>
           <NumberCard label="Current Personal Year" value={personalYear?.personalYear} />
@@ -309,6 +340,77 @@ export function NumerologyResultScreen() {
         <MatrixTable rows={matrix} />
         <StaticAdvice />
         <PersonalYearReading value={personalYear?.personalYear} />
+      </ScrollView>
+      <AstrologerBottomNav active="home" respectSafeArea />
+    </SafeAreaView>
+  );
+}
+
+export function PersonalityDestinyScreen() {
+  const params = useLocalSearchParams<{ personalityNumber?: string; destinyNumber?: string; tab?: PersonalityDestinyType }>();
+  const [activeTab, setActiveTab] = useState<PersonalityDestinyType>(params.tab === "DESTINY" ? "DESTINY" : "PERSONALITY");
+  const [details, setDetails] = useState<Partial<Record<PersonalityDestinyType, PersonalityDestinyDetailsResponse>>>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const personalityNumber = Number(params.personalityNumber);
+  const destinyNumber = Number(params.destinyNumber);
+  const activeNumber = activeTab === "PERSONALITY" ? personalityNumber : destinyNumber;
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadDetails() {
+      if (!Number.isFinite(activeNumber) || activeNumber <= 0) {
+        setError(`Unable to find ${activeTab.toLowerCase()} number from Lo Shu Grid.`);
+        return;
+      }
+      if (details[activeTab]) return;
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await getPersonalityDestinyDetails(activeTab, activeNumber);
+        if (mounted) setDetails((current) => ({ ...current, [activeTab]: response }));
+      } catch (err) {
+        if (mounted) setError(getApiErrorMessage(err, `Unable to load ${activeTab.toLowerCase()} details`));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    loadDetails();
+    return () => {
+      mounted = false;
+    };
+  }, [activeNumber, activeTab, details]);
+
+  const currentDetails = details[activeTab];
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.header}>
+        <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>Back</Button>
+        <Text variant="headlineSmall" style={styles.headerTitle}>Numerology</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+      <View style={styles.detailContainer}>
+        <View style={styles.detailTabs}>
+          {(["PERSONALITY", "DESTINY"] as PersonalityDestinyType[]).map((tab) => (
+            <Pressable
+              key={tab}
+              style={[styles.detailTab, activeTab === tab && styles.detailTabActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.detailTabText, activeTab === tab && styles.detailTabTextActive]}>
+                {tab === "PERSONALITY" ? "Personality" : "Destiny"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        </View>
+<ScrollView style={styles.scroll} contentContainerStyle={styles.detailContent} showsVerticalScrollIndicator={false}>
+        {loading ? <LoadingState label={`Loading ${activeTab.toLowerCase()} details`} /> : null}
+        {error && !loading ? <ErrorState message={error} onRetry={() => setDetails((current) => ({ ...current, [activeTab]: undefined }))} /> : null}
+        {!loading && !error && currentDetails ? (
+          <PersonalityDestinyDetails type={activeTab} numberValue={activeNumber} details={currentDetails} />
+        ) : null}
       </ScrollView>
       <AstrologerBottomNav active="home" respectSafeArea />
     </SafeAreaView>
@@ -474,6 +576,77 @@ function PersonalYearReading({ value }: { value?: string }) {
   );
 }
 
+function PersonalityDestinyDetails({
+  type,
+  numberValue,
+  details
+}: {
+  type: PersonalityDestinyType;
+  numberValue: number;
+  details: PersonalityDestinyDetailsResponse;
+}) {
+  const titleType = type === "PERSONALITY" ? "Personality" : "Destiny";
+  const sections = getPersonalityDestinySections(details);
+  const firstItem = sections.flatMap(({ items }) => items).find((item) => item?.lord || item?.colour);
+
+  return (
+    <View style={styles.detailStack}>
+      <View style={styles.detailSummary}>
+        <Text style={styles.detailSummaryNumber}>{titleType} Number {numberValue || "-"}</Text>
+        {firstItem?.lord ? <Text style={styles.detailSummaryText}>Lord: {firstItem.lord.trim()}</Text> : null}
+        {firstItem?.colour ? <Text style={styles.detailSummaryText}>Colour: {firstItem.colour.trim()}</Text> : null}
+      </View>
+
+      {sections.map(({ key, title, items }) => (
+        <View key={key} style={styles.detailCard}>
+          <View style={styles.detailCardTitleWrap}>
+            <Text style={styles.detailCardTitle}>
+              {title} of{"\n"}{titleType} Number {numberValue || items[0]?.numberValue || "-"}
+            </Text>
+          </View>
+          <View style={styles.detailBullets}>
+            {items.map((item, index) => (
+              <View key={`${key}-${index}`} style={styles.detailBulletRow}>
+                <Text style={styles.detailBulletDot}>•</Text>
+                <Text style={styles.detailBulletText}>{item.value}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function getPersonalityDestinySections(details: PersonalityDestinyDetailsResponse) {
+  const orderedKeys = [
+    ...detailSectionOrder,
+    ...Object.keys(details).filter((key) => !detailSectionOrder.includes(key))
+  ];
+
+  return orderedKeys
+    .map((key) => {
+      const configuredSection = detailSections.find(([sectionKey]) => sectionKey === key);
+      const items = Array.isArray(details[key])
+        ? details[key].filter((item) => Boolean(item?.value?.trim()))
+        : [];
+
+      return {
+        key,
+        title: configuredSection?.[1] || titleizeDetailKey(key),
+        items
+      };
+    })
+    .filter((section) => section.items.length);
+}
+
+function titleizeDetailKey(key: string) {
+  return key
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f8f7f2" },
   header: {
@@ -524,6 +697,11 @@ const styles = StyleSheet.create({
   numberLabel: { color: "#777", fontSize: 9, fontWeight: "900", textAlign: "center" },
   numberValue: { color: "#136a28", fontSize: 24, lineHeight: 28, fontWeight: "900" },
   numberNote: { color: "#777", fontSize: 7, fontWeight: "800" },
+  detailButton: { minHeight: 68, borderRadius: 10, borderWidth: 1.5, borderColor: "#32b248", backgroundColor: "#f8fff6", paddingHorizontal: spacing.md, paddingVertical: spacing.sm, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm, shadowColor: "#0d5a1d", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.24, shadowRadius: 5, elevation: 5 },
+  detailButtonCopy: { flex: 1 },
+  detailButtonTitle: { color: "#0b5719", fontSize: 15, lineHeight: 19, fontWeight: "900" },
+  detailButtonSubtitle: { color: "#36543a", fontSize: 12, lineHeight: 16, fontWeight: "800", marginTop: 3 },
+  detailButtonArrow: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#1d8d31", alignItems: "center", justifyContent: "center", shadowColor: "#0d5a1d", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.24, shadowRadius: 3, elevation: 3 },
   relationTable: {backgroundColor: "#cfcfcf", borderWidth: 1.5, borderTopColor: "#f3fff0", borderLeftColor: "#f3fff0", borderRightColor: "#6d806d", borderBottomColor: "#6d806d" },
   relationHeader: { flexDirection: "row", minHeight: 58 },
   relationHeadText: { textAlign: "center", textAlignVertical: "center", fontFamily: "serif", fontSize: 10, fontWeight: "900", color: "#111", backgroundColor: "#a9d4ad", borderWidth: 1.5, borderTopColor: "#eaffdf", borderLeftColor: "#eaffdf", borderRightColor: "#5f7a63", borderBottomColor: "#5f7a63" },
@@ -567,5 +745,23 @@ const styles = StyleSheet.create({
   matrixPersonal: { width: 86 },
   readingBox: { borderWidth: 2, borderColor: "#0d3440", backgroundColor: "#fffde5", padding: spacing.sm },
   readingTitle: { fontFamily: "serif", color: "#111", fontSize: 25, lineHeight: 30, fontWeight: "900" },
-  readingText: { fontFamily: "serif", color: "#111", fontSize: 16, lineHeight: 21 }
+  readingText: { fontFamily: "serif", color: "#111", fontSize: 16, lineHeight: 21 },
+  detailContent: { alignSelf: "center", width: "100%", maxWidth: 420, backgroundColor: "#ffffc9", padding: spacing.lg, paddingBottom: 104, gap: spacing.lg },
+  detailContainer: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm, backgroundColor: "#ffffc9" },
+  detailTabs: { flexDirection: "row", borderWidth: 1, borderColor: "#34a853", borderRadius: 7, backgroundColor: "#fff", padding: 3, shadowColor: "#000", shadowOpacity: 0.14, shadowRadius: 3, elevation: 2 },
+  detailTab: { flex: 1, minHeight: 36, borderRadius: 5, alignItems: "center", justifyContent: "center" },
+  detailTabActive: { backgroundColor: "#bff2c6" },
+  detailTabText: { color: "#424242", fontSize: 13, fontWeight: "900" },
+  detailTabTextActive: { color: "#145c24" },
+  detailStack: { gap: spacing.lg },
+  detailSummary: { borderRadius: 7, borderWidth: 1, borderColor: "#39a853", backgroundColor: "#fff", padding: spacing.md, shadowColor: "#000", shadowOpacity: 0.16, shadowRadius: 3, elevation: 2 },
+  detailSummaryNumber: { fontFamily: "serif", color: "#145c24", fontSize: 18, lineHeight: 23, fontWeight: "900" },
+  detailSummaryText: { color: "#111", fontSize: 13, lineHeight: 18, fontWeight: "700", marginTop: 2 },
+  detailCard: { borderWidth: 1, borderRadius:7, borderColor: "#39d34a", backgroundColor: "#fff", paddingHorizontal: 8, paddingTop: 2, paddingBottom: 9 },
+  detailCardTitleWrap: {   marginBottom: 5, borderWidth: 1, borderColor: "#39d34a", borderRadius: 5, backgroundColor: "#c9f6c6",  paddingVertical: 6,marginTop:6 },
+  detailCardTitle: { fontFamily: "serif", color: "#075416", fontSize: 16, lineHeight: 19, fontWeight: "900", textAlign: "center" },
+  detailBullets: { gap: 2 },
+  detailBulletRow: { flexDirection: "row", alignItems: "flex-start" },
+  detailBulletDot: { width: 14, color: "#111", fontSize: 17, lineHeight: 18, fontWeight: "900" },
+  detailBulletText: { flex: 1, color: "#111", fontSize: 12, lineHeight: 15, fontWeight: "700" }
 });

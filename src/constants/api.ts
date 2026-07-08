@@ -20,6 +20,7 @@ export const ENDPOINTS = {
   astrologerClients: "/authorization/astrologer/clients",
   astrologers: "/authorization/info/get-all-astrologers",
   loShuGrid: "/astrology-services/home-page/lo-shu-grid",
+  personalityDestinyDetails: "/astrology-services/home-page/personality-destiny-details",
   personalYear: "/astrology-services/home-page/personal-year",
   personalYearMatrix: "/astrology-services/home-page/personal-year-matrix"
 } as const;
