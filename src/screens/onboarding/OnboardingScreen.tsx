@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { Button, Text } from "react-native-paper";
 
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import { setOnboardingComplete } from "@/services/storage";
 
 const slides = [
@@ -25,6 +26,7 @@ const slides = [
 ];
 
 export function OnboardingScreen() {
+  const { t } = useTranslation();
   const [index, setIndex] = useState(0);
   const slide = slides[index];
   const isLast = index === slides.length - 1;
@@ -49,8 +51,8 @@ export function OnboardingScreen() {
           <Text variant="bodySmall" style={styles.progress}>{progress}</Text>
         </View>
         <View style={styles.copy}>
-          <Text variant="displaySmall" style={styles.title}>{slide.title}</Text>
-          <Text variant="titleMedium" style={styles.description}>{slide.description}</Text>
+          <Text variant="displaySmall" style={styles.title}>{t(slide.title)}</Text>
+          <Text variant="titleMedium" style={styles.description}>{t(slide.description)}</Text>
         </View>
         <View style={styles.dots}>
           {slides.map((item, dotIndex) => (
@@ -58,8 +60,8 @@ export function OnboardingScreen() {
           ))}
         </View>
         <View style={styles.actions}>
-          {!isLast ? <Button mode="text" textColor={colors.surface} onPress={complete}>Skip</Button> : <View />}
-          <Button mode="contained" buttonColor={colors.lime} textColor={colors.ink} onPress={next}>{slide.button}</Button>
+          {!isLast ? <Button mode="text" textColor={colors.surface} onPress={complete}>{t("Skip")}</Button> : <View />}
+          <Button mode="contained" buttonColor={colors.lime} textColor={colors.ink} onPress={next}>{t(slide.button)}</Button>
         </View>
       </View>
     </ImageBackground>

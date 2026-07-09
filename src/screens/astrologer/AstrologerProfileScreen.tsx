@@ -8,6 +8,7 @@ import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import { getAstrologerProfile } from "@/services/astrologer.service";
 
 function initialsFromName(name: string) {
@@ -21,6 +22,7 @@ function initialsFromName(name: string) {
 }
 
 export function AstrologerProfileScreen() {
+  const { t } = useTranslation();
   const profile = useQuery({ queryKey: ["astrologer-profile"], queryFn: getAstrologerProfile });
 
   if (profile.isLoading) return <LoadingState label="Loading profile" />;
@@ -37,14 +39,14 @@ export function AstrologerProfileScreen() {
     data.displayName ||
     data.fullName ||
     [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ") ||
-    "Astrologer";
+    t("Astrologer");
   const completion = Math.max(0, Math.min(100, data.profileCompletionPercentage || 0));
 
   const rows = [
     ["Email", data.email, "email"],
     ["Mobile", data.mobileNo || data.mobileNumber || data.phone, "phone"],
     ["Gender", data.gender, "gender-male-female"],
-    ["Experience", data.yearsOfExperience ? `${data.yearsOfExperience} years` : undefined, "star-circle"],
+    ["Experience", data.yearsOfExperience ? `${data.yearsOfExperience} ${t("years")}` : undefined, "star-circle"],
     ["Specialization", data.specialization, "creation"],
     ["Languages", data.language || data.languagesKnown, "translate"],
     ["Address", data.address, "map-marker"],
@@ -54,7 +56,7 @@ export function AstrologerProfileScreen() {
     ["Caste", data.caste, "account-group"],
     ["Gotra", data.gotra, "leaf"],
     ["Mother Tongue", data.motherTongue, "comment-text"],
-    ["Joined", [data.dateOfJoining, data.timeOfJoining].filter(Boolean).join(" at "), "calendar-clock"]
+    ["Joined", [data.dateOfJoining, data.timeOfJoining].filter(Boolean).join(` ${t("at")} `), "calendar-clock"]
   ] as const;
 
   return (
@@ -62,8 +64,8 @@ export function AstrologerProfileScreen() {
       <Screen>
         <View style={styles.content}>
           <View style={styles.header}>
-            <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>Back</Button>
-            <Text variant="titleMedium" style={styles.headerTitle}>Profile</Text>
+            <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
+            <Text variant="titleMedium" style={styles.headerTitle}>{t("Profile")}</Text>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -71,10 +73,10 @@ export function AstrologerProfileScreen() {
             <Avatar.Text size={82} label={initialsFromName(name) || "AA"} style={styles.avatar} labelStyle={styles.avatarLabel} />
             <View style={styles.heroCopy}>
               <Text variant="headlineSmall" style={styles.name}>{name}</Text>
-              <Text style={styles.muted}>{data.specialization || "Astrology Expert"}</Text>
+              <Text style={styles.muted}>{t(data.specialization || "Astrology Expert")}</Text>
               <View style={styles.progressBlock}>
                 <View style={styles.progressTop}>
-                  <Text style={styles.progressLabel}>Profile completion</Text>
+                  <Text style={styles.progressLabel}>{t("Profile completion")}</Text>
                   <Text style={styles.progressValue}>{completion}%</Text>
                 </View>
                 <ProgressBar progress={completion / 100} color={colors.success} style={styles.progress} />
@@ -84,7 +86,7 @@ export function AstrologerProfileScreen() {
 
           {data.bio ? (
             <View style={styles.bioCard}>
-              <Text variant="titleMedium">About</Text>
+              <Text variant="titleMedium">{t("About")}</Text>
               <Text style={styles.bio}>{data.bio}</Text>
             </View>
           ) : null}
@@ -94,8 +96,8 @@ export function AstrologerProfileScreen() {
               <View key={label} style={styles.infoCard}>
                 <MaterialCommunityIcons name={icon} size={22} color={colors.ink} />
                 <View style={styles.infoCopy}>
-                  <Text style={styles.infoLabel}>{label}</Text>
-                  <Text style={styles.infoValue}>{value}</Text>
+                  <Text style={styles.infoLabel}>{t(label)}</Text>
+                  <Text style={styles.infoValue}>{t(String(value))}</Text>
                 </View>
               </View>
             ) : null)}

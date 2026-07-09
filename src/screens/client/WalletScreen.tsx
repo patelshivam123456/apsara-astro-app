@@ -3,22 +3,24 @@ import { Button, Text } from "react-native-paper";
 
 import { Screen } from "@/components/Screen";
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import { useWalletStore } from "@/store/wallet.store";
 
 export function WalletScreen() {
+  const { t } = useTranslation();
   const { balance, transactions, addMoney } = useWalletStore();
   return (
     <Screen>
       <View style={styles.balance}>
-        <Text variant="labelLarge" style={styles.muted}>Wallet Balance</Text>
+        <Text variant="labelLarge" style={styles.muted}>{t("Wallet Balance")}</Text>
         <Text variant="displaySmall">₹{balance}</Text>
-        <Button mode="contained" onPress={() => addMoney(200)}>Add ₹200</Button>
+        <Button mode="contained" onPress={() => addMoney(200)}>{t("Add ₹200")}</Button>
       </View>
       {transactions.map((item) => (
         <View key={item.id} style={styles.row}>
           <View>
-            <Text variant="titleSmall">{item.desc}</Text>
-            <Text style={styles.muted}>{item.date}</Text>
+            <Text variant="titleSmall">{t(item.desc)}</Text>
+            <Text style={styles.muted}>{t(item.date)}</Text>
           </View>
           <Text style={{ color: item.amount >= 0 ? colors.success : colors.danger }}>₹{item.amount}</Text>
         </View>

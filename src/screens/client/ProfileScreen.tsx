@@ -5,10 +5,12 @@ import { Button, Text, TextInput } from "react-native-paper";
 import { Screen } from "@/components/Screen";
 import { LoadingState } from "@/components/StateViews";
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import { useClientProfile, useUpdateClientProfile } from "@/hooks/useProfile";
 import { useAuthStore } from "@/store/auth.store";
 
 export function ProfileScreen() {
+  const { t } = useTranslation();
   const signOut = useAuthStore((state) => state.signOut);
   const profile = useClientProfile();
   const update = useUpdateClientProfile();
@@ -24,13 +26,13 @@ export function ProfileScreen() {
   return (
     <Screen>
       <View style={styles.card}>
-        <Text variant="headlineSmall">Profile</Text>
-        <TextInput label="First Name" value={data.firstName || ""} disabled />
-        <TextInput label="Email" value={data.email || ""} disabled />
-        <TextInput label="Mobile" value={data.mobileNo || data.phone || ""} disabled />
-        <TextInput label="Birth Place" value={data.placeOfBirth || ""} disabled />
-        <Button mode="outlined" loading={update.isPending} onPress={() => update.mutate(data)}>Refresh Profile</Button>
-        <Button mode="contained-tonal" onPress={handleLogout}>Logout</Button>
+        <Text variant="headlineSmall">{t("Profile")}</Text>
+        <TextInput label={t("First Name")} value={data.firstName || ""} disabled />
+        <TextInput label={t("Email")} value={data.email || ""} disabled />
+        <TextInput label={t("Mobile")} value={data.mobileNo || data.phone || ""} disabled />
+        <TextInput label={t("Birth Place")} value={data.placeOfBirth || ""} disabled />
+        <Button mode="outlined" loading={update.isPending} onPress={() => update.mutate(data)}>{t("Refresh Profile")}</Button>
+        <Button mode="contained-tonal" onPress={handleLogout}>{t("Logout")}</Button>
       </View>
     </Screen>
   );

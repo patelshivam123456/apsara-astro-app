@@ -68,7 +68,7 @@ export function HomeScreen() {
         <View style={styles.bannerOverlay} />
         <View style={styles.bannerCopy}>
           <Text variant="headlineSmall" style={styles.bannerTitle}>{t("Claim Your First Free Chat")}</Text>
-          <Text style={styles.bannerText}>Start with a verified expert and continue when it feels right.</Text>
+          <Text style={styles.bannerText}>{t("Start with a verified expert and continue when it feels right.")}</Text>
           <Button mode="contained" buttonColor={colors.lime} textColor={colors.ink} onPress={() => router.push("/chat")}>{t("Chat Now")}</Button>
         </View>
       </ImageBackground>
@@ -109,7 +109,7 @@ export function HomeScreen() {
 
       <View style={styles.band}>
         <Text variant="titleLarge">{t("Apsara Astro Blogs")}</Text>
-        <Text style={styles.muted}>Daily guidance, rituals, compatibility, and numerology insights.</Text>
+        <Text style={styles.muted}>{t("Daily guidance, rituals, compatibility, and numerology insights.")}</Text>
       </View>
 
       <View style={styles.trust}>

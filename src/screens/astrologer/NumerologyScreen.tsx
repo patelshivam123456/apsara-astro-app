@@ -10,22 +10,28 @@ import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { colors, spacing } from "@/constants/theme";
-import { useTranslation } from "@/context/LanguageContext";
+import { type LanguageCode, useTranslation } from "@/context/LanguageContext";
 import {
   getLoShuGrid,
+  getNumberRelationships,
   getPersonalityDestinyDetails,
   getPersonalYear,
   getPersonalYearMatrix,
+  getSectorWiseEffects,
   LoShuGridResponse,
+  NumberRelationshipItem,
   PersonalityDestinyDetailsResponse,
   PersonalityDestinyType,
   PersonalYearMatrixItem,
-  PersonalYearResponse
+  PersonalYearResponse,
+  SectorWiseEffectsResponse
 } from "@/services/numerology.service";
 import { getApiErrorMessage } from "@/services/apiClient";
+import { translateUniqueTexts } from "@/services/translation.service";
 
 type Gender = "Male" | "Female" | "Other";
 type Calculation = "lo-shu-grid" | "vedic-grid" | "pythagoras-grid" | "name-frequency" | "daily-numeroscope";
+type SectorEffectTab = "career" | "health" | "finance" | "relationship";
 
 const months = [
   ["Jan", "January", 1],
@@ -53,15 +59,17 @@ const defaultGrid = {
   middleRow: ["3", "5", "7"],
   bottomRow: ["8", "1", "6"]
 };
-const advice = [
-  ["briefcase", "Career", "#37c653", "Good in education, Banking & Finance."],
-  ["heart-pulse", "Health", "#ff1616", "Health problem with age."],
-  ["cash", "Finance", "#4d9bff", "Earn good money specially after age of 35 years."],
-  ["heart-broken", "Relationship", "#ff43b2", "Average relationship, emotional distance possible."]
-] as const;
-const relationRows = [
-  ["Personality", "5", "1,6", "2", "3,4,5,7,8,9"],
-  ["Destiny", "9", "1,3,7", "4,5", "2,6,8,9"]
+const sectorEffectTabs: {
+  key: SectorEffectTab;
+  title: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  color: string;
+  dataKey: keyof Pick<SectorWiseEffectsResponse, "careerEffect" | "healthEffect" | "financeEffect" | "relationshipEffect">;
+}[] = [
+  { key: "career", title: "Career", icon: "briefcase", color: "#148f36", dataKey: "careerEffect" },
+  { key: "health", title: "Health", icon: "heart-pulse", color: "#d71920", dataKey: "healthEffect" },
+  { key: "finance", title: "Finance", icon: "cash", color: "#1967d2", dataKey: "financeEffect" },
+  { key: "relationship", title: "Relationship", icon: "heart-broken", color: "#c2187a", dataKey: "relationshipEffect" }
 ];
 const personalYearNotes = [
   "Your running personal year shows where effort and results will concentrate.",
@@ -79,6 +87,14 @@ const detailSections = [
   ["topCareerSectors", "Top Career Sectors"]
 ] as const;
 const detailSectionOrder: string[] = detailSections.map(([key]) => key);
+const localizedDigits: Record<LanguageCode, string[]> = {
+  en: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+  hi: ["०", "१", "२", "३", "४", "५", "६", "७", "८", "९"],
+  mr: ["०", "१", "२", "३", "४", "५", "६", "७", "८", "९"],
+  bn: ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"],
+  ta: ["௦", "௧", "௨", "௩", "௪", "௫", "௬", "௭", "௮", "௯"],
+  te: ["౦", "౧", "౨", "౩", "౪", "౫", "౬", "౭", "౮", "౯"]
+};
 
 export function NumerologyScreen() {
   const { t } = useTranslation();
@@ -246,7 +262,7 @@ function parseDob(value: string) {
 }
 
 export function NumerologyResultScreen() {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const params = useLocalSearchParams<{ fullName?: string; dob?: string; gender?: string; calculation?: Calculation }>();
   const fullName = String(params.fullName || "");
   const dob = String(params.dob || "");
@@ -255,6 +271,11 @@ export function NumerologyResultScreen() {
   const [loShu, setLoShu] = useState<LoShuGridResponse | null>(null);
   const [personalYear, setPersonalYear] = useState<PersonalYearResponse | null>(null);
   const [matrix, setMatrix] = useState<PersonalYearMatrixItem[]>([]);
+  const [relationships, setRelationships] = useState<NumberRelationshipItem[]>([]);
+  const [sectorEffects, setSectorEffects] = useState<SectorWiseEffectsResponse | null>(null);
+  const [translatedSectorEffects, setTranslatedSectorEffects] = useState<Partial<Record<LanguageCode, SectorWiseEffectsResponse>>>({});
+  const [sectorTranslating, setSectorTranslating] = useState(false);
+  const [activeSectorTab, setActiveSectorTab] = useState<SectorEffectTab>("career");
   const [fromYear, setFromYear] = useState(String(currentYear));
   const [toYear, setToYear] = useState(String(currentYear + 10));
   const [loading, setLoading] = useState(true);
@@ -272,12 +293,23 @@ export function NumerologyResultScreen() {
         const grid = await getLoShuGrid(payload);
         if (!mounted) return;
         setLoShu(grid);
-        const year = await getPersonalYear(payload);
+        const personalityNo = Number(grid.driverNumber);
+        const destinyNo = Number(grid.destinyNumber);
+        const [year, yearMatrix, relationshipRows, effects] = await Promise.all([
+          getPersonalYear(payload),
+          getPersonalYearMatrix(dob, currentYear, currentYear + 10),
+          Number.isFinite(personalityNo) && Number.isFinite(destinyNo)
+            ? getNumberRelationships(personalityNo, destinyNo)
+            : Promise.resolve([]),
+          Number.isFinite(personalityNo) && Number.isFinite(destinyNo)
+            ? getSectorWiseEffects(personalityNo, destinyNo)
+            : Promise.resolve(null)
+        ]);
         if (!mounted) return;
         setPersonalYear(year);
-        const yearMatrix = await getPersonalYearMatrix(dob, currentYear, currentYear + 10);
-        if (!mounted) return;
         setMatrix(yearMatrix);
+        setRelationships(relationshipRows);
+        setSectorEffects(effects);
       } catch (err) {
         if (mounted) setError(getApiErrorMessage(err, "Unable to load numerology report"));
       } finally {
@@ -289,6 +321,37 @@ export function NumerologyResultScreen() {
       mounted = false;
     };
   }, [currentYear, dob, payload]);
+
+  const translatedCurrentSectorEffects = translatedSectorEffects[language];
+  const currentSectorEffects = language === "en" ? sectorEffects : translatedCurrentSectorEffects || null;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function translateSectorEffects() {
+      if (language === "en" || !sectorEffects || translatedCurrentSectorEffects) {
+        setSectorTranslating(false);
+        return;
+      }
+
+      try {
+        setSectorTranslating(true);
+        const nextEffects = await translateSectorWiseEffects(sectorEffects, language);
+        if (!mounted) return;
+        setTranslatedSectorEffects((current) => ({
+          ...current,
+          [language]: nextEffects
+        }));
+      } finally {
+        if (mounted) setSectorTranslating(false);
+      }
+    }
+
+    translateSectorEffects();
+    return () => {
+      mounted = false;
+    };
+  }, [language, sectorEffects, translatedCurrentSectorEffects]);
 
   const refreshMatrix = async () => {
     const from = Number(fromYear);
@@ -350,7 +413,7 @@ export function NumerologyResultScreen() {
             <MaterialCommunityIcons name="arrow-right" size={23} color="#fff" />
           </View>
         </Pressable>
-        <RelationTable />
+        <RelationTable relationships={relationships} personalityNo={loShu?.driverNumber} destinyNo={loShu?.destinyNumber} />
         <View style={styles.yearCards}>
           <NumberCard label={t("Current Personal Year")} value={personalYear?.personalYear} />
           <NumberCard label={t("Current Personal Month")} value={personalYear?.personalMonth} />
@@ -366,7 +429,7 @@ export function NumerologyResultScreen() {
         </View>
         {error ? <Text style={styles.validation}>{error}</Text> : null}
         <MatrixTable rows={matrix} />
-        <StaticAdvice />
+        <SectorWiseEffectsTabs effects={currentSectorEffects} activeTab={activeSectorTab} translating={sectorTranslating} onChangeTab={setActiveSectorTab} />
         <PersonalYearReading value={personalYear?.personalYear} />
       </ScrollView>
       <AstrologerBottomNav active="home" respectSafeArea />
@@ -375,11 +438,15 @@ export function NumerologyResultScreen() {
 }
 
 export function PersonalityDestinyScreen() {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const params = useLocalSearchParams<{ personalityNumber?: string; destinyNumber?: string; tab?: PersonalityDestinyType }>();
   const [activeTab, setActiveTab] = useState<PersonalityDestinyType>(params.tab === "DESTINY" ? "DESTINY" : "PERSONALITY");
-  const [details, setDetails] = useState<Partial<Record<PersonalityDestinyType, PersonalityDestinyDetailsResponse>>>({});
+  const [rawDetails, setRawDetails] = useState<Partial<Record<PersonalityDestinyType, PersonalityDestinyDetailsResponse>>>({});
+  const [translatedDetails, setTranslatedDetails] = useState<
+    Partial<Record<PersonalityDestinyType, Partial<Record<LanguageCode, PersonalityDestinyDetailsResponse>>>>
+  >({});
   const [loading, setLoading] = useState(false);
+  const [translating, setTranslating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const personalityNumber = Number(params.personalityNumber);
   const destinyNumber = Number(params.destinyNumber);
@@ -392,12 +459,12 @@ export function PersonalityDestinyScreen() {
         setError(`Unable to find ${activeTab.toLowerCase()} number from Lo Shu Grid.`);
         return;
       }
-      if (details[activeTab]) return;
+      if (rawDetails[activeTab]) return;
       try {
         setLoading(true);
         setError(null);
         const response = await getPersonalityDestinyDetails(activeTab, activeNumber);
-        if (mounted) setDetails((current) => ({ ...current, [activeTab]: response }));
+        if (mounted) setRawDetails((current) => ({ ...current, [activeTab]: response }));
       } catch (err) {
         if (mounted) setError(getApiErrorMessage(err, `Unable to load ${activeTab.toLowerCase()} details`));
       } finally {
@@ -408,9 +475,44 @@ export function PersonalityDestinyScreen() {
     return () => {
       mounted = false;
     };
-  }, [activeNumber, activeTab, details]);
+  }, [activeNumber, activeTab, rawDetails]);
 
-  const currentDetails = details[activeTab];
+  const rawCurrentDetails = rawDetails[activeTab];
+  const translatedCurrentDetails = translatedDetails[activeTab]?.[language];
+  const currentDetails = language === "en" ? rawCurrentDetails : translatedCurrentDetails;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function translateDetails() {
+      if (language === "en" || !rawCurrentDetails || translatedCurrentDetails) {
+        setTranslating(false);
+        return;
+      }
+
+      try {
+        setTranslating(true);
+        const nextDetails = await translatePersonalityDestinyDetails(rawCurrentDetails, language);
+        if (!mounted) return;
+        setTranslatedDetails((current) => ({
+          ...current,
+          [activeTab]: {
+            ...current[activeTab],
+            [language]: nextDetails
+          }
+        }));
+      } finally {
+        if (mounted) setTranslating(false);
+      }
+    }
+
+    translateDetails();
+    return () => {
+      mounted = false;
+    };
+  }, [activeTab, language, rawCurrentDetails, translatedCurrentDetails]);
+
+  const detailsLoading = loading || translating;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -435,9 +537,9 @@ export function PersonalityDestinyScreen() {
         </View>
         </View>
 <ScrollView style={styles.scroll} contentContainerStyle={styles.detailContent} showsVerticalScrollIndicator={false}>
-        {loading ? <LoadingState label={`Loading ${activeTab.toLowerCase()} details`} /> : null}
-        {error && !loading ? <ErrorState message={error} onRetry={() => setDetails((current) => ({ ...current, [activeTab]: undefined }))} /> : null}
-        {!loading && !error && currentDetails ? (
+        {detailsLoading ? <LoadingState label={translating ? `Translating ${activeTab.toLowerCase()} details` : `Loading ${activeTab.toLowerCase()} details`} /> : null}
+        {error && !detailsLoading ? <ErrorState message={error} onRetry={() => setRawDetails((current) => ({ ...current, [activeTab]: undefined }))} /> : null}
+        {!detailsLoading && !error && currentDetails ? (
           <PersonalityDestinyDetails type={activeTab} numberValue={activeNumber} details={currentDetails} />
         ) : null}
       </ScrollView>
@@ -463,13 +565,14 @@ function SectionLabel({ title }: { title: string }) {
 }
 
 function LoShuGrid({ grid }: { grid?: LoShuGridResponse["grid"] }) {
+  const { language } = useTranslation();
   const rows = [grid?.topRow, grid?.middleRow, grid?.bottomRow].map((row, index) => row || Object.values(defaultGrid)[index]);
   return (
     <View style={styles.loShuGrid}>
       {rows.flatMap((row, rowIndex) =>
         row.map((value, colIndex) => (
           <View key={`${rowIndex}-${colIndex}`} style={styles.loShuCell}>
-            <Text style={styles.loShuText}>{value || "-"}</Text>
+            <Text style={styles.loShuText}>{localizeDigitsInText(value || "-", language)}</Text>
           </View>
         ))
       )}
@@ -478,17 +581,31 @@ function LoShuGrid({ grid }: { grid?: LoShuGridResponse["grid"] }) {
 }
 
 function NumberCard({ label, value, note }: { label: string; value?: string | number; note?: string }) {
+  const { language } = useTranslation();
   return (
     <View style={styles.numberCard}>
       <Text style={styles.numberLabel}>{label}</Text>
-      <Text style={styles.numberValue}>{value ?? "-"}</Text>
+      <Text style={styles.numberValue}>{localizeDigitsInText(value ?? "-", language)}</Text>
       {note ? <Text style={styles.numberNote} numberOfLines={1}>{note}</Text> : null}
     </View>
   );
 }
 
-function RelationTable() {
-  const { t } = useTranslation();
+function RelationTable({
+  relationships,
+  personalityNo,
+  destinyNo
+}: {
+  relationships: NumberRelationshipItem[];
+  personalityNo?: number;
+  destinyNo?: number;
+}) {
+  const { language, t } = useTranslation();
+  const relationRows = [
+    { label: "Personality", number: personalityNo, relationship: findRelationship(relationships, personalityNo) },
+    { label: "Destiny", number: destinyNo, relationship: findRelationship(relationships, destinyNo) }
+  ];
+  const relationStatus = getRelationStatus(relationships, personalityNo, destinyNo);
 
   return (
     <ScrollView >
@@ -499,40 +616,103 @@ function RelationTable() {
           <Text style={[styles.relationHeadText, styles.relationEnemyHead]}>{t("Enemy")}</Text>
           <Text style={[styles.relationHeadText, styles.relationNeutralHead]}>{t("Neutral")}</Text>
         </View>
-        {relationRows.map(([label, number, friend, enemy, neutral]) => (
+        {relationRows.map(({ label, number, relationship }) => (
           <View key={label} style={styles.relationRow}>
             <Text style={[styles.relationLabel, styles.relationNameCell]}>{t(label)}</Text>
-            <Text style={[styles.relationCell, styles.relationNumberCell]}>{number}</Text>
-            <Text style={[styles.relationCell, styles.relationFriendCell, styles.friendText]}>{friend}</Text>
-            <Text style={[styles.relationCell, styles.relationEnemyCell, styles.enemyText]}>{enemy}</Text>
-            <Text style={[styles.relationCell, styles.relationNeutralCell, styles.neutralText]}>{neutral}</Text>
+            <Text style={[styles.relationCell, styles.relationNumberCell]}>{localizeDigitsInText(number ?? "-", language)}</Text>
+            <Text style={[styles.relationCell, styles.relationFriendCell, styles.friendText]}>{localizeDigitsInText(relationship?.friendNumbers || "-", language)}</Text>
+            <Text style={[styles.relationCell, styles.relationEnemyCell, styles.enemyText]}>{localizeDigitsInText(relationship?.enemyNumbers || "-", language)}</Text>
+            <Text style={[styles.relationCell, styles.relationNeutralCell, styles.neutralText]}>{localizeDigitsInText(relationship?.neutralNumbers || "-", language)}</Text>
           </View>
         ))}
         <View style={styles.relationFoot}>
           <Text style={[styles.relationLabel, styles.relationFootLabel]}>{t("Relation in Personality\n& Destiny Number")}</Text>
-          <Text style={styles.relationFootValue}>5:9 = Neutral</Text>
+          <Text style={styles.relationFootValue}>
+            {localizeDigitsInText(`${personalityNo ?? "-"}:${destinyNo ?? "-"}`, language)} = {t(relationStatus)}
+          </Text>
         </View>
       </View>
     </ScrollView>
   );
 }
 
-function StaticAdvice() {
-  const { t } = useTranslation();
+function SectorWiseEffectsTabs({
+  effects,
+  activeTab,
+  translating,
+  onChangeTab
+}: {
+  effects: SectorWiseEffectsResponse | null;
+  activeTab: SectorEffectTab;
+  translating: boolean;
+  onChangeTab: (tab: SectorEffectTab) => void;
+}) {
+  const { language, t } = useTranslation();
+  const selectedTab = sectorEffectTabs.find((item) => item.key === activeTab) || sectorEffectTabs[0];
+  const selectedText = translating ? t("Translating...") : effects?.[selectedTab.dataKey]?.trim() || t("No data available.");
 
   return (
-    <View style={styles.adviceStack}>
-      {advice.map(([icon, title, color, copy]) => (
-        <View key={title} style={styles.adviceBox}>
-          <MaterialCommunityIcons name={icon} size={27} color="#111" />
-          <View style={styles.adviceCopy}>
-            <Text style={[styles.adviceTitle, { color }]}>{t(title)}</Text>
-            <Text style={styles.adviceText}>{t(copy)}</Text>
-          </View>
+    <View style={styles.effectsBox}>
+      {effects?.combinationKey ? (
+        <View style={styles.combinationBadge}>
+          <Text style={styles.combinationLabel}>{t("Combination Key")}</Text>
+          <Text style={styles.combinationValue}>{localizeDigitsInText(effects.combinationKey, language)}</Text>
         </View>
-      ))}
+      ) : null}
+      <View style={styles.effectsTabs}>
+        {sectorEffectTabs.map((tab) => {
+          const active = tab.key === activeTab;
+          return (
+            <Pressable
+              key={tab.key}
+              style={[styles.effectsTab, active && styles.effectsTabActive]}
+              onPress={() => onChangeTab(tab.key)}
+            >
+              <MaterialCommunityIcons name={tab.icon} size={17} color={active ? "#111" : tab.color} />
+              <Text style={[styles.effectsTabText, active && styles.effectsTabTextActive]}>{t(tab.title)}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <View style={styles.effectPanel}>
+        <View style={[styles.effectIcon, { backgroundColor: selectedTab.color }]}>
+          <MaterialCommunityIcons name={selectedTab.icon} size={25} color="#fff" />
+        </View>
+        <View style={styles.effectCopy}>
+          <Text style={[styles.effectTitle, { color: selectedTab.color }]}>{t(selectedTab.title)}</Text>
+          <Text style={styles.effectText}>{selectedText}</Text>
+        </View>
+      </View>
     </View>
   );
+}
+
+function findRelationship(relationships: NumberRelationshipItem[], number?: number) {
+  return relationships.find((item) => Number(item.planetNumber) === Number(number));
+}
+
+function getRelationStatus(relationships: NumberRelationshipItem[], personalityNo?: number, destinyNo?: number) {
+  const personalityRelationship = findRelationship(relationships, personalityNo);
+  const destinyValue = String(destinyNo);
+
+  if (!personalityRelationship || !Number.isFinite(Number(destinyNo))) return "Unknown";
+  if (numberListIncludes(personalityRelationship.friendNumbers, destinyValue)) return "Friend";
+  if (numberListIncludes(personalityRelationship.enemyNumbers, destinyValue)) return "Enemy";
+  if (numberListIncludes(personalityRelationship.neutralNumbers, destinyValue)) return "Neutral";
+
+  return "Unknown";
+}
+
+function numberListIncludes(value: string | undefined, target: string) {
+  return (value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .includes(target);
+}
+
+function localizeDigitsInText(value: string | number, language: LanguageCode) {
+  const digits = localizedDigits[language] || localizedDigits.en;
+  return String(value).replace(/\d/g, (digit) => digits[Number(digit)] || digit);
 }
 
 function getMonthValue(row: PersonalYearMatrixItem, shortMonth: string, fullMonth: string) {
@@ -571,7 +751,7 @@ function getMonthValue(row: PersonalYearMatrixItem, shortMonth: string, fullMont
 }
 
 function MatrixTable({ rows }: { rows: PersonalYearMatrixItem[] }) {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -584,14 +764,14 @@ function MatrixTable({ rows }: { rows: PersonalYearMatrixItem[] }) {
         <View style={styles.matrixMonthHeader}>
           <View style={[styles.matrixHeadSpacer, styles.matrixYear]} />
           <View style={[styles.matrixHeadSpacer, styles.matrixPersonal]} />
-          {months.map(([shortMonth]) => <Text key={shortMonth} style={styles.matrixHeadCell}>{shortMonth}</Text>)}
+          {months.map(([shortMonth]) => <Text key={shortMonth} style={styles.matrixHeadCell}>{t(shortMonth)}</Text>)}
         </View>
         {rows.map((row) => (
           <View key={row.year} style={styles.matrixRow}>
-            <Text style={[styles.matrixCell, styles.matrixYear]}>{row.year}</Text>
-            <Text style={[styles.matrixCell, styles.matrixPersonal]}>{row.personalYear || "-"}</Text>
+            <Text style={[styles.matrixCell, styles.matrixYear]}>{localizeDigitsInText(row.year, language)}</Text>
+            <Text style={[styles.matrixCell, styles.matrixPersonal]}>{localizeDigitsInText(row.personalYear || "-", language)}</Text>
             {months.map(([shortMonth, fullMonth]) => (
-              <Text key={shortMonth} style={styles.matrixCell}>{getMonthValue(row, shortMonth, fullMonth)}</Text>
+              <Text key={shortMonth} style={styles.matrixCell}>{localizeDigitsInText(getMonthValue(row, shortMonth, fullMonth), language)}</Text>
             ))}
           </View>
         ))}
@@ -601,13 +781,13 @@ function MatrixTable({ rows }: { rows: PersonalYearMatrixItem[] }) {
 }
 
 function PersonalYearReading({ value }: { value?: string }) {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
 
   return (
     <View style={styles.readingBox}>
       <Text style={styles.readingTitle}>{t("Personal Year reading")}</Text>
       {personalYearNotes.map((note, index) => (
-        <Text key={note} style={styles.readingText}>- {index === 0 && value ? `${t("Your running personal year is")} ${value}.` : t(note)}</Text>
+        <Text key={note} style={styles.readingText}>- {index === 0 && value ? `${t("Your running personal year is")} ${localizeDigitsInText(value, language)}.` : t(note)}</Text>
       ))}
     </View>
   );
@@ -622,7 +802,7 @@ function PersonalityDestinyDetails({
   numberValue: number;
   details: PersonalityDestinyDetailsResponse;
 }) {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const titleType = type === "PERSONALITY" ? "Personality" : "Destiny";
   const sections = getPersonalityDestinySections(details);
   const firstItem = sections.flatMap(({ items }) => items).find((item) => item?.lord || item?.colour);
@@ -630,7 +810,7 @@ function PersonalityDestinyDetails({
   return (
     <View style={styles.detailStack}>
       <View style={styles.detailSummary}>
-        <Text style={styles.detailSummaryNumber}>{t(titleType)} {t("Number")} {numberValue || "-"}</Text>
+        <Text style={styles.detailSummaryNumber}>{t(titleType)} {t("Number")} {localizeDigitsInText(numberValue || "-", language)}</Text>
         {firstItem?.lord ? <Text style={styles.detailSummaryText}>{t("Lord")}: {firstItem.lord.trim()}</Text> : null}
         {firstItem?.colour ? <Text style={styles.detailSummaryText}>{t("Colour")}: {firstItem.colour.trim()}</Text> : null}
       </View>
@@ -639,7 +819,7 @@ function PersonalityDestinyDetails({
         <View key={key} style={styles.detailCard}>
           <View style={styles.detailCardTitleWrap}>
             <Text style={styles.detailCardTitle}>
-              {t(title)} {t("of")}{"\n"}{t(titleType)} {t("Number")} {numberValue || items[0]?.numberValue || "-"}
+              {t(title)} {t("of")}{"\n"}{t(titleType)} {t("Number")} {localizeDigitsInText(numberValue || items[0]?.numberValue || "-", language)}
             </Text>
           </View>
           <View style={styles.detailBullets}>
@@ -690,6 +870,41 @@ function getPersonalityDestinySections(details: PersonalityDestinyDetailsRespons
       };
     })
     .filter((section) => section.items.length);
+}
+
+async function translatePersonalityDestinyDetails(details: PersonalityDestinyDetailsResponse, language: LanguageCode) {
+  const stringsToTranslate = Object.values(details)
+    .flatMap((items) => items || [])
+    .flatMap((item) => [item.value, item.lord, item.colour])
+    .filter((value): value is string => Boolean(value?.trim()));
+  const translations = await translateUniqueTexts(stringsToTranslate, language);
+  const translatedEntries = Object.entries(details).map(([key, items]) => [
+    key,
+    items?.map((item) => ({
+      ...item,
+      value: item.value ? translations.get(item.value) || item.value : item.value,
+      lord: item.lord ? translations.get(item.lord) || item.lord : item.lord,
+      colour: item.colour ? translations.get(item.colour) || item.colour : item.colour
+    }))
+  ]);
+
+  return Object.fromEntries(translatedEntries) as PersonalityDestinyDetailsResponse;
+}
+
+async function translateSectorWiseEffects(effects: SectorWiseEffectsResponse, language: LanguageCode) {
+  const effectKeys = sectorEffectTabs.map((tab) => tab.dataKey);
+  const stringsToTranslate = effectKeys
+    .map((key) => effects[key])
+    .filter((value): value is string => Boolean(value?.trim()));
+  const translations = await translateUniqueTexts(stringsToTranslate, language);
+
+  return effectKeys.reduce(
+    (nextEffects, key) => ({
+      ...nextEffects,
+      [key]: effects[key] ? translations.get(effects[key] || "") || effects[key] : effects[key]
+    }),
+    { ...effects }
+  );
 }
 
 function titleizeDetailKey(key: string) {
@@ -779,13 +994,22 @@ const styles = StyleSheet.create({
   relationFoot: { flexDirection: "row", minHeight: 56 },
   relationFootLabel: { width: 90, fontSize: 10, lineHeight: 15 },
   relationFootValue: { width: 235, textAlign: "center", textAlignVertical: "center", color: "#111", fontSize: 14, fontWeight: "900", backgroundColor: "#d8d8d8", borderWidth: 1.5, borderTopColor: "#f8f8f8", borderLeftColor: "#f8f8f8", borderRightColor: "#858585", borderBottomColor: "#858585" },
-  adviceStack: { gap: spacing.md },
-  adviceBox: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: spacing.sm, borderWidth: 1.5, borderColor: "#0d3440", backgroundColor: "#fffde5", paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
-  adviceCopy: { flex: 1 },
-  adviceTitle: { fontFamily: "serif", fontSize: 27, lineHeight: 31, fontWeight: "900" },
-  adviceText: { fontFamily: "serif", color: "#111", fontSize: 16, lineHeight: 20 },
+  effectsBox: { borderWidth: 1.5, borderColor: "#0d3440", backgroundColor: "#fffde5", padding: spacing.sm, gap: spacing.sm },
+  combinationBadge: { alignSelf: "flex-start", minHeight: 31, borderRadius: 5, borderWidth: 1, borderColor: "#111", backgroundColor: "#fff", flexDirection: "row", alignItems: "center", overflow: "hidden" },
+  combinationLabel: { paddingHorizontal: 8, paddingVertical: 3, color: "#111", fontSize: 12, lineHeight: 18, fontWeight: "900" },
+  combinationValue: { minHeight: 31, paddingHorizontal: 10, paddingVertical: 3, color: "#145c24", backgroundColor: "#bff2c6", textAlignVertical: "center", fontSize: 14, lineHeight: 20, fontWeight: "900" },
+  effectsTabs: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  effectsTab: { minHeight: 40, flexGrow: 1, flexBasis: "48%", borderRadius: 5, borderWidth: 1, borderColor: "#111", backgroundColor: "#fff", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: 6, paddingVertical: 5 },
+  effectsTabActive: { backgroundColor: "#ffcf28", borderColor: "#111" },
+  effectsTabText: { color: "#111", fontSize: 12, lineHeight: 18, fontWeight: "900", textAlign: "center" },
+  effectsTabTextActive: { color: "#111" },
+  effectPanel: { minHeight: 100, flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, borderWidth: 1, borderColor: "#111", backgroundColor: "#fff", padding: spacing.md },
+  effectIcon: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  effectCopy: { flex: 1 },
+  effectTitle: { fontSize: 22, lineHeight: 32, fontWeight: "900" },
+  effectText: { color: "#111", fontSize: 15, lineHeight: 24, paddingVertical: 2 },
   yearInputs: { flexDirection: "row", gap: spacing.sm, alignItems: "center" },
-  yearInput: { flex: 1, height: 36, borderWidth: 1, borderColor: "#111", borderRadius: 5, backgroundColor: "#fff", paddingHorizontal: 8, color: "#111" },
+  yearInput: { flex: 1, height: 36, borderWidth: 1, borderColor: "#111", borderRadius: 5, backgroundColor: "#fff", paddingHorizontal: 8, paddingVertical: 0, color: "#111", fontSize: 13, lineHeight: 18, textAlignVertical: "center" },
   smallBtn: { height: 36, paddingHorizontal: spacing.md, borderRadius: 5, borderWidth: 1, borderColor: "#111", backgroundColor: "#ffcf28", alignItems: "center", justifyContent: "center" },
   smallBtnText: { color: "#111", fontWeight: "900" },
   matrixTable: { borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#111", backgroundColor: "#fff" },
@@ -811,14 +1035,14 @@ const styles = StyleSheet.create({
   detailTabTextActive: { color: "#145c24" },
   detailStack: { gap: spacing.lg },
   detailSummary: { borderRadius: 7, borderWidth: 1, borderColor: "#39a853", backgroundColor: "#fff", padding: spacing.md, shadowColor: "#000", shadowOpacity: 0.16, shadowRadius: 3, elevation: 2 },
-  detailSummaryNumber: { fontFamily: "serif", color: "#145c24", fontSize: 18, lineHeight: 23, fontWeight: "900" },
-  detailSummaryText: { color: "#111", fontSize: 13, lineHeight: 18, fontWeight: "700", marginTop: 2 },
+  detailSummaryNumber: { color: "#145c24", fontSize: 18, lineHeight: 28, fontWeight: "900" },
+  detailSummaryText: { color: "#111", fontSize: 13, lineHeight: 21, fontWeight: "700", marginTop: 2 },
   detailCard: { borderWidth: 1, borderRadius:7, borderColor: "#39d34a", backgroundColor: "#fff", paddingHorizontal: 8, paddingTop: 2, paddingBottom: 9 },
   detailCardTitleWrap: {   marginBottom: 5, borderWidth: 1, borderColor: "#39d34a", borderRadius: 5, backgroundColor: "#c9f6c6",  paddingVertical: 6,marginTop:6 },
-  detailCardTitle: { fontFamily: "serif", color: "#075416", fontSize: 16, lineHeight: 19, fontWeight: "900", textAlign: "center" },
+  detailCardTitle: { color: "#075416", fontSize: 16, lineHeight: 24, fontWeight: "900", textAlign: "center" },
   detailBullets: { gap: 2 },
   detailBulletRow: { flexDirection: "row", alignItems: "flex-start" },
   detailBulletDot: { width: 14, color: "#111", fontSize: 17, lineHeight: 18, fontWeight: "900" },
   detailBulletLead: { color: "#075416", fontWeight: "900" },
-  detailBulletText: { flex: 1, color: "#111", fontSize: 12, lineHeight: 15, fontWeight: "700" }
+  detailBulletText: { flex: 1, color: "#111", fontSize: 12, lineHeight: 20, fontWeight: "700" }
 });

@@ -3,6 +3,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Avatar, Button, Chip, Text } from "react-native-paper";
 
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import { Astrologer } from "@/types/api";
 
 type Props = {
@@ -22,6 +23,7 @@ function getName(astrologer: Astrologer) {
 }
 
 export function AstrologerCard({ astrologer, onChat, onCall, onView }: Props) {
+  const { t } = useTranslation();
   const name = getName(astrologer);
   const skills = Array.isArray(astrologer.expertise)
     ? astrologer.expertise.join(", ")
@@ -44,15 +46,15 @@ export function AstrologerCard({ astrologer, onChat, onCall, onView }: Props) {
         </View>
         <View style={styles.info}>
           <Text variant="titleMedium" numberOfLines={1}>{name}</Text>
-          <Text style={styles.muted}>{experience}+ years • {skills}</Text>
+          <Text style={styles.muted}>{experience}+ {t("years")} • {t(String(skills))}</Text>
           <View style={styles.meta}>
             <Chip compact icon="currency-inr">₹{astrologer.pricePerMinute || 25}/min</Chip>
           </View>
         </View>
       </View>
       <View style={styles.actions}>
-        <Button mode="outlined" icon="chat" compact onPress={onChat}>Chat</Button>
-        <Button mode="contained-tonal" icon="phone" compact onPress={onCall}>Call</Button>
+        <Button mode="outlined" icon="chat" compact onPress={onChat}>{t("Chat")}</Button>
+        <Button mode="contained-tonal" icon="phone" compact onPress={onCall}>{t("Call")}</Button>
         <Button mode="text" compact onPress={onView}>
           <MaterialCommunityIcons name="chevron-right" size={18} color={colors.amber} />
         </Button>

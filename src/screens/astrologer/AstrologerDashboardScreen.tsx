@@ -79,7 +79,7 @@ export function AstrologerDashboardScreen() {
           <Image source={require("@/assets/logo_apsara.jpeg")} resizeMode="cover" style={styles.headerLogo} />
           <View style={styles.brandBlock}>
             <Text style={styles.logoText} numberOfLines={1}>ApsaraAstro</Text>
-            <Text style={styles.tagline} numberOfLines={1}>ACCOUNT PREDICTIONS SACRED RITUALS ACCESSIBLE</Text>
+            <Text style={styles.tagline} numberOfLines={1}>{t("ACCOUNT PREDICTIONS SACRED RITUALS ACCESSIBLE")}</Text>
           </View>
           <View style={styles.wallet}>
             <Text style={styles.walletText}>Rs. 50{"\n"}{t("Wallet Balance")}</Text>
@@ -123,7 +123,7 @@ export function AstrologerDashboardScreen() {
             </View>
             <Text style={styles.claim}>{t("Claim Your\nFirst\nFree Chat")}</Text>
           </View>
-          <Text style={styles.caption}>Talk with any of our certified Astrologers, Numerologist, Palmist, Tarot Reader, Graphologist, Vastu Experts, Gem Stone Consultant</Text>
+          <Text style={styles.caption}>{t("Talk with any of our certified Astrologers, Numerologist, Palmist, Tarot Reader, Graphologist, Vastu Experts, Gem Stone Consultant")}</Text>
 
           <SectionTitle title={t("Top Astrologers & Numerologist")} action={t("View all")} onAction={() => router.push("/astrologers")} />
           <ExpertRow astrologers={homeExperts} />
@@ -207,13 +207,14 @@ function getUserInitials(user: unknown) {
 }
 
 function ExpertRow({ astrologers }: { astrologers: Astrologer[] }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.expertRow}>
       {astrologers.map((astrologer, index) => {
         const name = getExpertName(astrologer);
         return (
         <Pressable key={astrologer.publicId || astrologer.email || name} disabled style={styles.expertCard}>
-          <Text style={styles.expertRole} numberOfLines={1}>{astrologer.specialization || "Astrologer"}</Text>
+          <Text style={styles.expertRole} numberOfLines={1}>{t(astrologer.specialization || "Astrologer")}</Text>
           <View style={styles.expertPhoto}>
             <MaterialCommunityIcons name="account-circle" size={58} color={index % 2 === 0 ? "#1a1a1a" : "#3b2517"} />
             <View style={styles.expertShade}>

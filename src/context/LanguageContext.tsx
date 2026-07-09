@@ -1,5 +1,7 @@
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import { translateText } from "@/services/translation.service";
 
 export type LanguageCode = "en" | "hi" | "mr" | "bn" | "ta" | "te";
 
@@ -99,6 +101,9 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     "To Year": "वर्ष तक",
     Apply: "लागू करें",
     Loading: "लोड हो रहा है",
+    "Translating...": "अनुवाद हो रहा है...",
+    "No data available.": "डेटा उपलब्ध नहीं है।",
+    "Combination Key": "संयोजन कुंजी",
     Retry: "पुनः प्रयास करें",
     "Core Characteristics": "मुख्य विशेषताएं",
     "Common Pitfalls": "सामान्य कमियां",
@@ -108,9 +113,28 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     Lord: "स्वामी",
     Colour: "रंग",
     Number: "संख्या",
+    Year: "वर्ष",
+    "Personal\nYear": "व्यक्तिगत\nवर्ष",
+    "Personal Month": "व्यक्तिगत माह",
+    Jan: "जन",
+    Feb: "फ़र",
+    Mar: "मार्च",
+    Apr: "अप्रै",
+    May: "मई",
+    Jun: "जून",
+    Jul: "जुल",
+    Aug: "अग",
+    Sep: "सित",
+    Oct: "अक्टू",
+    Nov: "नवं",
+    Dec: "दिसं",
     Friend: "मित्र",
     Enemy: "शत्रु",
     Neutral: "तटस्थ",
+    Career: "करियर",
+    Health: "स्वास्थ्य",
+    Finance: "वित्त",
+    Relationship: "संबंध",
     "Personal Year reading": "व्यक्तिगत वर्ष रीडिंग",
     "Your running personal year is": "आपका वर्तमान व्यक्तिगत वर्ष है",
     of: "का"
@@ -138,7 +162,29 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     Clear: "क्लिअर",
     Personality: "व्यक्तिमत्व",
     Destiny: "नियती",
+    Number: "संख्या",
+    Year: "वर्ष",
+    "Personal\nYear": "वैयक्तिक\nवर्ष",
+    "Personal Month": "वैयक्तिक महिना",
+    Jan: "जाने",
+    Feb: "फेब्रु",
+    Mar: "मार्च",
+    Apr: "एप्रि",
+    May: "मे",
+    Jun: "जून",
+    Jul: "जुलै",
+    Aug: "ऑग",
+    Sep: "सप्टें",
+    Oct: "ऑक्टो",
+    Nov: "नोव्हें",
+    Dec: "डिसें",
+    Career: "करिअर",
+    Health: "आरोग्य",
+    Finance: "आर्थिक",
+    Relationship: "नातेसंबंध",
     Loading: "लोड होत आहे",
+    "Translating...": "भाषांतर होत आहे...",
+    "No data available.": "डेटा उपलब्ध नाही.",
     Retry: "पुन्हा प्रयत्न करा"
   },
   bn: {
@@ -160,7 +206,29 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     Clear: "পরিষ্কার",
     Personality: "ব্যক্তিত্ব",
     Destiny: "ভাগ্য",
+    Number: "সংখ্যা",
+    Year: "বছর",
+    "Personal\nYear": "ব্যক্তিগত\nবছর",
+    "Personal Month": "ব্যক্তিগত মাস",
+    Jan: "জানু",
+    Feb: "ফেব",
+    Mar: "মার্চ",
+    Apr: "এপ্রি",
+    May: "মে",
+    Jun: "জুন",
+    Jul: "জুলাই",
+    Aug: "আগ",
+    Sep: "সেপ্ট",
+    Oct: "অক্টো",
+    Nov: "নভে",
+    Dec: "ডিসে",
+    Career: "ক্যারিয়ার",
+    Health: "স্বাস্থ্য",
+    Finance: "অর্থ",
+    Relationship: "সম্পর্ক",
     Loading: "লোড হচ্ছে",
+    "Translating...": "অনুবাদ হচ্ছে...",
+    "No data available.": "কোনো তথ্য উপলব্ধ নেই।",
     Retry: "আবার চেষ্টা করুন"
   },
   ta: {
@@ -182,7 +250,29 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     Clear: "அழி",
     Personality: "தன்மை",
     Destiny: "விதி",
+    Number: "எண்",
+    Year: "ஆண்டு",
+    "Personal\nYear": "தனிப்பட்ட\nஆண்டு",
+    "Personal Month": "தனிப்பட்ட மாதம்",
+    Jan: "ஜன",
+    Feb: "பிப்",
+    Mar: "மார்",
+    Apr: "ஏப்",
+    May: "மே",
+    Jun: "ஜூன்",
+    Jul: "ஜூலை",
+    Aug: "ஆக",
+    Sep: "செப்",
+    Oct: "அக்",
+    Nov: "நவ",
+    Dec: "டிச",
+    Career: "தொழில்",
+    Health: "ஆரோக்கியம்",
+    Finance: "நிதி",
+    Relationship: "உறவு",
     Loading: "ஏற்றுகிறது",
+    "Translating...": "மொழிபெயர்க்கிறது...",
+    "No data available.": "தரவு கிடைக்கவில்லை.",
     Retry: "மீண்டும் முயற்சி"
   },
   te: {
@@ -204,7 +294,29 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     Clear: "క్లియర్",
     Personality: "వ్యక్తిత్వం",
     Destiny: "విధి",
+    Number: "సంఖ్య",
+    Year: "సంవత్సరం",
+    "Personal\nYear": "వ్యక్తిగత\nసంవత్సరం",
+    "Personal Month": "వ్యక్తిగత నెల",
+    Jan: "జన",
+    Feb: "ఫిబ్ర",
+    Mar: "మార్చి",
+    Apr: "ఏప్రి",
+    May: "మే",
+    Jun: "జూన్",
+    Jul: "జులై",
+    Aug: "ఆగ",
+    Sep: "సెప్టె",
+    Oct: "అక్టో",
+    Nov: "నవం",
+    Dec: "డిసె",
+    Career: "కెరీర్",
+    Health: "ఆరోగ్యం",
+    Finance: "ఆర్థికం",
+    Relationship: "సంబంధం",
     Loading: "లోడ్ అవుతోంది",
+    "Translating...": "అనువదిస్తోంది...",
+    "No data available.": "డేటా అందుబాటులో లేదు.",
     Retry: "మళ్లీ ప్రయత్నించండి"
   }
 };
@@ -316,6 +428,9 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({ children }: PropsWithChildren) {
   const [language, setLanguageState] = useState<LanguageCode>("en");
+  const [translationVersion, setTranslationVersion] = useState(0);
+  const autoTranslationsRef = useRef<Partial<Record<LanguageCode, Record<string, string>>>>({});
+  const pendingTranslationsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     AsyncStorage.getItem(storageKey).then((saved) => {
@@ -330,13 +445,48 @@ export function LanguageProvider({ children }: PropsWithChildren) {
     AsyncStorage.setItem(storageKey, nextLanguage);
   };
 
+  const t = useCallback(
+    (text: string) => {
+      if (!text || language === "en") return text;
+
+      const configuredTranslation = translations[language][text] || translateReportValue(language, text);
+      if (configuredTranslation !== text) return configuredTranslation;
+
+      const cachedTranslation = autoTranslationsRef.current[language]?.[text];
+      if (cachedTranslation) return cachedTranslation;
+
+      const pendingKey = `${language}:${text}`;
+      if (!pendingTranslationsRef.current.has(pendingKey)) {
+        pendingTranslationsRef.current.add(pendingKey);
+        translateText(text, language)
+          .then((translatedText) => {
+            if (!translatedText || translatedText === text) return;
+            autoTranslationsRef.current = {
+              ...autoTranslationsRef.current,
+              [language]: {
+                ...(autoTranslationsRef.current[language] || {}),
+                [text]: translatedText
+              }
+            };
+            setTranslationVersion((version) => version + 1);
+          })
+          .finally(() => {
+            pendingTranslationsRef.current.delete(pendingKey);
+          });
+      }
+
+      return text;
+    },
+    [language]
+  );
+
   const value = useMemo(
     () => ({
       language,
       setLanguage,
-      t: (text: string) => translations[language][text] || translateReportValue(language, text)
+      t
     }),
-    [language]
+    [language, t, translationVersion]
   );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

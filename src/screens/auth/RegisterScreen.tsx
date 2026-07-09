@@ -18,6 +18,7 @@ import {
 } from "react-native-paper";
 
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
 import { registerAstrologer } from "@/services/auth.service";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -44,6 +45,7 @@ const genderOptions = ["Male", "Female", "Other"];
 const stepLabels = ["Personal", "Identity", "Education", "Submit"];
 
 export function RegisterScreen() {
+  const { t } = useTranslation();
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
   const [pincodeLoading, setPincodeLoading] = useState(false);
@@ -324,14 +326,14 @@ export function RegisterScreen() {
     extraHeight={120}
   >
     <View style={styles.topCard}>
-      <Text style={styles.kicker}>SIGN UP AS ASTROLOGER</Text>
+      <Text style={styles.kicker}>{t("SIGN UP AS ASTROLOGER")}</Text>
 
       <Text variant="headlineSmall" style={styles.mainTitle}>
-        {stepTitle}
+        {t(stepTitle)}
       </Text>
 
       <Text style={styles.muted}>
-        Complete your verification profile with ApsaraAstro.
+        {t("Complete your verification profile with ApsaraAstro.")}
       </Text>
     </View>
 
@@ -342,7 +344,7 @@ export function RegisterScreen() {
     </View>
 
     <Snackbar visible={!!message} onDismiss={() => setMessage("")} duration={3500}>
-      {message}
+      {t(message)}
     </Snackbar>
 
     <Snackbar
@@ -351,7 +353,7 @@ export function RegisterScreen() {
       duration={4500}
       style={styles.errorSnack}
     >
-      {error}
+      {t(error)}
     </Snackbar>
   </KeyboardAwareScrollView>
 </SafeAreaView>
@@ -368,7 +370,7 @@ export function RegisterScreen() {
 
           <View style={styles.twoColumns}>
             <TextInput
-              label="Full Name *"
+              label={t("Full Name *")}
               value={fullName}
               onChangeText={setFullName}
               mode="outlined"
@@ -384,7 +386,7 @@ contentStyle={{
             />
 
             <TextInput
-              label="Mobile Number *"
+              label={t("Mobile Number *")}
               value={mobileNo}
               onChangeText={(value) =>
                 setMobileNo(value.replace(/\D/g, "").slice(0, 10))
@@ -403,7 +405,7 @@ contentStyle={{
             />
 
             <TextInput
-              label="Email Address *"
+              label={t("Email Address *")}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -421,7 +423,7 @@ contentStyle={{
             />
 
             <TextInput
-              label="Display Name *"
+              label={t("Display Name *")}
               value={displayName}
               onChangeText={setDisplayName}
               mode="outlined"
@@ -437,7 +439,7 @@ contentStyle={{
             />
 
             <TextInput
-              label="Pincode *"
+              label={t("Pincode *")}
               value={pincode}
               onChangeText={lookupPincode}
               keyboardType="number-pad"
@@ -458,7 +460,7 @@ contentStyle={{
             />
 
             <TextInput
-              label="City *"
+              label={t("City *")}
               value={city}
               onChangeText={setCity}
               mode="outlined"
@@ -474,7 +476,7 @@ contentStyle={{
             />
 
             <TextInput
-              label="State *"
+              label={t("State *")}
               value={stateName}
               onChangeText={setStateName}
               mode="outlined"
@@ -490,7 +492,7 @@ contentStyle={{
             />
 
             <TextInput
-              label="Country *"
+              label={t("Country *")}
               value={country}
               onChangeText={setCountry}
               mode="outlined"
@@ -511,7 +513,7 @@ contentStyle={{
                 onPress={() => setGenderOpen(!genderOpen)}
               >
                 <Text style={gender ? styles.dropdownValue : styles.placeholder}>
-                  {gender || "Select Gender *"}
+                  {gender ? t(gender) : t("Select Gender *")}
                 </Text>
               </TouchableOpacity>
 
@@ -525,7 +527,7 @@ contentStyle={{
                       setGenderOpen(false);
                     }}
                   >
-                    <Text style={styles.dropdownItemText}>{item}</Text>
+                    <Text style={styles.dropdownItemText}>{t(item)}</Text>
                   </TouchableOpacity>
                 ))}
             </View>
@@ -537,12 +539,12 @@ contentStyle={{
               <Text
                 style={dateOfBirth ? styles.dropdownValue : styles.placeholder}
               >
-                {dateOfBirth || "Date of Birth *"}
+                {dateOfBirth || t("Date of Birth *")}
               </Text>
             </TouchableOpacity>
 
             <TextInput
-              label="Religion *"
+              label={t("Religion *")}
               value={religion}
               onChangeText={setReligion}
               mode="outlined"
@@ -558,7 +560,7 @@ contentStyle={{
             />
 
             <TextInput
-              label="Specialization *"
+              label={t("Specialization *")}
               value={specialization}
               onChangeText={setSpecialization}
               mode="outlined"
@@ -590,7 +592,7 @@ contentStyle={{
           )}
 
           <TextInput
-            label="Full Address"
+            label={t("Full Address")}
             value={address}
             onChangeText={setAddress}
             multiline
@@ -609,7 +611,7 @@ contentStyle={{
 
           <View style={styles.languageRow}>
             <TextInput
-              label="Add language"
+              label={t("Add language")}
               value={languageInput}
               onChangeText={setLanguageInput}
               mode="outlined"
@@ -625,7 +627,7 @@ contentStyle={{
             />
 
             <Button mode="outlined" onPress={addLanguage}>
-              Add
+              {t("Add")}
             </Button>
           </View>
 
@@ -639,7 +641,7 @@ contentStyle={{
                   )
                 }
               >
-                {item}
+                {t(item)}
               </Chip>
             ))}
           </View>
@@ -661,7 +663,7 @@ contentStyle={{
           />
 
           <TextInput
-            label="About Yourself"
+            label={t("About Yourself")}
             value={aboutYourself}
             onChangeText={setAboutYourself}
             multiline
@@ -694,7 +696,7 @@ contentStyle={{
 
           <View style={styles.twoColumns}>
             <TextInput
-              label="Aadhaar Number *"
+              label={t("Aadhaar Number *")}
               value={aadhaarNo}
               onChangeText={(value) =>
                 setAadhaarNo(value.replace(/\D/g, "").slice(0, 12))
@@ -736,7 +738,7 @@ contentStyle={{
 
           <View style={styles.twoColumns}>
             <TextInput
-              label="Educational Qualification *"
+              label={t("Educational Qualification *")}
               value={educationalQualification}
               onChangeText={setEducationalQualification}
               mode="outlined"
@@ -752,7 +754,7 @@ contentStyle={{
             />
 
             <TextInput
-              label="Years of Experience *"
+              label={t("Years of Experience *")}
               value={yearsOfExperience}
               onChangeText={(value) =>
                 setYearsOfExperience(value.replace(/[^0-9.]/g, "").slice(0, 4))
@@ -811,7 +813,7 @@ contentStyle={{
 
         <View style={styles.declarationBox}>
           <Checkbox.Item
-            label={declarationText}
+            label={t(declarationText)}
             status={declarationAccepted ? "checked" : "unchecked"}
             onPress={() => setDeclarationAccepted((value) => !value)}
             labelStyle={styles.declarationText}
@@ -820,7 +822,7 @@ contentStyle={{
 
         <View style={styles.twoColumns}>
           <TextInput
-            label="Full Name as Digital Signature *"
+            label={t("Full Name as Digital Signature *")}
             value={digitalSignature}
             onChangeText={setDigitalSignature}
             mode="outlined"
@@ -844,7 +846,7 @@ contentStyle={{
                 declarationDate ? styles.dropdownValue : styles.placeholder
               }
             >
-              {declarationDate || "Declaration Date *"}
+              {declarationDate || t("Declaration Date *")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -877,6 +879,7 @@ contentStyle={{
 }
 
 function StepIndicator({ activeStep }: { activeStep: number }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.stepRow}>
       {stepLabels.map((item, index) => {
@@ -890,7 +893,7 @@ function StepIndicator({ activeStep }: { activeStep: number }) {
               </Text>
             </View>
 
-            <Text style={styles.stepSmallText}>{item}</Text>
+            <Text style={styles.stepSmallText}>{t(item)}</Text>
 
             {index !== stepLabels.length - 1 && (
               <View style={[styles.stepLine, active && styles.activeLine]} />
@@ -911,13 +914,14 @@ function SectionHeader({
   title: string;
   description: string;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.sectionHeader}>
-      <Text style={styles.stepLabel}>{stepLabel}</Text>
+      <Text style={styles.stepLabel}>{t(stepLabel)}</Text>
       <Text variant="titleLarge" style={styles.sectionTitle}>
-        {title}
+        {t(title)}
       </Text>
-      <Text style={styles.muted}>{description}</Text>
+      <Text style={styles.muted}>{t(description)}</Text>
     </View>
   );
 }
@@ -935,10 +939,11 @@ function Actions({
   submit?: boolean;
   loading?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.actions}>
       <Button mode="outlined" disabled={backDisabled} onPress={onBack}>
-        Back
+        {t("Back")}
       </Button>
 
       <Button
@@ -948,7 +953,7 @@ function Actions({
         style={styles.primaryBtn}
         labelStyle={styles.primaryBtnText}
       >
-        {submit ? "Submit Application" : "Continue"}
+        {submit ? t("Submit Application") : t("Continue")}
       </Button>
     </View>
   );
@@ -965,19 +970,20 @@ function UploadCard({
   onPick: () => void;
   image?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.uploadCard}>
-      <Text style={styles.uploadTitle}>{title}</Text>
+      <Text style={styles.uploadTitle}>{t(title)}</Text>
 
       <Button
         mode="outlined"
         icon={image ? "image" : "paperclip"}
         onPress={onPick}
       >
-        {file ? "Change File" : "Choose File"}
+        {file ? t("Change File") : t("Choose File")}
       </Button>
 
-      <Text style={styles.muted}>Allowed formats: JPG, PNG, PDF.</Text>
+      <Text style={styles.muted}>{t("Allowed formats: JPG, PNG, PDF.")}</Text>
 
       {file?.name || file?.fileName ? (
         <Text style={styles.fileName}>{file.name || file.fileName}</Text>
@@ -997,9 +1003,10 @@ function CheckGroup({
   selected: string[];
   onToggle: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.checkGroup}>
-      <Text style={styles.uploadTitle}>{title}</Text>
+      <Text style={styles.uploadTitle}>{t(title)}</Text>
 
       <View style={styles.checkGrid}>
         {options.map((item) => (
@@ -1014,7 +1021,7 @@ function CheckGroup({
             <Checkbox
               status={selected.includes(item) ? "checked" : "unchecked"}
             />
-            <Text style={styles.checkText}>{item}</Text>
+            <Text style={styles.checkText}>{t(item)}</Text>
           </TouchableOpacity>
         ))}
       </View>

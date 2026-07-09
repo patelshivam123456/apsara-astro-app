@@ -8,6 +8,7 @@ import { Avatar, Button, Chip, Text } from "react-native-paper";
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import { useAstrologers } from "@/hooks/useAstrologers";
 import { Astrologer } from "@/types/api";
 
@@ -47,6 +48,7 @@ function unique(values: string[]) {
 }
 
 export function AstrologerListScreen() {
+  const { t } = useTranslation();
   const query = useAstrologers();
   const [category, setCategory] = useState("All");
   const [language, setLanguage] = useState("All");
@@ -93,8 +95,8 @@ export function AstrologerListScreen() {
         ListHeaderComponent={(
           <View style={styles.top}>
             <View style={styles.header}>
-              <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>Back</Button>
-              <Text variant="titleLarge" style={styles.title}>Astrologers</Text>
+              <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
+              <Text variant="titleLarge" style={styles.title}>{t("Astrologers")}</Text>
               <View style={styles.headerGap} />
             </View>
             <View style={styles.filterPanel}>
@@ -104,8 +106,8 @@ export function AstrologerListScreen() {
               <FilterGroup title="Experience" options={expFilters} selected={experience} onSelect={(value) => setExperience(value as ExpFilter)} />
             </View>
             <View style={styles.resultHeader}>
-              <Text style={styles.resultTitle}>{filtered.length} astrologer{filtered.length === 1 ? "" : "s"}</Text>
-              <Text style={styles.resultMuted}>Showing matching experts</Text>
+              <Text style={styles.resultTitle}>{filtered.length} {t(filtered.length === 1 ? "astrologer" : "astrologers")}</Text>
+              <Text style={styles.resultMuted}>{t("Showing matching experts")}</Text>
             </View>
           </View>
         )}
@@ -117,9 +119,10 @@ export function AstrologerListScreen() {
 }
 
 function FilterGroup({ title, options, selected, onSelect }: { title: string; options: string[]; selected: string; onSelect: (value: string) => void }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.filterGroup}>
-      <Text style={styles.filterLabel}>{title.toUpperCase()}</Text>
+      <Text style={styles.filterLabel}>{t(title).toUpperCase()}</Text>
       <View style={styles.chips}>
         {options.map((item) => {
           const active = item === selected;
@@ -132,7 +135,7 @@ function FilterGroup({ title, options, selected, onSelect }: { title: string; op
               style={[styles.chip, active && styles.activeChip]}
               textStyle={[styles.chipText, active && styles.activeChipText]}
             >
-              {item}
+              {t(item)}
             </Chip>
           );
         })}
@@ -142,6 +145,7 @@ function FilterGroup({ title, options, selected, onSelect }: { title: string; op
 }
 
 function AstrologerResultCard({ astrologer }: { astrologer: Astrologer }) {
+  const { t } = useTranslation();
   const name = getName(astrologer);
   const skills = getSkills(astrologer);
   const years = astrologer.yearsOfExperience || "5";
@@ -156,13 +160,13 @@ function AstrologerResultCard({ astrologer }: { astrologer: Astrologer }) {
         </View>
         <View style={styles.cardInfo}>
           <Text variant="titleLarge" numberOfLines={1} style={styles.cardName}>{name}</Text>
-          <Text style={styles.cardMeta} numberOfLines={2}>{years}+ years • {skills}</Text>
+          <Text style={styles.cardMeta} numberOfLines={2}>{years}+ {t("years")} • {t(skills)}</Text>
           <Chip compact icon="currency-inr" style={styles.priceChip} textStyle={styles.priceText}>₹{astrologer.pricePerMinute || 25}/min</Chip>
         </View>
       </View>
       <View style={styles.cardActions}>
-        <Button mode="outlined" icon="chat" textColor={colors.amber} style={styles.outlineAction} onPress={() => router.push("/chat")}>Chat</Button>
-        <Button mode="contained-tonal" icon="phone" style={styles.callAction} onPress={() => router.push("/call")}>Call</Button>
+        <Button mode="outlined" icon="chat" textColor={colors.amber} style={styles.outlineAction} onPress={() => router.push("/chat")}>{t("Chat")}</Button>
+        <Button mode="contained-tonal" icon="phone" style={styles.callAction} onPress={() => router.push("/call")}>{t("Call")}</Button>
         <Button mode="text" compact onPress={() => router.push(`/astrologers/${astrologer.publicId}`)}>
           <MaterialCommunityIcons name="chevron-right" size={24} color={colors.amber} />
         </Button>

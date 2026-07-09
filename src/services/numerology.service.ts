@@ -81,6 +81,30 @@ export type PersonalityDestinyDetailsResponse = {
   [key: string]: PersonalityDestinyItem[] | undefined;
 };
 
+export type NumberRelationshipItem = {
+  id?: number;
+  planetNumber?: number;
+  friendNumbers?: string;
+  enemyNumbers?: string;
+  neutralNumbers?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type SectorWiseEffectsResponse = {
+  id?: number;
+  combinationKey?: string;
+  personalityNumber?: number;
+  destinyNumber?: number;
+  careerEffect?: string;
+  healthEffect?: string;
+  financeEffect?: string;
+  relationshipEffect?: string;
+  rawText?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export async function getLoShuGrid(payload: NumerologyPayload) {
   const response = await astroApi.post<ApiResponse<LoShuGridResponse>>(ENDPOINTS.loShuGrid, payload);
   return ((response as unknown as ApiResponse<LoShuGridResponse>).data || response) as LoShuGridResponse;
@@ -102,6 +126,42 @@ export async function getPersonalityDestinyDetails(type: PersonalityDestinyType,
   );
 
   return ((response as unknown as ApiResponse<PersonalityDestinyDetailsResponse>).data || response) as PersonalityDestinyDetailsResponse;
+}
+
+export async function getNumberRelationships(personalityNo: number, destinyNo: number) {
+  const query = new URLSearchParams({
+    personalityNo: String(personalityNo),
+    destinyNo: String(destinyNo)
+  });
+
+  const response = await astroApi.get<ApiResponse<NumberRelationshipItem[]>>(
+    `${ENDPOINTS.numberRelationships}?${query.toString()}`,
+    {
+      headers: {
+        Accept: "application/json"
+      }
+    }
+  );
+
+  return ((response as unknown as ApiResponse<NumberRelationshipItem[]>).data || []) as NumberRelationshipItem[];
+}
+
+export async function getSectorWiseEffects(personalityNo: number, destinyNo: number) {
+  const query = new URLSearchParams({
+    personalityNo: String(personalityNo),
+    destinyNo: String(destinyNo)
+  });
+
+  const response = await astroApi.get<ApiResponse<SectorWiseEffectsResponse>>(
+    `${ENDPOINTS.sectorWiseEffects}?${query.toString()}`,
+    {
+      headers: {
+        Accept: "application/json"
+      }
+    }
+  );
+
+  return ((response as unknown as ApiResponse<SectorWiseEffectsResponse>).data || response) as SectorWiseEffectsResponse;
 }
 
 export async function getPersonalYear(payload: NumerologyPayload) {

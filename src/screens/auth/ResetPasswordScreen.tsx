@@ -5,10 +5,12 @@ import { Button, HelperText, Text, TextInput } from "react-native-paper";
 
 import { Screen } from "@/components/Screen";
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
 import { resetPassword } from "@/services/auth.service";
 
 export function ResetPasswordScreen() {
+  const { t } = useTranslation();
   const { resetToken = "" } = useLocalSearchParams<{ resetToken?: string }>();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -34,11 +36,11 @@ export function ResetPasswordScreen() {
   return (
     <Screen>
       <View style={styles.card}>
-        <Text variant="headlineSmall">Reset Password</Text>
-        <TextInput label="New Password" value={password} onChangeText={setPassword} secureTextEntry />
-        <TextInput label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
-        {error ? <HelperText type="error" visible>{error}</HelperText> : null}
-        <Button mode="contained" loading={loading} onPress={submit}>Change Password</Button>
+        <Text variant="headlineSmall">{t("Reset Password")}</Text>
+        <TextInput label={t("New Password")} value={password} onChangeText={setPassword} secureTextEntry />
+        <TextInput label={t("Confirm Password")} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+        {error ? <HelperText type="error" visible>{t(error)}</HelperText> : null}
+        <Button mode="contained" loading={loading} onPress={submit}>{t("Change Password")}</Button>
       </View>
     </Screen>
   );

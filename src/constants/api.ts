@@ -2,7 +2,7 @@ export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL || "http://66.116.242.35:8080";
 
 export const ASTRO_API_BASE_URL =
-  process.env.EXPO_PUBLIC_ASTRO_API_URL || API_BASE_URL;
+  process.env.EXPO_PUBLIC_ASTRO_API_URL || "http://66.116.242.35:8085";
 
 export const ENDPOINTS = {
   login: "/authorization/auth/login",
@@ -21,6 +21,8 @@ export const ENDPOINTS = {
   astrologers: "/authorization/info/get-all-astrologers",
   loShuGrid: "/astrology-services/home-page/lo-shu-grid",
   personalityDestinyDetails: "/astrology-services/home-page/personality-destiny-details",
+  numberRelationships: "/astrology-services/home-page/number-relationships",
+  sectorWiseEffects: "/astrology-services/home-page/get-sector-wise-effects",
   personalYear: "/astrology-services/home-page/personal-year",
   personalYearMatrix: "/astrology-services/home-page/personal-year-matrix"
 } as const;

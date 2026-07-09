@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { Screen } from "@/components/Screen";
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import { forgotPassword } from "@/services/auth.service";
 import { getApiErrorMessage } from "@/services/apiClient";
 import { useAuthStore } from "@/store/auth.store";
@@ -21,6 +22,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export function LoginScreen() {
+  const { t } = useTranslation();
   const signIn = useAuthStore((state) => state.signIn);
   const roles = useAuthStore((state) => state.roles);
   const [secure, setSecure] = useState(true);
@@ -87,13 +89,13 @@ export function LoginScreen() {
         {/* <Text style={styles.kicker}>APSARAASTRO</Text> */}
 <View>
         <Text variant="headlineSmall" style={styles.mainTitle}>
-          {forgotOpen ? "Reset Password" : "Astrologer Login"}
+          {forgotOpen ? t("Reset Password") : t("Astrologer Login")}
         </Text>
 
         <Text style={styles.muted}>
           {forgotOpen
-            ? "Enter your registered email to receive reset password instructions."
-            : "Access your astrologer workspace."}
+            ? t("Enter your registered email to receive reset password instructions.")
+            : t("Access your astrologer workspace.")}
         </Text>
         </View>
         </View>
@@ -101,10 +103,10 @@ export function LoginScreen() {
 
       {forgotOpen ? (
         <View style={styles.card}>
-          <Text style={styles.stepLabel}>Forgot password</Text>
+          <Text style={styles.stepLabel}>{t("Forgot password")}</Text>
 
           <TextInput
-            label="Email"
+            label={t("Email")}
             value={forgotEmail}
             onChangeText={setForgotEmail}
             autoCapitalize="none"
@@ -116,7 +118,7 @@ export function LoginScreen() {
             contentStyle={styles.inputContent}
           />
 
-          {error ? <HelperText type="error" visible>{error}</HelperText> : null}
+          {error ? <HelperText type="error" visible>{t(error)}</HelperText> : null}
 
           <Button
             mode="contained"
@@ -125,7 +127,7 @@ export function LoginScreen() {
             style={styles.primaryBtn}
             labelStyle={styles.primaryBtnText}
           >
-            Send Reset Link
+            {t("Send Reset Link")}
           </Button>
 
           <Button
@@ -135,13 +137,13 @@ export function LoginScreen() {
               setError("");
             }}
           >
-            Back to Login
+            {t("Back to Login")}
           </Button>
         </View>
       ) : (
         
         <View style={styles.card}>
-          <Text style={styles.stepLabel}>Login account</Text>
+          <Text style={styles.stepLabel}>{t("Login account")}</Text>
 
           <Controller
             control={control}
@@ -149,7 +151,7 @@ export function LoginScreen() {
             render={({ field, fieldState }) => (
               <>
                 <TextInput
-                  label="Email"
+                  label={t("Email")}
                   autoCapitalize="none"
                   keyboardType="email-address"
                   value={field.value}
@@ -161,7 +163,7 @@ export function LoginScreen() {
                   contentStyle={styles.inputContent}
                 />
                 {fieldState.error?.message?<HelperText type="error" visible={!!fieldState.error}>
-                  {fieldState.error?.message}
+                  {t(fieldState.error?.message)}
                 </HelperText>:null}
               </>
             )}
@@ -173,7 +175,7 @@ export function LoginScreen() {
             render={({ field, fieldState }) => (
               <>
                 <TextInput
-                  label="Password"
+                  label={t("Password")}
                   value={field.value}
                   onChangeText={field.onChange}
                   secureTextEntry={secure}
@@ -190,13 +192,13 @@ export function LoginScreen() {
                   }
                 />
                 {fieldState.error?.message?<HelperText type="error" visible={!!fieldState.error}>
-                  {fieldState.error?.message}
+                  {t(fieldState.error?.message)}
                 </HelperText>:null}
               </>
             )}
           />
 
-          {error ? <HelperText type="error" visible>{error}</HelperText> : null}
+          {error ? <HelperText type="error" visible>{t(error)}</HelperText> : null}
 
           <Button
             mode="contained"
@@ -205,15 +207,15 @@ export function LoginScreen() {
             style={styles.primaryBtn}
             labelStyle={styles.primaryBtnText}
           >
-            Login
+            {t("Login")}
           </Button>
 
           <Button mode="text" onPress={() => setForgotOpen(true)}>
-            Forgot Password
+            {t("Forgot Password")}
           </Button>
 
           <Button mode="outlined" onPress={() => router.push("/(auth)/register")}>
-            Create Astrologer Account
+            {t("Create Astrologer Account")}
           </Button>
 
         </View>
@@ -221,7 +223,7 @@ export function LoginScreen() {
       )}
 </View>
       <Snackbar visible={!!message} onDismiss={() => setMessage("")} duration={3500}>
-        {message}
+        {t(message)}
       </Snackbar>
     </Screen>
   );

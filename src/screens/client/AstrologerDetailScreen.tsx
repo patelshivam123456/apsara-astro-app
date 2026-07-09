@@ -7,9 +7,11 @@ import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { Screen } from "@/components/Screen";
 import { EmptyState, LoadingState } from "@/components/StateViews";
 import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
 import { getAstrologerById } from "@/services/astrologer.service";
 
 export function AstrologerDetailScreen() {
+  const { t } = useTranslation();
   const { publicId = "" } = useLocalSearchParams<{ publicId?: string }>();
   const query = useQuery({
     queryKey: ["astrologer", publicId],
@@ -21,7 +23,7 @@ export function AstrologerDetailScreen() {
   if (!query.data) return <Screen><EmptyState title="Astrologer not found" /></Screen>;
 
   const astro = query.data;
-  const name = astro.displayName || astro.fullName || [astro.firstName, astro.lastName].filter(Boolean).join(" ") || "Apsara Expert";
+  const name = astro.displayName || astro.fullName || [astro.firstName, astro.lastName].filter(Boolean).join(" ") || t("Apsara Expert");
   const initials = name.split(" ").slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 
   return (
@@ -29,23 +31,23 @@ export function AstrologerDetailScreen() {
       <Screen>
         <View style={styles.content}>
           <View style={styles.header}>
-            <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>Back</Button>
-            <Text variant="titleMedium" style={styles.headerTitle}>Astrologer</Text>
+            <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
+            <Text variant="titleMedium" style={styles.headerTitle}>{t("Astrologer")}</Text>
             <View style={styles.headerSpacer} />
           </View>
           <View style={styles.card}>
             <Avatar.Text label={initials || "AA"} size={86} style={styles.avatar} labelStyle={styles.avatarLabel} />
             <Text variant="headlineSmall">{name}</Text>
-            <Text style={styles.muted}>{astro.specialization || "Astrology"} • {astro.yearsOfExperience || 5}+ years</Text>
+            <Text style={styles.muted}>{t(astro.specialization || "Astrology")} • {astro.yearsOfExperience || 5}+ {t("years")}</Text>
             <View style={styles.chips}>
               {(String(astro.language || astro.languagesKnown || "Hindi, English").split(",")).map((item) => (
                 <Chip key={item.trim()} compact>{item.trim()}</Chip>
               ))}
             </View>
-            <Text style={styles.bio}>{astro.bio || astro.aboutYourself || "View astrologer details, experience, languages, and consultation options."}</Text>
+            <Text style={styles.bio}>{astro.bio || astro.aboutYourself || t("View astrologer details, experience, languages, and consultation options.")}</Text>
             <View style={styles.actions}>
-              <Button mode="outlined" icon="chat" onPress={() => router.push("/chat")}>Chat</Button>
-              <Button mode="contained" icon="phone" onPress={() => router.push("/call")}>Call</Button>
+              <Button mode="outlined" icon="chat" onPress={() => router.push("/chat")}>{t("Chat")}</Button>
+              <Button mode="contained" icon="phone" onPress={() => router.push("/call")}>{t("Call")}</Button>
             </View>
           </View>
         </View>
