@@ -13,12 +13,15 @@ import { colors, spacing } from "@/constants/theme";
 import { type LanguageCode, useTranslation } from "@/context/LanguageContext";
 import {
   getLoShuGrid,
+  getLoShuRepetitionEffects,
   getNumberRelationships,
   getPersonalityDestinyDetails,
   getPersonalYear,
   getPersonalYearMatrix,
   getSectorWiseEffects,
   LoShuGridResponse,
+  LoShuRepetitionCountsPayload,
+  LoShuRepetitionEffectItem,
   NumberRelationshipItem,
   PersonalityDestinyDetailsResponse,
   PersonalityDestinyType,
@@ -273,6 +276,7 @@ export function NumerologyResultScreen() {
   const [matrix, setMatrix] = useState<PersonalYearMatrixItem[]>([]);
   const [relationships, setRelationships] = useState<NumberRelationshipItem[]>([]);
   const [sectorEffects, setSectorEffects] = useState<SectorWiseEffectsResponse | null>(null);
+  const [repetitionEffects, setRepetitionEffects] = useState<LoShuRepetitionEffectItem[]>([]);
   const [translatedSectorEffects, setTranslatedSectorEffects] = useState<Partial<Record<LanguageCode, SectorWiseEffectsResponse>>>({});
   const [sectorTranslating, setSectorTranslating] = useState(false);
   const [activeSectorTab, setActiveSectorTab] = useState<SectorEffectTab>("career");
@@ -295,7 +299,8 @@ export function NumerologyResultScreen() {
         setLoShu(grid);
         const personalityNo = Number(grid.driverNumber);
         const destinyNo = Number(grid.destinyNumber);
-        const [year, yearMatrix, relationshipRows, effects] = await Promise.all([
+        const repetitionPayload = buildLoShuCountsPayload(grid.counts);
+        const [year, yearMatrix, relationshipRows, effects, repetitionRows] = await Promise.all([
           getPersonalYear(payload),
           getPersonalYearMatrix(dob, currentYear, currentYear + 10),
           Number.isFinite(personalityNo) && Number.isFinite(destinyNo)
@@ -303,13 +308,15 @@ export function NumerologyResultScreen() {
             : Promise.resolve([]),
           Number.isFinite(personalityNo) && Number.isFinite(destinyNo)
             ? getSectorWiseEffects(personalityNo, destinyNo)
-            : Promise.resolve(null)
+            : Promise.resolve(null),
+          repetitionPayload ? getLoShuRepetitionEffects(repetitionPayload) : Promise.resolve([])
         ]);
         if (!mounted) return;
         setPersonalYear(year);
         setMatrix(yearMatrix);
         setRelationships(relationshipRows);
         setSectorEffects(effects);
+        setRepetitionEffects(repetitionRows);
       } catch (err) {
         if (mounted) setError(getApiErrorMessage(err, "Unable to load numerology report"));
       } finally {
@@ -413,6 +420,7 @@ export function NumerologyResultScreen() {
             <MaterialCommunityIcons name="arrow-right" size={23} color="#fff" />
           </View>
         </Pressable>
+        <LoShuRepetitionEffectsSection effects={repetitionEffects} />
         <RelationTable relationships={relationships} personalityNo={loShu?.driverNumber} destinyNo={loShu?.destinyNumber} />
         <View style={styles.yearCards}>
           <NumberCard label={t("Current Personal Year")} value={personalYear?.personalYear} />
@@ -580,6 +588,72 @@ function LoShuGrid({ grid }: { grid?: LoShuGridResponse["grid"] }) {
   );
 }
 
+function LoShuRepetitionEffectsSection({ effects }: { effects: LoShuRepetitionEffectItem[] }) {
+  const { language, t } = useTranslation();
+  const sortedEffects = [...effects].sort((first, second) => Number(first.loShuNumber || 0) - Number(second.loShuNumber || 0));
+  const generalNote = sortedEffects.find((item) => item.generalNote?.trim())?.generalNote;
+
+  if (!sortedEffects.length) return null;
+
+  return (
+    <View style={styles.repetitionSection}>
+      <View style={styles.repetitionHero}>
+        <View style={styles.repetitionHeroCopy}>
+          <Text style={styles.repetitionKicker}>{t("Meaning of repetition")}</Text>
+          <Text style={styles.repetitionTitle}>{t("Lo Shu Grid Number Effects")}</Text>
+        </View>
+        <RepetitionGrid effects={sortedEffects} />
+      </View>
+      <View style={styles.repetitionCards}>
+        {sortedEffects.map((effect) => (
+          <View key={`${effect.loShuNumber}-${effect.id || effect.repetitionCount}`} style={styles.repetitionCard}>
+            <View style={styles.repetitionIcon}>
+              <MaterialCommunityIcons name={getRepetitionIcon(effect.repetitionCount)} size={30} color="#1255c8" />
+            </View>
+            <View style={styles.repetitionCopy}>
+              <Text style={[styles.repetitionCardTitle, getRepetitionTitleStyle(effect.repetitionCount)]}>
+                {localizeDigitsInText(t(effect.title || "-"), language)}
+              </Text>
+              <Text style={styles.repetitionCardText}>{localizeDigitsInText(t(effect.meaning || t("No data available.")), language)}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+      {generalNote ? (
+        <View style={styles.repetitionNoteRow}>
+          <MaterialCommunityIcons name="information-outline" size={20} color="#07225f" />
+          <Text style={styles.repetitionNote}>{t(generalNote)}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function RepetitionGrid({ effects }: { effects: LoShuRepetitionEffectItem[] }) {
+  const { language } = useTranslation();
+  const cells = Array.from({ length: 9 }, (_, index) => {
+    const row = Math.floor(index / 3) + 1;
+    const column = (index % 3) + 1;
+    return effects.find((item) => Number(item.gridRow) === row && Number(item.gridColumn) === column);
+  });
+
+  return (
+    <View style={styles.repetitionGrid}>
+      {cells.map((effect, index) => {
+        const count = Number(effect?.repetitionCount || 0);
+        return (
+          <View
+            key={`${effect?.loShuNumber || index}-${index}`}
+            style={[styles.repetitionGridCell, count > 0 ? styles.repetitionGridCellActive : styles.repetitionGridCellMissing]}
+          >
+            <Text style={styles.repetitionGridNumber}>{localizeDigitsInText(effect?.loShuNumber ?? "-", language)}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function NumberCard({ label, value, note }: { label: string; value?: string | number; note?: string }) {
   const { language } = useTranslation();
   return (
@@ -713,6 +787,29 @@ function numberListIncludes(value: string | undefined, target: string) {
 function localizeDigitsInText(value: string | number, language: LanguageCode) {
   const digits = localizedDigits[language] || localizedDigits.en;
   return String(value).replace(/\d/g, (digit) => digits[Number(digit)] || digit);
+}
+
+function buildLoShuCountsPayload(counts?: Record<string, number>) {
+  if (!counts) return null;
+
+  return Array.from({ length: 9 }, (_, index) => String(index + 1)).reduce((payload, numberKey) => {
+    payload[numberKey as keyof LoShuRepetitionCountsPayload] = Number(counts[numberKey] || 0);
+    return payload;
+  }, {} as LoShuRepetitionCountsPayload);
+}
+
+function getRepetitionIcon(count?: number): keyof typeof MaterialCommunityIcons.glyphMap {
+  if (!count) return "selection-remove";
+  if (count === 1) return "account-outline";
+  if (count === 2) return "account-multiple-outline";
+  return "account-group-outline";
+}
+
+function getRepetitionTitleStyle(count?: number) {
+  if (!count) return styles.repetitionTitleMissing;
+  if (count === 1) return styles.repetitionTitleOnce;
+  if (count === 2) return styles.repetitionTitleTwice;
+  return styles.repetitionTitleMany;
 }
 
 function getMonthValue(row: PersonalYearMatrixItem, shortMonth: string, fullMonth: string) {
@@ -973,6 +1070,28 @@ const styles = StyleSheet.create({
   detailButtonTitle: { color: "#0b5719", fontSize: 15, lineHeight: 19, fontWeight: "900" },
   detailButtonSubtitle: { color: "#36543a", fontSize: 12, lineHeight: 16, fontWeight: "800", marginTop: 3 },
   detailButtonArrow: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#1d8d31", alignItems: "center", justifyContent: "center", shadowColor: "#0d5a1d", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.24, shadowRadius: 3, elevation: 3 },
+  repetitionSection: { borderRadius: 8, borderWidth: 1.5, borderColor: "#b5d7ff", backgroundColor: "#eaf5ff", padding: spacing.md, gap: spacing.md, shadowColor: "#0b3a78", shadowOpacity: 0.14, shadowRadius: 5, elevation: 3 },
+  repetitionHero: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
+  repetitionHeroCopy: { flex: 1 },
+  repetitionKicker: { color: "#1167df", fontSize: 15, lineHeight: 20, fontWeight: "900" },
+  repetitionTitle: { color: "#061b4f", fontSize: 24, lineHeight: 30, fontWeight: "900", marginTop: 3 },
+  repetitionGrid: { width: 132, height: 132, flexDirection: "row", flexWrap: "wrap", borderRadius: 8, backgroundColor: "#fff", padding: 5, gap: 3, shadowColor: "#0b3a78", shadowOpacity: 0.2, shadowRadius: 6, elevation: 5 },
+  repetitionGridCell: { width: 38, height: 38, borderRadius: 5, borderWidth: 1, borderColor: "#edf2ff", alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
+  repetitionGridCellActive: { backgroundColor: "#d8ecff" },
+  repetitionGridCellMissing: { backgroundColor: "#ffe3e3" },
+  repetitionGridNumber: { color: "#061b4f", fontSize: 18, lineHeight: 22, fontWeight: "900" },
+  repetitionCards: { gap: spacing.sm },
+  repetitionCard: { minHeight: 104, borderRadius: 8, backgroundColor: "#fff", padding: spacing.md, flexDirection: "row", alignItems: "flex-start", gap: spacing.md, shadowColor: "#0b3a78", shadowOpacity: 0.12, shadowRadius: 4, elevation: 2 },
+  repetitionIcon: { width: 54, height: 54, borderRadius: 27, backgroundColor: "#e1f0ff", alignItems: "center", justifyContent: "center" },
+  repetitionCopy: { flex: 1 },
+  repetitionCardTitle: { color: "#061b4f", fontSize: 18, lineHeight: 23, fontWeight: "900" },
+  repetitionTitleMissing: { color: "#f06f6f" },
+  repetitionTitleOnce: { color: "#111" },
+  repetitionTitleTwice: { color: "#d9a300" },
+  repetitionTitleMany: { color: "#15803d" },
+  repetitionCardText: { color: "#111", fontSize: 13, lineHeight: 20, marginTop: 5 },
+  repetitionNoteRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "center", gap: spacing.sm, paddingHorizontal: spacing.sm },
+  repetitionNote: { flex: 1, color: "#111", fontSize: 12, lineHeight: 18, fontWeight: "700" },
   relationTable: {backgroundColor: "#cfcfcf", borderWidth: 1.5, borderTopColor: "#f3fff0", borderLeftColor: "#f3fff0", borderRightColor: "#6d806d", borderBottomColor: "#6d806d" },
   relationHeader: { flexDirection: "row", minHeight: 58 },
   relationHeadText: { textAlign: "center", textAlignVertical: "center", fontFamily: "serif", fontSize: 10, fontWeight: "900", color: "#111", backgroundColor: "#a9d4ad", borderWidth: 1.5, borderTopColor: "#eaffdf", borderLeftColor: "#eaffdf", borderRightColor: "#5f7a63", borderBottomColor: "#5f7a63" },

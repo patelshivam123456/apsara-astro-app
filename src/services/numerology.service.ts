@@ -105,6 +105,20 @@ export type SectorWiseEffectsResponse = {
   updatedAt?: string;
 };
 
+export type LoShuRepetitionCountsPayload = Record<"1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9", number>;
+
+export type LoShuRepetitionEffectItem = {
+  id?: number;
+  loShuNumber?: number;
+  gridRow?: number;
+  gridColumn?: number;
+  repetitionStatus?: string;
+  repetitionCount?: number;
+  title?: string;
+  meaning?: string;
+  generalNote?: string;
+};
+
 export async function getLoShuGrid(payload: NumerologyPayload) {
   const response = await astroApi.post<ApiResponse<LoShuGridResponse>>(ENDPOINTS.loShuGrid, payload);
   return ((response as unknown as ApiResponse<LoShuGridResponse>).data || response) as LoShuGridResponse;
@@ -162,6 +176,11 @@ export async function getSectorWiseEffects(personalityNo: number, destinyNo: num
   );
 
   return ((response as unknown as ApiResponse<SectorWiseEffectsResponse>).data || response) as SectorWiseEffectsResponse;
+}
+
+export async function getLoShuRepetitionEffects(payload: LoShuRepetitionCountsPayload) {
+  const response = await astroApi.post<ApiResponse<LoShuRepetitionEffectItem[]>>(ENDPOINTS.loShuRepetitionEffects, payload);
+  return ((response as unknown as ApiResponse<LoShuRepetitionEffectItem[]>).data || []) as LoShuRepetitionEffectItem[];
 }
 
 export async function getPersonalYear(payload: NumerologyPayload) {

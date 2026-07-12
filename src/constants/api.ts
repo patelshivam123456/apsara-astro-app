@@ -23,6 +23,7 @@ export const ENDPOINTS = {
   personalityDestinyDetails: "/astrology-services/home-page/personality-destiny-details",
   numberRelationships: "/astrology-services/home-page/number-relationships",
   sectorWiseEffects: "/astrology-services/home-page/get-sector-wise-effects",
+  loShuRepetitionEffects: "/astrology-services/home-page/get-loshu-repetition-effects",
   personalYear: "/astrology-services/home-page/personal-year",
   personalYearMatrix: "/astrology-services/home-page/personal-year-matrix"
 } as const;
