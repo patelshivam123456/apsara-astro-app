@@ -62,6 +62,7 @@ const defaultGrid = {
   middleRow: ["3", "5", "7"],
   bottomRow: ["8", "1", "6"]
 };
+const defaultGridCells = [defaultGrid.topRow, defaultGrid.middleRow, defaultGrid.bottomRow].flat();
 const sectorEffectTabs: {
   key: SectorEffectTab;
   title: string;
@@ -279,7 +280,6 @@ export function NumerologyResultScreen() {
   const [repetitionEffects, setRepetitionEffects] = useState<LoShuRepetitionEffectItem[]>([]);
   const [translatedSectorEffects, setTranslatedSectorEffects] = useState<Partial<Record<LanguageCode, SectorWiseEffectsResponse>>>({});
   const [sectorTranslating, setSectorTranslating] = useState(false);
-  const [activeSectorTab, setActiveSectorTab] = useState<SectorEffectTab>("career");
   const [fromYear, setFromYear] = useState(String(currentYear));
   const [toYear, setToYear] = useState(String(currentYear + 10));
   const [loading, setLoading] = useState(true);
@@ -437,7 +437,7 @@ export function NumerologyResultScreen() {
         </View>
         {error ? <Text style={styles.validation}>{error}</Text> : null}
         <MatrixTable rows={matrix} />
-        <SectorWiseEffectsTabs effects={currentSectorEffects} activeTab={activeSectorTab} translating={sectorTranslating} onChangeTab={setActiveSectorTab} />
+        <SectorWiseEffects effects={currentSectorEffects} translating={sectorTranslating} />
         <PersonalYearReading value={personalYear?.personalYear} />
       </ScrollView>
       <AstrologerBottomNav active="home" respectSafeArea />
@@ -630,23 +630,46 @@ function LoShuRepetitionEffectsSection({ effects }: { effects: LoShuRepetitionEf
 }
 
 function RepetitionGrid({ effects }: { effects: LoShuRepetitionEffectItem[] }) {
-  const { language } = useTranslation();
+  const { language, t } = useTranslation();
   const cells = Array.from({ length: 9 }, (_, index) => {
     const row = Math.floor(index / 3) + 1;
     const column = (index % 3) + 1;
-    return effects.find((item) => Number(item.gridRow) === row && Number(item.gridColumn) === column);
+    const loShuNumber = Number(defaultGridCells[index]);
+    return (
+      effects.find((item) => Number(item.gridRow) === row && Number(item.gridColumn) === column) ||
+      effects.find((item) => Number(item.loShuNumber) === loShuNumber) || {
+        loShuNumber,
+        gridRow: row,
+        gridColumn: column,
+        repetitionCount: 0
+      }
+    );
   });
 
   return (
     <View style={styles.repetitionGrid}>
       {cells.map((effect, index) => {
         const count = Number(effect?.repetitionCount || 0);
+        const numberText = String(effect?.loShuNumber ?? defaultGridCells[index] ?? "-");
+        const cellText = count > 0 ? numberText.repeat(count) : numberText;
         return (
           <View
             key={`${effect?.loShuNumber || index}-${index}`}
             style={[styles.repetitionGridCell, count > 0 ? styles.repetitionGridCellActive : styles.repetitionGridCellMissing]}
           >
-            <Text style={styles.repetitionGridNumber}>{localizeDigitsInText(effect?.loShuNumber ?? "-", language)}</Text>
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.55}
+              style={[
+                styles.repetitionGridNumber,
+                !count && styles.repetitionGridNumberMissing,
+                count >= 3 && styles.repetitionGridNumberMany
+              ]}
+            >
+              {localizeDigitsInText(cellText, language)}
+            </Text>
+            {!count ? <Text style={styles.repetitionGridMissingLabel}>{t("Missing")}</Text> : null}
           </View>
         );
       })}
@@ -710,20 +733,8 @@ function RelationTable({
   );
 }
 
-function SectorWiseEffectsTabs({
-  effects,
-  activeTab,
-  translating,
-  onChangeTab
-}: {
-  effects: SectorWiseEffectsResponse | null;
-  activeTab: SectorEffectTab;
-  translating: boolean;
-  onChangeTab: (tab: SectorEffectTab) => void;
-}) {
+function SectorWiseEffects({ effects, translating }: { effects: SectorWiseEffectsResponse | null; translating: boolean }) {
   const { language, t } = useTranslation();
-  const selectedTab = sectorEffectTabs.find((item) => item.key === activeTab) || sectorEffectTabs[0];
-  const selectedText = translating ? t("Translating...") : effects?.[selectedTab.dataKey]?.trim() || t("No data available.");
 
   return (
     <View style={styles.effectsBox}>
@@ -733,29 +744,21 @@ function SectorWiseEffectsTabs({
           <Text style={styles.combinationValue}>{localizeDigitsInText(effects.combinationKey, language)}</Text>
         </View>
       ) : null}
-      <View style={styles.effectsTabs}>
+      <View style={styles.effectPanels}>
         {sectorEffectTabs.map((tab) => {
-          const active = tab.key === activeTab;
+          const effectText = translating ? t("Translating...") : effects?.[tab.dataKey]?.trim() || t("No data available.");
           return (
-            <Pressable
-              key={tab.key}
-              style={[styles.effectsTab, active && styles.effectsTabActive]}
-              onPress={() => onChangeTab(tab.key)}
-            >
-              <MaterialCommunityIcons name={tab.icon} size={17} color={active ? "#111" : tab.color} />
-              <Text style={[styles.effectsTabText, active && styles.effectsTabTextActive]}>{t(tab.title)}</Text>
-            </Pressable>
+            <View key={tab.key} style={styles.effectPanel}>
+              <View style={[styles.effectIcon, { backgroundColor: tab.color }]}>
+                <MaterialCommunityIcons name={tab.icon} size={25} color="#fff" />
+              </View>
+              <View style={styles.effectCopy}>
+                <Text style={[styles.effectTitle, { color: tab.color }]}>{t(tab.title)}</Text>
+                <Text style={styles.effectText}>{effectText}</Text>
+              </View>
+            </View>
           );
         })}
-      </View>
-      <View style={styles.effectPanel}>
-        <View style={[styles.effectIcon, { backgroundColor: selectedTab.color }]}>
-          <MaterialCommunityIcons name={selectedTab.icon} size={25} color="#fff" />
-        </View>
-        <View style={styles.effectCopy}>
-          <Text style={[styles.effectTitle, { color: selectedTab.color }]}>{t(selectedTab.title)}</Text>
-          <Text style={styles.effectText}>{selectedText}</Text>
-        </View>
       </View>
     </View>
   );
@@ -866,7 +869,7 @@ function MatrixTable({ rows }: { rows: PersonalYearMatrixItem[] }) {
         {rows.map((row) => (
           <View key={row.year} style={styles.matrixRow}>
             <Text style={[styles.matrixCell, styles.matrixYear]}>{localizeDigitsInText(row.year, language)}</Text>
-            <Text style={[styles.matrixCell, styles.matrixPersonal]}>{localizeDigitsInText(row.personalYear || "-", language)}</Text>
+            <PersonalYearMatrixValue value={row.personalYear || "-"} language={language} />
             {months.map(([shortMonth, fullMonth]) => (
               <Text key={shortMonth} style={styles.matrixCell}>{localizeDigitsInText(getMonthValue(row, shortMonth, fullMonth), language)}</Text>
             ))}
@@ -874,6 +877,32 @@ function MatrixTable({ rows }: { rows: PersonalYearMatrixItem[] }) {
         ))}
       </View>
     </ScrollView>
+  );
+}
+
+function PersonalYearMatrixValue({ value, language }: { value: string | number; language: LanguageCode }) {
+  const text = String(value || "-");
+  const slashIndex = text.indexOf("/");
+
+  if (text === "-" || slashIndex === -1) {
+    return (
+      <View style={[styles.matrixCell, styles.matrixPersonal, styles.matrixPersonalValueCell]}>
+        <Text style={styles.matrixPersonalYearText}>{localizeDigitsInText(text, language)}</Text>
+      </View>
+    );
+  }
+
+  const firstValue = text.slice(0, slashIndex);
+  const lastValue = text.slice(slashIndex + 1);
+
+  return (
+    <View style={[styles.matrixCell, styles.matrixPersonal, styles.matrixPersonalValueCell]}>
+      <Text style={styles.matrixPersonalYearText}>
+        <Text style={styles.matrixPersonalYearFirst}>{localizeDigitsInText(firstValue, language)}</Text>
+        <Text style={styles.matrixPersonalYearSlash}>/</Text>
+        <Text style={styles.matrixPersonalYearLast}>{localizeDigitsInText(lastValue, language)}</Text>
+      </Text>
+    </View>
   );
 }
 
@@ -1076,19 +1105,22 @@ const styles = StyleSheet.create({
   repetitionKicker: { color: "#1167df", fontSize: 15, lineHeight: 20, fontWeight: "900" },
   repetitionTitle: { color: "#061b4f", fontSize: 24, lineHeight: 30, fontWeight: "900", marginTop: 3 },
   repetitionGrid: { width: 132, height: 132, flexDirection: "row", flexWrap: "wrap", borderRadius: 8, backgroundColor: "#fff", padding: 5, gap: 3, shadowColor: "#0b3a78", shadowOpacity: 0.2, shadowRadius: 6, elevation: 5 },
-  repetitionGridCell: { width: 38, height: 38, borderRadius: 5, borderWidth: 1, borderColor: "#edf2ff", alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
+  repetitionGridCell: { width: 38, height: 38, borderRadius: 5, borderWidth: 1, borderColor: "#edf2ff", alignItems: "center", justifyContent: "center", backgroundColor: "#fff", paddingVertical: 2 },
   repetitionGridCellActive: { backgroundColor: "#d8ecff" },
-  repetitionGridCellMissing: { backgroundColor: "#ffe3e3" },
-  repetitionGridNumber: { color: "#061b4f", fontSize: 18, lineHeight: 22, fontWeight: "900" },
+  repetitionGridCellMissing: { backgroundColor: "#f1f1f1" },
+  repetitionGridNumber: { color: "#061b4f", fontSize: 18, lineHeight: 22, fontWeight: "900", textAlign: "center", paddingHorizontal: 2 },
+  repetitionGridNumberMissing: { color: "#777", fontSize: 16, lineHeight: 18 },
+  repetitionGridMissingLabel: { color: "#777", fontSize: 7, lineHeight: 9, fontWeight: "900", textAlign: "center" },
+  repetitionGridNumberMany: { color: "#d71920" },
   repetitionCards: { gap: spacing.sm },
   repetitionCard: { minHeight: 104, borderRadius: 8, backgroundColor: "#fff", padding: spacing.md, flexDirection: "row", alignItems: "flex-start", gap: spacing.md, shadowColor: "#0b3a78", shadowOpacity: 0.12, shadowRadius: 4, elevation: 2 },
   repetitionIcon: { width: 54, height: 54, borderRadius: 27, backgroundColor: "#e1f0ff", alignItems: "center", justifyContent: "center" },
   repetitionCopy: { flex: 1 },
   repetitionCardTitle: { color: "#061b4f", fontSize: 18, lineHeight: 23, fontWeight: "900" },
-  repetitionTitleMissing: { color: "#f06f6f" },
+  repetitionTitleMissing: { color: "#777" },
   repetitionTitleOnce: { color: "#111" },
   repetitionTitleTwice: { color: "#d9a300" },
-  repetitionTitleMany: { color: "#15803d" },
+  repetitionTitleMany: { color: "#d71920" },
   repetitionCardText: { color: "#111", fontSize: 13, lineHeight: 20, marginTop: 5 },
   repetitionNoteRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "center", gap: spacing.sm, paddingHorizontal: spacing.sm },
   repetitionNote: { flex: 1, color: "#111", fontSize: 12, lineHeight: 18, fontWeight: "700" },
@@ -1113,16 +1145,12 @@ const styles = StyleSheet.create({
   relationFoot: { flexDirection: "row", minHeight: 56 },
   relationFootLabel: { width: 90, fontSize: 10, lineHeight: 15 },
   relationFootValue: { width: 235, textAlign: "center", textAlignVertical: "center", color: "#111", fontSize: 14, fontWeight: "900", backgroundColor: "#d8d8d8", borderWidth: 1.5, borderTopColor: "#f8f8f8", borderLeftColor: "#f8f8f8", borderRightColor: "#858585", borderBottomColor: "#858585" },
-  effectsBox: { borderWidth: 1.5, borderColor: "#0d3440", backgroundColor: "#fffde5", padding: spacing.sm, gap: spacing.sm },
-  combinationBadge: { alignSelf: "flex-start", minHeight: 31, borderRadius: 5, borderWidth: 1, borderColor: "#111", backgroundColor: "#fff", flexDirection: "row", alignItems: "center", overflow: "hidden" },
+  effectsBox: { borderRadius: 8, backgroundColor: "#fffde5", padding: spacing.sm, gap: spacing.sm, shadowColor: "#0d3440", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.16, shadowRadius: 6, elevation: 4 },
+  combinationBadge: { alignSelf: "flex-start", minHeight: 31, borderRadius: 5, backgroundColor: "#fff", flexDirection: "row", alignItems: "center", overflow: "hidden", shadowColor: "#0d3440", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.14, shadowRadius: 4, elevation: 2 },
   combinationLabel: { paddingHorizontal: 8, paddingVertical: 3, color: "#111", fontSize: 12, lineHeight: 18, fontWeight: "900" },
   combinationValue: { minHeight: 31, paddingHorizontal: 10, paddingVertical: 3, color: "#145c24", backgroundColor: "#bff2c6", textAlignVertical: "center", fontSize: 14, lineHeight: 20, fontWeight: "900" },
-  effectsTabs: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  effectsTab: { minHeight: 40, flexGrow: 1, flexBasis: "48%", borderRadius: 5, borderWidth: 1, borderColor: "#111", backgroundColor: "#fff", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: 6, paddingVertical: 5 },
-  effectsTabActive: { backgroundColor: "#ffcf28", borderColor: "#111" },
-  effectsTabText: { color: "#111", fontSize: 12, lineHeight: 18, fontWeight: "900", textAlign: "center" },
-  effectsTabTextActive: { color: "#111" },
-  effectPanel: { minHeight: 100, flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, borderWidth: 1, borderColor: "#111", backgroundColor: "#fff", padding: spacing.md },
+  effectPanels: { gap: spacing.sm },
+  effectPanel: { minHeight: 100, flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, borderRadius: 8, backgroundColor: "#fff", padding: spacing.md, shadowColor: "#0b3a78", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.14, shadowRadius: 5, elevation: 3 },
   effectIcon: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
   effectCopy: { flex: 1 },
   effectTitle: { fontSize: 22, lineHeight: 32, fontWeight: "900" },
@@ -1136,12 +1164,17 @@ const styles = StyleSheet.create({
   matrixMonthHeader: { flexDirection: "row" },
   matrixRow: { flexDirection: "row" },
   matrixHeadCell: { width: 48, minHeight: 34, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", fontSize: 12, fontWeight: "900", color: "#111" },
-  matrixTallHead: { minHeight: 68 },
+  matrixTallHead: { minHeight: 68, borderBottomWidth: 0 },
   matrixHeadSpacer: { minHeight: 34, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", backgroundColor: "#ffd95d" },
   matrixMonthGroup: { width: 576, minHeight: 34, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", fontFamily: "serif", fontSize: 14, fontWeight: "900", color: "#111" },
   matrixCell: { width: 48, minHeight: 34, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", fontSize: 15, fontWeight: "800", color: "#111" },
   matrixYear: { width: 54 },
   matrixPersonal: { width: 86 },
+  matrixPersonalValueCell: { alignItems: "center", justifyContent: "center" },
+  matrixPersonalYearText: { fontSize: 15, lineHeight: 20, fontWeight: "900", textAlign: "center" },
+  matrixPersonalYearFirst: { color: "#d71920", fontWeight: "900" },
+  matrixPersonalYearSlash: { color: "#111", fontWeight: "900" },
+  matrixPersonalYearLast: { color: "#148f36", fontWeight: "900" },
   readingBox: { borderWidth: 2, borderColor: "#0d3440", backgroundColor: "#fffde5", padding: spacing.sm },
   readingTitle: { fontFamily: "serif", color: "#111", fontSize: 25, lineHeight: 30, fontWeight: "900" },
   readingText: { fontFamily: "serif", color: "#111", fontSize: 16, lineHeight: 21 },

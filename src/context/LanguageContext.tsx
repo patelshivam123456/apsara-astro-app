@@ -103,6 +103,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     Loading: "लोड हो रहा है",
     "Translating...": "अनुवाद हो रहा है...",
     "No data available.": "डेटा उपलब्ध नहीं है।",
+    Missing: "अनुपस्थित",
     "Combination Key": "संयोजन कुंजी",
     Retry: "पुनः प्रयास करें",
     "Core Characteristics": "मुख्य विशेषताएं",
@@ -185,6 +186,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     Loading: "लोड होत आहे",
     "Translating...": "भाषांतर होत आहे...",
     "No data available.": "डेटा उपलब्ध नाही.",
+    Missing: "गहाळ",
     Retry: "पुन्हा प्रयत्न करा"
   },
   bn: {
@@ -229,6 +231,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     Loading: "লোড হচ্ছে",
     "Translating...": "অনুবাদ হচ্ছে...",
     "No data available.": "কোনো তথ্য উপলব্ধ নেই।",
+    Missing: "অনুপস্থিত",
     Retry: "আবার চেষ্টা করুন"
   },
   ta: {
@@ -273,6 +276,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     Loading: "ஏற்றுகிறது",
     "Translating...": "மொழிபெயர்க்கிறது...",
     "No data available.": "தரவு கிடைக்கவில்லை.",
+    Missing: "இல்லை",
     Retry: "மீண்டும் முயற்சி"
   },
   te: {
@@ -317,6 +321,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     Loading: "లోడ్ అవుతోంది",
     "Translating...": "అనువదిస్తోంది...",
     "No data available.": "డేటా అందుబాటులో లేదు.",
+    Missing: "లేదు",
     Retry: "మళ్లీ ప్రయత్నించండి"
   }
 };
