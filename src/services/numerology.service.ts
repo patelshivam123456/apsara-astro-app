@@ -27,6 +27,11 @@ export type LoShuGridResponse = {
   };
 };
 
+export type VedicGridResponse = LoShuGridResponse & {
+  driverAddedToGrid?: boolean;
+  destinyAddedToGrid?: boolean;
+};
+
 export type PersonalYearResponse = {
   personalMonth?: string;
   personalDay?: string;
@@ -122,6 +127,11 @@ export type LoShuRepetitionEffectItem = {
 export async function getLoShuGrid(payload: NumerologyPayload) {
   const response = await astroApi.post<ApiResponse<LoShuGridResponse>>(ENDPOINTS.loShuGrid, payload);
   return ((response as unknown as ApiResponse<LoShuGridResponse>).data || response) as LoShuGridResponse;
+}
+
+export async function getVedicGrid(payload: NumerologyPayload) {
+  const response = await astroApi.post<ApiResponse<VedicGridResponse>>(ENDPOINTS.vedicGrid, payload);
+  return ((response as unknown as ApiResponse<VedicGridResponse>).data || response) as VedicGridResponse;
 }
 
 export async function getPersonalityDestinyDetails(type: PersonalityDestinyType, number: number) {

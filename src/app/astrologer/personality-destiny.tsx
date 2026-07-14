@@ -1,3 +1,3 @@
-import { PersonalityDestinyScreen } from "@/screens/astrologer/NumerologyScreen";
+import { PersonalityDestinyScreen } from "@/components/Numerology/Lushu-grid";
 
 export default PersonalityDestinyScreen;

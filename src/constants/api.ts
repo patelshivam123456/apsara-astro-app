@@ -20,6 +20,7 @@ export const ENDPOINTS = {
   astrologerClients: "/authorization/astrologer/clients",
   astrologers: "/authorization/info/get-all-astrologers",
   loShuGrid: "/astrology-services/home-page/lo-shu-grid",
+  vedicGrid: "/astrology-services/home-page/vedic-grid",
   personalityDestinyDetails: "/astrology-services/home-page/personality-destiny-details",
   numberRelationships: "/astrology-services/home-page/number-relationships",
   sectorWiseEffects: "/astrology-services/home-page/get-sector-wise-effects",
