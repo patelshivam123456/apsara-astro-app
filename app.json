@@ -8,26 +8,30 @@
     "icon": "./src/assets/logo_apsara.png",
     "jsEngine": "hermes",
     "userInterfaceStyle": "automatic",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "splash": {
       "image": "./src/assets/logo_apsara.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "plugins": [
-  "expo-router",
-  "expo-secure-store",
-  "@react-native-community/datetimepicker",
-  "expo-font",
-  "./plugins/withCleartextTraffic"
-],
+      "expo-router",
+      "expo-secure-store",
+      "@react-native-community/datetimepicker",
+      "expo-font",
+      "./plugins/withCleartextTraffic"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.apsaraastro.mobile"
     },
     "android": {
       "package": "com.apsaraastro.mobile",
-      "permissions": ["INTERNET"],
+      "permissions": [
+        "INTERNET"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/logo_apsara.png",
         "backgroundColor": "#fff7e8"
@@ -40,8 +44,9 @@
       "apiUrl": "https://apsraastro.com",
       "astroApiUrl": "https://apsraastro.com",
       "eas": {
-        "projectId": "234d0b67-97f0-4d04-93df-e50e01f538e6"
+        "projectId": "82173d52-de95-4a59-b830-b36228361940"
       }
-    }
+    },
+    "owner": "shivam_onecorp2"
   }
 }
