@@ -26,7 +26,7 @@ export function ProfileScreen() {
   return (
     <Screen>
       <View style={styles.card}>
-        <Text variant="headlineSmall">{t("Profile")}</Text>
+        <Text variant="headlineSmall" style={styles.title} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Profile")}</Text>
         <TextInput label={t("First Name")} value={data.firstName || ""} disabled />
         <TextInput label={t("Email")} value={data.email || ""} disabled />
         <TextInput label={t("Mobile")} value={data.mobileNo || data.phone || ""} disabled />
@@ -39,5 +39,6 @@ export function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.md }
+  card: { borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.md },
+  title: { color: colors.ink, lineHeight: 30 }
 });

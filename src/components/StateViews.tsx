@@ -11,7 +11,7 @@ export function LoadingState({ label = "Loading" }: { label?: string }) {
     <View style={styles.center}>
       <Image source={require("@/assets/logo_apsara.jpeg")} resizeMode="contain" style={styles.loadingLogo} />
       <ActivityIndicator />
-      <Text variant="bodyMedium">{t(label)}</Text>
+      <Text variant="bodyMedium" style={styles.centerText}>{t(label)}</Text>
     </View>
   );
 }
@@ -21,7 +21,7 @@ export function EmptyState({ title, description }: { title: string; description?
 
   return (
     <View style={styles.stateBox}>
-      <Text variant="titleMedium">{t(title)}</Text>
+      <Text variant="titleMedium" style={styles.stateTitle} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{t(title)}</Text>
       {description ? <Text style={styles.muted}>{t(description)}</Text> : null}
     </View>
   );
@@ -32,7 +32,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
 
   return (
     <View style={styles.stateBox}>
-      <Text variant="titleMedium" style={styles.error}>
+      <Text variant="titleMedium" style={styles.error} numberOfLines={4} adjustsFontSizeToFit minimumFontScale={0.72}>
         {t(message)}
       </Text>
       {onRetry ? <Button mode="contained-tonal" onPress={onRetry}>{t("Retry")}</Button> : null}
@@ -54,6 +54,7 @@ export function SkeletonRow() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.md, padding: spacing.xl },
+  centerText: { textAlign: "center", lineHeight: 20 },
   loadingLogo: { width: 150, height: 150, borderRadius: 20 },
   stateBox: {
     borderWidth: 1,
@@ -64,6 +65,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     alignItems: "center"
   },
+  stateTitle: { color: colors.ink, lineHeight: 22 },
   muted: { color: colors.cocoa, textAlign: "center" },
   error: { color: colors.danger, textAlign: "center" },
   skeletonCard: {

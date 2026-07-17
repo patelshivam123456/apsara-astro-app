@@ -45,8 +45,8 @@ export function AstrologerCard({ astrologer, onChat, onCall, onView }: Props) {
           <View style={[styles.statusDot, { backgroundColor: astrologer.isOnline === false ? "#a0a0a0" : colors.success }]} />
         </View>
         <View style={styles.info}>
-          <Text variant="titleMedium" numberOfLines={1}>{name}</Text>
-          <Text style={styles.muted}>{experience}+ {t("years")} • {t(String(skills))}</Text>
+          <Text variant="titleMedium" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.76}>{name}</Text>
+          <Text style={styles.muted} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{experience}+ {t("years")} • {t(String(skills))}</Text>
           <View style={styles.meta}>
             <Chip compact icon="currency-inr">₹{astrologer.pricePerMinute || 25}/min</Chip>
           </View>
@@ -85,8 +85,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.surface
   },
-  info: { flex: 1, gap: spacing.xs },
-  muted: { color: colors.cocoa },
+  info: { flex: 1, minWidth: 0, gap: spacing.xs },
+  muted: { color: colors.cocoa, lineHeight: 19 },
   meta: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.xs },
   actions: { flexDirection: "row", alignItems: "center", gap: spacing.sm }
 });

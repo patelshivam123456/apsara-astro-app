@@ -1,8 +1,8 @@
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || "http://66.116.242.35:8080";
+  process.env.EXPO_PUBLIC_API_URL || "https://apsraastro.com";
 
 export const ASTRO_API_BASE_URL =
-  process.env.EXPO_PUBLIC_ASTRO_API_URL || "http://66.116.242.35:8085";
+  process.env.EXPO_PUBLIC_ASTRO_API_URL || "https://apsraastro.com";
 
 export const ENDPOINTS = {
   login: "/authorization/auth/login",
@@ -26,5 +26,13 @@ export const ENDPOINTS = {
   sectorWiseEffects: "/astrology-services/home-page/get-sector-wise-effects",
   loShuRepetitionEffects: "/astrology-services/home-page/get-loshu-repetition-effects",
   personalYear: "/astrology-services/home-page/personal-year",
-  personalYearMatrix: "/astrology-services/home-page/personal-year-matrix"
+  personalYearMatrix: "/astrology-services/home-page/personal-year-matrix",
+  dailyHoroscope: "/astrology-services/third-party/daily-horoscope",
+  weeklyHoroscope: "/astrology-services/third-party/weekly-horoscope",
+  monthlyHoroscope: "/astrology-services/third-party/monthly-horoscope",
+  yearlyHoroscope: "/astrology-services/third-party/yearly-horoscope",
+  geolocation: "/astrology-services/home-page/get-geolocation",
+  kundaliPdf: "/astrology-services/third-party/kundali-pdf",
+  matchMakingPdf: "/astrology-services/third-party/match-making-pdf",
+  basicAstroDetails: "/astrology-services/third-party/basic-astro-details"
 } as const;

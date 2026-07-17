@@ -918,7 +918,7 @@ function SectionHeader({
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.stepLabel}>{t(stepLabel)}</Text>
-      <Text variant="titleLarge" style={styles.sectionTitle}>
+      <Text variant="titleLarge" style={styles.sectionTitle} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>
         {t(title)}
       </Text>
       <Text style={styles.muted}>{t(description)}</Text>
@@ -1114,6 +1114,8 @@ const styles = StyleSheet.create({
   stepSmallText: {
     marginTop: 6,
     fontSize: 10,
+    lineHeight: 13,
+    minHeight: 26,
     color: "#6b5b2e",
     textAlign: "center",
   },

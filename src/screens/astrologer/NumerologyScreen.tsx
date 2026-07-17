@@ -223,9 +223,9 @@ const styles = StyleSheet.create({
   dateSelectText: { color: "#111", fontFamily: "serif", fontSize: 16, lineHeight: 22 },
   placeholderText: { color: "#9c9c9c" },
   genderRow: { flexDirection: "row", gap: spacing.sm, padding: 4, borderRadius: 11, backgroundColor: "#fff", shadowColor: "#0d3440", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
-  genderBtn: { flex: 1, height: 38, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#f8f8f8" },
+  genderBtn: { flex: 1, minHeight: 42, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#f8f8f8", paddingHorizontal: 4, paddingVertical: 3 },
   genderBtnActive: { backgroundColor: "#c7efc8", shadowColor: "#1d8d31", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 3, elevation: 2 },
-  genderText: { color: "#111", fontSize: 13, fontWeight: "700" },
+  genderText: { color: "#111", fontSize: 13, lineHeight: 16, textAlign: "center", fontWeight: "700" },
   genderTextActive: { color: "#145c24", fontWeight: "900" },
   calculationSelect: { flex: 1 },
   calculationTrigger: { minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingRight: spacing.sm },
@@ -237,9 +237,9 @@ const styles = StyleSheet.create({
   calculationOptionTextActive: { color: "#145c24", fontWeight: "900" },
   validation: { color: colors.danger, fontSize: 12, fontWeight: "800", lineHeight: 17, paddingHorizontal: 2 },
   actionRow: { flexDirection: "row", gap: spacing.sm },
-  clearBtn: { minWidth: 104, height: 42, borderRadius: 10, backgroundColor: "#fff", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, shadowColor: "#0d3440", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 2 },
-  clearText: { fontFamily: "serif", fontWeight: "900", color: "#111", fontSize: 15 },
-  submitBtn: { height: 42, borderRadius: 10, backgroundColor: "#ffcf28", alignItems: "center", justifyContent: "center", shadowColor: "#8a6500", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.22, shadowRadius: 5, elevation: 4 },
+  clearBtn: { minWidth: 104, minHeight: 44, borderRadius: 10, backgroundColor: "#fff", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: spacing.sm, paddingVertical: 3, shadowColor: "#0d3440", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 2 },
+  clearText: { fontFamily: "serif", fontWeight: "900", color: "#111", fontSize: 15, lineHeight: 18, textAlign: "center" },
+  submitBtn: { minHeight: 44, borderRadius: 10, backgroundColor: "#ffcf28", alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.sm, paddingVertical: 3, shadowColor: "#8a6500", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.22, shadowRadius: 5, elevation: 4 },
   submitBtnFlex: { flex: 1 },
-  submitText: { fontFamily: "serif", fontWeight: "900", color: "#111", fontSize: 17 }
+  submitText: { fontFamily: "serif", fontWeight: "900", color: "#111", fontSize: 17, lineHeight: 20, textAlign: "center" }
 });

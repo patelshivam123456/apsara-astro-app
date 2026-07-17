@@ -62,7 +62,7 @@ export function NumerologyResultScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
-        <Text variant="headlineSmall" style={styles.headerTitle}>{t("Numerology")}</Text>
+        <Text variant="headlineSmall" style={styles.headerTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>{t("Numerology")}</Text>
         <LanguageSelector />
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.resultContent} showsVerticalScrollIndicator={false}>

@@ -14,6 +14,12 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="wallet" />
+        <Stack.Screen name="kundali-pdf" />
+        <Stack.Screen name="kundali-pdf-result" />
+        <Stack.Screen name="match-making-pdf" />
+        <Stack.Screen name="match-making-pdf-result" />
+        <Stack.Screen name="apsara-astro-profile" />
+        <Stack.Screen name="apsara-astro-profile-result" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(drawer)" />
         <Stack.Screen name="feature/[name]" />

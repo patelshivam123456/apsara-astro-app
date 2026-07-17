@@ -15,8 +15,12 @@ import { useAuthStore } from "@/store/auth.store";
 import { useWalletStore } from "@/store/wallet.store";
 
 const quickServices = [
+  ["Horoscope", "zodiac-aries"],
   ["Daily Predictions", "weather-sunset"],
   ["Horoscope Compatibility", "heart-multiple"],
+  ["Kundali PDF", "file-document-outline"],
+  ["Match Making PDF", "account-heart-outline"],
+  ["Apsara Astro Profile", "account-star-outline"],
   ["Today's Muhurta", "calendar-star"],
   ["Panchang", "calendar-month"],
   ["Numeroscope", "numeric"],
@@ -50,7 +54,7 @@ export function HomeScreen() {
       <View style={styles.header}>
         <View>
           <Text variant="labelLarge" style={styles.muted}>{t("Welcome")}</Text>
-          <Text variant="headlineSmall">{displayName}</Text>
+          <Text variant="headlineSmall" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{displayName}</Text>
         </View>
         <View style={styles.headerActions}>
           <LanguageSelector />
@@ -60,21 +64,44 @@ export function HomeScreen() {
 
       <View style={styles.services}>
         {quickServices.map(([title, icon]) => (
-          <ServiceTile key={title} title={title} icon={icon} onPress={() => router.push(`/feature/${encodeURIComponent(title)}`)} />
+          <ServiceTile
+            key={title}
+            title={title}
+            icon={icon}
+            onPress={() => {
+              if (title === "Horoscope") {
+                router.push("/my-horoscope");
+                return;
+              }
+              if (title === "Kundali PDF") {
+                router.push("/kundali-pdf");
+                return;
+              }
+              if (title === "Match Making PDF") {
+                router.push("/match-making-pdf");
+                return;
+              }
+              if (title === "Apsara Astro Profile") {
+                router.push("/apsara-astro-profile");
+                return;
+              }
+              router.push(`/feature/${encodeURIComponent(title)}`);
+            }}
+          />
         ))}
       </View>
 
       <ImageBackground source={require("@/assets/Astro_Banner.jpg")} style={styles.banner} imageStyle={styles.bannerImage}>
         <View style={styles.bannerOverlay} />
         <View style={styles.bannerCopy}>
-          <Text variant="headlineSmall" style={styles.bannerTitle}>{t("Claim Your First Free Chat")}</Text>
+          <Text variant="headlineSmall" style={styles.bannerTitle} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Claim Your First Free Chat")}</Text>
           <Text style={styles.bannerText}>{t("Start with a verified expert and continue when it feels right.")}</Text>
           <Button mode="contained" buttonColor={colors.lime} textColor={colors.ink} onPress={() => router.push("/chat")}>{t("Chat Now")}</Button>
         </View>
       </ImageBackground>
 
       <View style={styles.sectionHeader}>
-        <Text variant="titleLarge">{t("Top Astrologers")}</Text>
+        <Text variant="titleLarge" style={styles.sectionTitleText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Top Astrologers")}</Text>
         <Button mode="text" onPress={() => router.push("/astrologers")}>{t("View all")}</Button>
       </View>
       {astrologers.isLoading ? (
@@ -99,16 +126,16 @@ export function HomeScreen() {
       )}
 
       <View style={styles.band}>
-        <Text variant="titleLarge">{t("Store")}</Text>
+        <Text variant="titleLarge" style={styles.blockTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Store")}</Text>
         <View style={styles.pillRow}>
           {["Gemstones", "Pyrites", "Spiritual Products"].map((item) => (
-            <View key={item} style={styles.pill}><Text>{t(item)}</Text></View>
+            <View key={item} style={styles.pill}><Text style={styles.pillText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t(item)}</Text></View>
           ))}
         </View>
       </View>
 
       <View style={styles.band}>
-        <Text variant="titleLarge">{t("Apsara Astro Blogs")}</Text>
+        <Text variant="titleLarge" style={styles.blockTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Apsara Astro Blogs")}</Text>
         <Text style={styles.muted}>{t("Daily guidance, rituals, compatibility, and numerology insights.")}</Text>
       </View>
 
@@ -120,7 +147,7 @@ export function HomeScreen() {
         ].map(([label, icon]) => (
           <View key={label} style={styles.trustItem}>
             <MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={24} color={colors.amber} />
-            <Text style={styles.trustText}>{t(label)}</Text>
+            <Text style={styles.trustText} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.7}>{t(label)}</Text>
           </View>
         ))}
       </View>
@@ -131,21 +158,24 @@ export function HomeScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream },
   content: { padding: spacing.lg, gap: spacing.lg },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flexShrink: 0 },
   muted: { color: colors.cocoa },
   services: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "space-between" },
   banner: { minHeight: 178, overflow: "hidden", borderRadius: 8, justifyContent: "flex-end" },
   bannerImage: { borderRadius: 8 },
   bannerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(33,23,4,0.42)" },
   bannerCopy: { padding: spacing.lg, gap: spacing.sm, alignItems: "flex-start" },
-  bannerTitle: { color: colors.surface, fontWeight: "800" },
+  bannerTitle: { color: colors.surface, fontWeight: "800", lineHeight: 30 },
   bannerText: { color: colors.cream, lineHeight: 21 },
-  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  sectionTitleText: { flex: 1, minWidth: 0 },
   band: { borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.md },
   pillRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  pill: { borderRadius: 8, backgroundColor: "#fff4df", borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  blockTitle: { lineHeight: 28 },
+  pill: { maxWidth: "100%", minHeight: 40, borderRadius: 8, backgroundColor: "#fff4df", borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, justifyContent: "center" },
+  pillText: { color: colors.ink, lineHeight: 17 },
   trust: { flexDirection: "row", gap: spacing.sm },
-  trustItem: { flex: 1, borderRadius: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: spacing.sm, gap: spacing.sm, alignItems: "center" },
-  trustText: { textAlign: "center", fontSize: 12, color: colors.ink }
+  trustItem: { flex: 1, minHeight: 106, borderRadius: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: spacing.sm, gap: spacing.sm, alignItems: "center" },
+  trustText: { width: "100%", minHeight: 42, textAlign: "center", fontSize: 12, lineHeight: 14, color: colors.ink }
 });

@@ -37,8 +37,8 @@
       "router": {
         "origin": false
       },
-      "apiUrl": "http://66.116.242.35:8080",
-      "astroApiUrl": "http://66.116.242.35:8085",
+      "apiUrl": "https://apsraastro.com",
+      "astroApiUrl": "https://apsraastro.com",
       "eas": {
         "projectId": "234d0b67-97f0-4d04-93df-e50e01f538e6"
       }

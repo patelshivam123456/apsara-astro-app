@@ -13,7 +13,7 @@ export default function Language() {
     <Screen>
       <View style={styles.hero}>
         <MaterialCommunityIcons name="translate" size={32} color={colors.amber} />
-        <Text variant="headlineSmall">{t("Language")}</Text>
+        <Text variant="headlineSmall" style={styles.title} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Language")}</Text>
         <Text style={styles.subtitle}>{t("Choose Language")}</Text>
       </View>
       {languages.map((item) => (
@@ -38,6 +38,7 @@ export default function Language() {
 
 const styles = StyleSheet.create({
   hero: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: spacing.xl, gap: spacing.sm },
+  title: { color: colors.ink, lineHeight: 30 },
   subtitle: { color: colors.cocoa, lineHeight: 22 },
   row: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: spacing.md, borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff9ef", borderRadius: 8, padding: spacing.md },
   rowActive: { borderColor: colors.success, backgroundColor: "#efffed" },

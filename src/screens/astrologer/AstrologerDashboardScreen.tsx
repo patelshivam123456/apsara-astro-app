@@ -8,6 +8,7 @@ import { Text } from "react-native-paper";
 import { AstrologerBottomNav, AstrologerSideDrawer } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { LoadingState } from "@/components/StateViews";
+import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 import { useAstrologers } from "@/hooks/useAstrologers";
 import { useAuthStore } from "@/store/auth.store";
@@ -15,15 +16,18 @@ import { Astrologer } from "@/types/api";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
-const services: [string, IconName][] = [
-  ["Daily\nPredictions", "weather-sunny"],
-  ["Horoscope", "zodiac-aries"],
-  ["Compatibility", "heart-multiple"],
-  ["Today's\nMuhurta", "calendar-star"],
-  ["Today's\nPanchang", "script-text"],
-  ["Numeroscope", "numeric"],
-  ["E-Pooja", "home-heart"],
-  ["Store", "shopping"]
+const services: { label: string; icon: IconName; route?: string }[] = [
+  { label: "Daily\nPredictions", icon: "weather-sunny" },
+  { label: "Horoscope", icon: "zodiac-aries", route: "/astrologer/my-horoscope" },
+  { label: "Compatibility", icon: "heart-multiple" },
+  { label: "Kundali PDF", icon: "file-document-outline", route: "/kundali-pdf" },
+  { label: "Match Making PDF", icon: "account-heart-outline", route: "/match-making-pdf" },
+  { label: "Apsara Astro Profile", icon: "account-star-outline", route: "/apsara-astro-profile" },
+  { label: "Today's\nMuhurta", icon: "calendar-star" },
+  { label: "Today's\nPanchang", icon: "script-text" },
+  { label: "Numeroscope", icon: "numeric", route: "/astrologer/numerology" },
+  { label: "E-Pooja", icon: "home-heart" },
+  { label: "Store", icon: "shopping" }
 ];
 
 const fallbackExperts: Astrologer[] = [
@@ -74,28 +78,40 @@ export function AstrologerDashboardScreen() {
       <View style={styles.phone}>
         <View style={styles.header}>
           <Pressable style={styles.iconTap} onPress={() => setDrawerOpen(true)}>
-            <MaterialCommunityIcons name="menu" size={26} color="#020202" />
+            <MaterialCommunityIcons name="menu" size={25} color={colors.ink} />
           </Pressable>
           <Image source={require("@/assets/logo_apsara.jpeg")} resizeMode="cover" style={styles.headerLogo} />
           <View style={styles.brandBlock}>
-            <Text style={styles.logoText} numberOfLines={1}>ApsaraAstro</Text>
-            <Text style={styles.tagline} numberOfLines={1}>{t("ACCOUNT PREDICTIONS SACRED RITUALS ACCESSIBLE")}</Text>
+            <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
+              Apsara Astro
+            </Text>
+            <Text style={styles.tagline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6}>{t("ACCOUNT PREDICTIONS SACRED RITUALS ACCESSIBLE")}</Text>
           </View>
           <View style={styles.wallet}>
-            <Text style={styles.walletText}>Rs. 50{"\n"}{t("Wallet Balance")}</Text>
-            <MaterialCommunityIcons name="plus-box" size={22} color="#0b7d39" />
+            <Text style={styles.walletText}>Rs. 50</Text>
+            <MaterialCommunityIcons name="plus-circle" size={18} color={colors.success} />
           </View>
           <LanguageSelector />
-          <MaterialCommunityIcons name="bell-outline" size={24} color="#868c6e" />
+          <Pressable style={styles.notificationTap}>
+            <MaterialCommunityIcons name="bell-outline" size={20} color={colors.cocoa} />
+          </Pressable>
         </View>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.profileRow}>
-            <Pressable style={styles.avatar} onPress={() => router.push("/astrologer/profile-me")}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </Pressable>
-            <View>
-              <Text style={styles.welcome}>{t("Welcome Back")}</Text>
-              <Text style={styles.name}>{name}</Text>
+          <View style={styles.profileCard}>
+            <View style={styles.profileRow}>
+              <Pressable style={styles.avatar} onPress={() => router.push("/astrologer/profile-me")}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </Pressable>
+              <View style={styles.profileCopy}>
+                <Text style={styles.welcome}>{t("Welcome Back")}</Text>
+                <Text style={styles.name} numberOfLines={1}>{name}</Text>
+                <Text style={styles.profileHint}>{t("Manage consultations, reports, and client requests.")}</Text>
+              </View>
+            </View>
+            <View style={styles.profileStats}>
+              <StatPill label={t("Queue")} value="12" />
+              <StatPill label={t("Reports")} value="08" />
+              <StatPill label={t("Rating")} value="4.8" />
             </View>
           </View>
 
@@ -105,15 +121,26 @@ export function AstrologerDashboardScreen() {
             <MaterialCommunityIcons name="microphone-outline" size={18} color="#333" />
           </View>
 
+          <SectionTitle title={t("Astrology Tools")} />
           <View style={styles.serviceGrid}>
-            {services.map(([label, icon]) => (
-              <Pressable key={label} disabled style={styles.serviceItem}>
-                <View style={styles.serviceCircle}>
-                  <MaterialCommunityIcons name={icon} size={30} color="#9f6400" />
+            {services.map((service) => {
+              const enabled = Boolean(service.route);
+              return (
+              <Pressable
+                key={service.label}
+                disabled={!enabled}
+                onPress={service.route ? () => router.push(service.route as never) : undefined}
+                style={[styles.serviceItem, !enabled && styles.serviceItemMuted]}
+              >
+                <View style={[styles.serviceCircle, enabled && styles.serviceCircleActive]}>
+                  <MaterialCommunityIcons name={service.icon} size={24} color={enabled ? colors.amber : "#9d8d60"} />
                 </View>
-                <Text style={styles.serviceText}>{t(label)}</Text>
+                <Text style={styles.serviceText} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.68}>
+                  {t(service.label)}
+                </Text>
               </Pressable>
-            ))}
+              );
+            })}
           </View>
 
           <View style={styles.chatBanner}>
@@ -163,7 +190,7 @@ function SectionTitle({ title, action, crown, onAction }: { title: string; actio
     <View style={styles.sectionTitle}>
       <View style={styles.titleRow}>
         {crown ? <MaterialCommunityIcons name="crown" size={19} color="#d59a13" /> : null}
-        <Text style={styles.sectionText}>{title}</Text>
+        <Text style={styles.sectionText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{title}</Text>
       </View>
       {action ? (
         <Pressable onPress={onAction} hitSlop={8}>
@@ -214,7 +241,7 @@ function ExpertRow({ astrologers }: { astrologers: Astrologer[] }) {
         const name = getExpertName(astrologer);
         return (
         <Pressable key={astrologer.publicId || astrologer.email || name} disabled style={styles.expertCard}>
-          <Text style={styles.expertRole} numberOfLines={1}>{t(astrologer.specialization || "Astrologer")}</Text>
+          <Text style={styles.expertRole} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t(astrologer.specialization || "Astrologer")}</Text>
           <View style={styles.expertPhoto}>
             <MaterialCommunityIcons name="account-circle" size={58} color={index % 2 === 0 ? "#1a1a1a" : "#3b2517"} />
             <View style={styles.expertShade}>
@@ -235,7 +262,16 @@ function TrustItem({ icon, label }: { icon: IconName; label: string }) {
       <View style={styles.trustCircle}>
         <MaterialCommunityIcons name={icon} size={38} color="#111" />
       </View>
-      <Text style={styles.trustText}>{label}</Text>
+      <Text style={styles.trustText} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.7}>{label}</Text>
+    </View>
+  );
+}
+
+function StatPill({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.statPill}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{label}</Text>
     </View>
   );
 }
@@ -244,45 +280,55 @@ function NavItem({ icon, label, onPress }: { icon: IconName; label: string; onPr
   return (
     <Pressable disabled={!onPress} onPress={onPress} style={styles.navItem}>
       <MaterialCommunityIcons name={icon} size={30} color="#050505" />
-      <Text style={styles.navText}>{label}</Text>
+      <Text style={styles.navText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f8f7f2" },
-  phone: { flex: 1, alignSelf: "center", width: "100%", maxWidth: 420, backgroundColor: "#ffffc9" },
+  safe: { flex: 1, backgroundColor: colors.cream },
+  phone: { flex: 1, alignSelf: "center", width: "100%", maxWidth: 430, backgroundColor: colors.cream },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 12, paddingBottom: 92 },
-  header: { flexDirection: "row", alignItems: "center", minHeight: 58, gap: 4, backgroundColor: "#ffffc9", borderBottomWidth: 1, borderBottomColor: "#efe6a6", paddingHorizontal: 8 },
-  iconTap: { width: 24, height: 34, alignItems: "center", justifyContent: "center" },
-  headerLogo: { width: 32, height: 32, borderRadius: 16, backgroundColor: "#050505" },
-  brandBlock: { flex: 1, minWidth: 0 },
-  logoText: { fontSize: 18, lineHeight: 21, fontWeight: "900", color: "#111" },
-  wallet: { borderWidth: 1.5, borderColor: "#111", flexDirection: "row", alignItems: "center", paddingLeft: 4, marginRight: 1, height: 28, backgroundColor: "#f5ffd4" },
-  walletText: { fontSize: 7, lineHeight: 8, fontWeight: "700" },
-  tagline: { color: "#f36c14", fontSize: 5, lineHeight: 7, fontWeight: "800" },
-  profileRow: { flexDirection: "row", alignItems: "center", marginTop: 10, gap: 10 },
-  avatar: { width: 62, height: 62, borderRadius: 31, borderWidth: 2, borderColor: "#176f89", backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#111", fontSize: 24, lineHeight: 28, fontWeight: "900" },
-  welcome: { fontFamily: "serif", fontSize: 14, color: "#111" },
-  name: { fontFamily: "serif", fontSize: 28, lineHeight: 31, color: "#111", fontWeight: "900" },
-  search: { height: 34, marginTop: 9, borderWidth: 1.5, borderColor: "#111", borderRadius: 5, backgroundColor: "#fff", flexDirection: "row", alignItems: "center", paddingHorizontal: 8 },
+  content: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: 96, gap: spacing.md },
+  header: { flexDirection: "row", alignItems: "center", minHeight: 62, gap: 5, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: spacing.sm },
+  iconTap: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#fff7df", borderWidth: 1, borderColor: colors.border },
+  notificationTap: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#fff7df", borderWidth: 1, borderColor: colors.border },
+  headerLogo: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.ink },
+  brandBlock: { flex: 1, minWidth: 96 },
+  logoText: { fontSize: 16, lineHeight: 20, fontWeight: "900", color: colors.ink },
+  wallet: { minWidth: 62, borderWidth: 1, borderColor: "#d7eac8", borderRadius: 17, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 6, height: 32, backgroundColor: "#f8fff3" },
+  walletText: { fontSize: 11, lineHeight: 13, color: colors.ink, fontWeight: "900" },
+  tagline: { color: colors.amber, fontSize: 6, lineHeight: 8, fontWeight: "800" },
+  profileCard: { marginTop: spacing.md, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: spacing.md, gap: spacing.md },
+  profileRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  profileCopy: { flex: 1, minWidth: 0 },
+  avatar: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: colors.gold, backgroundColor: "#fff8e5", alignItems: "center", justifyContent: "center" },
+  avatarText: { color: colors.ink, fontSize: 24, lineHeight: 28, fontWeight: "900" },
+  welcome: { fontSize: 13, color: colors.cocoa, fontWeight: "700" },
+  name: { fontSize: 26, lineHeight: 31, color: colors.ink, fontWeight: "900" },
+  profileHint: { marginTop: 2, color: colors.cocoa, fontSize: 12, lineHeight: 16 },
+  profileStats: { flexDirection: "row", gap: spacing.sm },
+  statPill: { flex: 1, minHeight: 54, borderRadius: 8, backgroundColor: "#fff7df", borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  statValue: { color: colors.ink, fontSize: 17, lineHeight: 20, fontWeight: "900" },
+  statLabel: { color: colors.cocoa, fontSize: 11, fontWeight: "700" },
+  search: { height: 42, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface, flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md },
   searchLine: { flex: 1 },
-  serviceGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginTop: 14, rowGap: 16 },
-  serviceItem: { width: "23%", alignItems: "center", minHeight: 88 },
-  serviceCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: "#ffef00", borderColor: "#df9c00", borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
-  serviceText: { marginTop: 6, fontSize: 10, lineHeight: 12, textAlign: "center", fontWeight: "900", color: "#111" },
-  chatBanner: { height: 78, marginTop: 6, borderRadius: 8, borderWidth: 3, borderColor: "#073b4a", overflow: "hidden", flexDirection: "row", backgroundColor: "#ccf6d2" },
+  serviceGrid: {width: "100%", flexDirection: "row", flexWrap: "wrap",  rowGap: 10},
+  serviceItem: { width: "31.5%",marginHorizontal: 3, minHeight: 56, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.sm, paddingVertical: spacing.md },
+  serviceItemMuted: { opacity: 0.72 },
+  serviceCircle: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#fff4ce", borderColor: colors.border, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  serviceCircleActive: { borderColor: colors.gold, backgroundColor: "#fff0b8" },
+  serviceText: { width: "100%", minHeight: 44, marginTop: spacing.sm, fontSize: 12, lineHeight: 22, textAlign: "center", fontWeight: "900", color: colors.ink, includeFontPadding: true },
+  chatBanner: { height: 92, borderRadius: 8, borderWidth: 1, borderColor: colors.border, overflow: "hidden", flexDirection: "row", backgroundColor: "#ecf8e8" },
   bannerPhoto: { width: 114, height: "100%" },
   bannerPhotoImage: { resizeMode: "cover" },
   bannerCopy: { justifyContent: "center", alignItems: "center", width: 108 },
   chatNow: { fontFamily: "serif", fontSize: 29, lineHeight: 31, fontWeight: "900", color: "#111", textAlign: "center" },
   claim: { flex: 1, fontFamily: "serif", alignSelf: "center", textAlign: "center", fontSize: 18, lineHeight: 21, fontWeight: "900", color: "#111" },
   caption: { marginTop: 6, fontFamily: "serif", fontSize: 10, lineHeight: 14, color: "#111" },
-  sectionTitle: { marginTop: 12, marginBottom: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  titleRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  sectionText: { fontFamily: "serif", fontSize: 13, fontWeight: "900", color: "#111" },
+  sectionTitle: { marginTop: 12, marginBottom: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  titleRow: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 4 },
+  sectionText: { flex: 1, minWidth: 0, fontFamily: "serif", fontSize: 13, lineHeight: 16, fontWeight: "900", color: "#111" },
   viewAll: { fontFamily: "serif", fontSize: 12, color: "#777" },
   expertRow: {borderRadius :8, flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 },
   // expertCard: { width: "30.5%", backgroundColor: "#f8fff5" },
@@ -304,13 +350,13 @@ const styles = StyleSheet.create({
   elevation: 4,
   // paddingBottom: 4,
 },
-  expertRole: { height: 31,borderRadius:8, textAlign: "center", textAlignVertical: "center", fontSize: 10, color: "#111" },
+  expertRole: { minHeight: 38, paddingHorizontal: 3, borderRadius:8, textAlign: "center", textAlignVertical: "center", fontSize: 10, lineHeight: 13, color: "#111" },
   expertPhoto: { height: 100, justifyContent: "flex-end", alignItems: "center", backgroundColor: "#e2f6df" },
   expertShade: { alignSelf: "stretch", minHeight: 42, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.28)", paddingHorizontal: 4 },
   expertName: { fontFamily: "serif", fontSize: 16, lineHeight: 19, color: "#fff", fontWeight: "900" },
   price: { fontSize: 10, color: "#fff",paddingBottom: 2 },
   pageTwo: { paddingTop: 22 },
-  subhead: { marginTop: 8, marginBottom: 8, marginLeft: 0, fontFamily: "serif", fontSize: 13, color: "#111", fontWeight: "700" },
+  subhead: { marginTop: 8, marginBottom: 8, marginLeft: 0, fontFamily: "serif", fontSize: 13, lineHeight: 17, color: "#111", fontWeight: "700" },
   gems: { gap: 10, paddingHorizontal: 0},
   gemOuter: { width: 45, height: 45, borderRadius: 23, borderWidth: 2, borderColor: "#e5a700", alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
   gemInner: { width: 31, height: 31, borderRadius: 16, backgroundColor: "#22160d", borderWidth: 5, borderColor: "#fff6e2" },
@@ -319,10 +365,10 @@ const styles = StyleSheet.create({
   trustRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 48, marginBottom: 20 },
   trustItem: { width: "31%", alignItems: "center" },
   trustCircle: { width: 70, height: 70, borderRadius: 35, borderWidth: 4, borderColor: "#3e9b35", alignItems: "center", justifyContent: "center", backgroundColor: "#f8fff7" },
-  trustText: { marginTop: 8, textAlign: "center", fontFamily: "serif", fontSize: 14, lineHeight: 16, color: "#111", fontWeight: "900" },
+  trustText: { width: "100%", minHeight: 48, marginTop: 8, textAlign: "center", fontFamily: "serif", fontSize: 14, lineHeight: 16, color: "#111", fontWeight: "900" },
   bottomNav: { position: "absolute", left: 0, right: 0, bottom: 0, height: 66, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#efefef", flexDirection: "row", justifyContent: "space-around", alignItems: "center" },
   navItem: { width: "20%", alignItems: "center", justifyContent: "center", gap: 2 },
-  navText: { fontSize: 9, color: "#111" },
+  navText: { width: "100%", minHeight: 22, textAlign: "center", fontSize: 9, lineHeight: 11, color: "#111" },
   drawerLayer: { ...StyleSheet.absoluteFillObject, flexDirection: "row" },
   drawerDim: { flex: 1, backgroundColor: "rgba(0,0,0,0.18)" },
   drawerPanel: { position: "absolute", left: 0, top: 0, bottom: 0, width: "82%", maxWidth: 330, backgroundColor: "#fff" },

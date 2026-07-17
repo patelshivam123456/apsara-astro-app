@@ -159,8 +159,8 @@ function AstrologerResultCard({ astrologer }: { astrologer: Astrologer }) {
           <View style={[styles.onlineDot, { backgroundColor: astrologer.isOnline === false ? "#9a9a9a" : colors.success }]} />
         </View>
         <View style={styles.cardInfo}>
-          <Text variant="titleLarge" numberOfLines={1} style={styles.cardName}>{name}</Text>
-          <Text style={styles.cardMeta} numberOfLines={2}>{years}+ {t("years")} • {t(skills)}</Text>
+          <Text variant="titleLarge" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.76} style={styles.cardName}>{name}</Text>
+          <Text style={styles.cardMeta} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{years}+ {t("years")} • {t(skills)}</Text>
           <Chip compact icon="currency-inr" style={styles.priceChip} textStyle={styles.priceText}>₹{astrologer.pricePerMinute || 25}/min</Chip>
         </View>
       </View>
@@ -191,8 +191,8 @@ const styles = StyleSheet.create({
   activeChip: { backgroundColor: "#c5a500" },
   chipText: { color: colors.ink, fontSize: 12, fontWeight: "700" },
   activeChipText: { color: "#111", fontWeight: "900" },
-  resultHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  resultTitle: { color: colors.ink, fontWeight: "900" },
+  resultHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.sm },
+  resultTitle: { flex: 1, minWidth: 0, color: colors.ink, fontWeight: "900" },
   resultMuted: { color: colors.cocoa, fontSize: 12 },
   card: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface, padding: spacing.md, gap: spacing.md },
   cardTop: { flexDirection: "row", gap: spacing.md },
@@ -200,8 +200,8 @@ const styles = StyleSheet.create({
   avatar: { backgroundColor: colors.ink },
   avatarLabel: { color: colors.lime, fontSize: 24, fontWeight: "800" },
   onlineDot: { width: 14, height: 14, borderRadius: 7, marginTop: spacing.md },
-  cardInfo: { flex: 1, gap: spacing.sm },
-  cardName: { color: colors.ink, fontWeight: "900" },
+  cardInfo: { flex: 1, minWidth: 0, gap: spacing.sm },
+  cardName: { color: colors.ink, fontWeight: "900", lineHeight: 27 },
   cardMeta: { color: colors.cocoa, lineHeight: 21 },
   priceChip: { alignSelf: "flex-start", backgroundColor: "#e8ddf8" },
   priceText: { color: colors.ink, fontSize: 16, fontWeight: "900" },

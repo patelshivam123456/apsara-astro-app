@@ -43,7 +43,7 @@ export function LanguageSelector() {
 
 const styles = StyleSheet.create({
   wrap: { position: "relative", zIndex: 30 },
-  iconButton: { minWidth: 48, height: 34, borderRadius: 17, borderWidth: 1, borderColor: "#c8e7c7", backgroundColor: "#fff", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 7 },
+  iconButton: { minWidth: 44, height: 32, borderRadius: 16, borderWidth: 1, borderColor: "#c8e7c7", backgroundColor: "#fff", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2, paddingHorizontal: 5 },
   shortCode: { color: "#145c24", fontSize: 10, fontWeight: "900" },
   menu: { position: "absolute", right: 0, top: 40, width: 190, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff", padding: spacing.sm, gap: 4, shadowColor: "#000", shadowOpacity: 0.22, shadowRadius: 5, elevation: 8 },
   menuTitle: { color: colors.cocoa, fontSize: 12, fontWeight: "900", marginBottom: 2 },

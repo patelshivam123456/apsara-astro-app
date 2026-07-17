@@ -17,7 +17,7 @@ export function ServiceTile({ title, icon, onPress }: Props) {
   return (
     <Pressable style={styles.tile} onPress={onPress}>
       <MaterialCommunityIcons name={icon} size={24} color={colors.amber} />
-      <Text variant="labelLarge" style={styles.title}>
+      <Text variant="labelLarge" style={styles.title} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.68}>
         {t(title)}
       </Text>
     </Pressable>
@@ -27,7 +27,7 @@ export function ServiceTile({ title, icon, onPress }: Props) {
 const styles = StyleSheet.create({
   tile: {
     width: "31%",
-    minHeight: 92,
+    minHeight: 140,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -37,5 +37,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.sm
   },
-  title: { textAlign: "center", color: colors.ink }
+  title: { width: "100%", minHeight: 58, textAlign: "center", color: colors.ink, lineHeight: 21, includeFontPadding: true }
 });

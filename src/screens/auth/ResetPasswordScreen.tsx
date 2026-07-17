@@ -36,7 +36,7 @@ export function ResetPasswordScreen() {
   return (
     <Screen>
       <View style={styles.card}>
-        <Text variant="headlineSmall">{t("Reset Password")}</Text>
+        <Text variant="headlineSmall" style={styles.title} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Reset Password")}</Text>
         <TextInput label={t("New Password")} value={password} onChangeText={setPassword} secureTextEntry />
         <TextInput label={t("Confirm Password")} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
         {error ? <HelperText type="error" visible>{t(error)}</HelperText> : null}
@@ -47,5 +47,6 @@ export function ResetPasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 8, borderColor: colors.border, borderWidth: 1, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.md }
+  card: { borderRadius: 8, borderColor: colors.border, borderWidth: 1, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.md },
+  title: { color: colors.ink, lineHeight: 30 }
 });

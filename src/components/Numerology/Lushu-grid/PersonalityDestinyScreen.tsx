@@ -31,7 +31,7 @@ export function PersonalityDestinyScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
-        <Text variant="headlineSmall" style={styles.headerTitle}>{t("Numerology")}</Text>
+        <Text variant="headlineSmall" style={styles.headerTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>{t("Numerology")}</Text>
         <LanguageSelector />
       </View>
       <View style={styles.detailContainer}>
@@ -42,7 +42,7 @@ export function PersonalityDestinyScreen() {
               style={[styles.detailTab, activeTab === tab && styles.detailTabActive]}
               onPress={() => setActiveTab(tab)}
             >
-              <Text style={[styles.detailTabText, activeTab === tab && styles.detailTabTextActive]}>
+              <Text style={[styles.detailTabText, activeTab === tab && styles.detailTabTextActive]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>
                 {tab === "PERSONALITY" ? t("Personality") : t("Destiny")}
               </Text>
             </Pressable>

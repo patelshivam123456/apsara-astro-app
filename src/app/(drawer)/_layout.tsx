@@ -47,6 +47,7 @@ export default function DrawerLayout() {
           name={name}
           options={{
             title: t(title),
+            headerShown: name !== "my-horoscope",
             drawerIcon: ({ color, size }) => (
               <MaterialCommunityIcons
                 name={icon as keyof typeof MaterialCommunityIcons.glyphMap}

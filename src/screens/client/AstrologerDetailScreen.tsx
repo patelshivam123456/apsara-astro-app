@@ -32,13 +32,13 @@ export function AstrologerDetailScreen() {
         <View style={styles.content}>
           <View style={styles.header}>
             <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
-            <Text variant="titleMedium" style={styles.headerTitle}>{t("Astrologer")}</Text>
+            <Text variant="titleMedium" style={styles.headerTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Astrologer")}</Text>
             <View style={styles.headerSpacer} />
           </View>
           <View style={styles.card}>
             <Avatar.Text label={initials || "AA"} size={86} style={styles.avatar} labelStyle={styles.avatarLabel} />
-            <Text variant="headlineSmall">{name}</Text>
-            <Text style={styles.muted}>{t(astro.specialization || "Astrology")} • {astro.yearsOfExperience || 5}+ {t("years")}</Text>
+            <Text variant="headlineSmall" style={styles.name} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.76}>{name}</Text>
+            <Text style={styles.muted} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{t(astro.specialization || "Astrology")} • {astro.yearsOfExperience || 5}+ {t("years")}</Text>
             <View style={styles.chips}>
               {(String(astro.language || astro.languagesKnown || "Hindi, English").split(",")).map((item) => (
                 <Chip key={item.trim()} compact>{item.trim()}</Chip>
@@ -60,13 +60,14 @@ export function AstrologerDetailScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { paddingBottom: 96, gap: spacing.lg },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  headerTitle: { fontWeight: "800", color: colors.ink },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  headerTitle: { flex: 1, minWidth: 0, fontWeight: "800", color: colors.ink, textAlign: "center", lineHeight: 22 },
   headerSpacer: { width: 70 },
   card: { alignItems: "center", borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 8, padding: spacing.xl, gap: spacing.md },
   avatar: { backgroundColor: colors.ink },
   avatarLabel: { color: colors.lime },
-  muted: { color: colors.cocoa },
+  name: { color: colors.ink, textAlign: "center", lineHeight: 31 },
+  muted: { color: colors.cocoa, textAlign: "center", lineHeight: 20 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" },
   bio: { color: colors.cocoa, textAlign: "center", lineHeight: 22 },
   actions: { flexDirection: "row", gap: spacing.md }
