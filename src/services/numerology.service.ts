@@ -124,6 +124,31 @@ export type LoShuRepetitionEffectItem = {
   generalNote?: string;
 };
 
+export type DashaAntardashaItem = {
+  mahadashaNumber?: number;
+  antardashaNumber?: number;
+  durationDays?: number;
+  startDate?: string;
+  endDate?: string;
+};
+
+export type DashaMahadashaItem = {
+  mahadashaNumber?: number;
+  startDate?: string;
+  endDate?: string;
+  durationYears?: number;
+  durationDays?: number;
+  antardashas?: DashaAntardashaItem[];
+};
+
+export type DashaCalculationResponse = {
+  dateOfBirth?: string;
+  fromDate?: string;
+  toDate?: string;
+  personalityNumber?: number;
+  mahadashas?: DashaMahadashaItem[];
+};
+
 export async function getLoShuGrid(payload: NumerologyPayload) {
   const response = await astroApi.post<ApiResponse<LoShuGridResponse>>(ENDPOINTS.loShuGrid, payload);
   return ((response as unknown as ApiResponse<LoShuGridResponse>).data || response) as LoShuGridResponse;
@@ -132,6 +157,25 @@ export async function getLoShuGrid(payload: NumerologyPayload) {
 export async function getVedicGrid(payload: NumerologyPayload) {
   const response = await astroApi.post<ApiResponse<VedicGridResponse>>(ENDPOINTS.vedicGrid, payload);
   return ((response as unknown as ApiResponse<VedicGridResponse>).data || response) as VedicGridResponse;
+}
+
+export async function getDashaCalculation(dateOfBirth: string, fromDate: string, toDate: string) {
+  const query = new URLSearchParams({
+    dateOfBirth,
+    fromDate,
+    toDate
+  });
+
+  const response = await astroApi.get<ApiResponse<DashaCalculationResponse>>(
+    `${ENDPOINTS.dashaCalculation}?${query.toString()}`,
+    {
+      headers: {
+        Accept: "application/json"
+      }
+    }
+  );
+
+  return ((response as unknown as ApiResponse<DashaCalculationResponse>).data || response) as DashaCalculationResponse;
 }
 
 export async function getPersonalityDestinyDetails(type: PersonalityDestinyType, number: number) {

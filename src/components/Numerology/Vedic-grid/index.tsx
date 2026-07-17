@@ -12,6 +12,7 @@ import { getApiErrorMessage } from "@/services/apiClient";
 import { getVedicGrid, VedicGridResponse } from "@/services/numerology.service";
 
 import { GridIntro, NumberCard } from "@/components/Numerology/Lushu-grid/Common";
+import { DashaChart } from "@/components/Numerology/Vedic-grid/DashaChart";
 import { LoShuGrid } from "@/components/Numerology/Lushu-grid/LoShuGrid";
 import { styles } from "@/components/Numerology/Lushu-grid/styles";
 
@@ -76,6 +77,7 @@ export function VedicGridScreen() {
           <NumberCard label={t("Running Age")} value={vedicGrid?.runningAge} note={t("Years")} />
           <NumberCard label={t("Zodiac")} value={vedicGrid?.zodiacNumber} note={vedicGrid?.zodiacSign || t("Zodiac Sign")} />
         </View>
+        <DashaChart dateOfBirth={vedicGrid?.dob || dob} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
       <AstrologerBottomNav active="home" respectSafeArea />

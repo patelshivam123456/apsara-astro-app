@@ -21,6 +21,7 @@ export const ENDPOINTS = {
   astrologers: "/authorization/info/get-all-astrologers",
   loShuGrid: "/astrology-services/home-page/lo-shu-grid",
   vedicGrid: "/astrology-services/home-page/vedic-grid",
+  dashaCalculation: "/astrology-services/home-page/numerology/dasha-calculation",
   personalityDestinyDetails: "/astrology-services/home-page/personality-destiny-details",
   numberRelationships: "/astrology-services/home-page/number-relationships",
   sectorWiseEffects: "/astrology-services/home-page/get-sector-wise-effects",
