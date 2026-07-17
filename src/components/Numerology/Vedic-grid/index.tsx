@@ -9,11 +9,12 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
-import { getVedicGrid, VedicGridResponse } from "@/services/numerology.service";
+import { getNumberRelationships, getVedicGrid, NumberRelationshipItem, VedicGridResponse } from "@/services/numerology.service";
 
 import { GridIntro, NumberCard } from "@/components/Numerology/Lushu-grid/Common";
 import { DashaChart } from "@/components/Numerology/Vedic-grid/DashaChart";
 import { LoShuGrid } from "@/components/Numerology/Lushu-grid/LoShuGrid";
+import { RelationTable } from "@/components/Numerology/Lushu-grid/RelationTable";
 import { styles } from "@/components/Numerology/Lushu-grid/styles";
 
 export function VedicGridScreen() {
@@ -24,6 +25,7 @@ export function VedicGridScreen() {
   const gender = String(params.gender || "Male");
   const payload = useMemo(() => ({ dob, fullName, gender }), [dob, fullName, gender]);
   const [vedicGrid, setVedicGrid] = useState<VedicGridResponse | null>(null);
+  const [relationships, setRelationships] = useState<NumberRelationshipItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +37,14 @@ export function VedicGridScreen() {
         setLoading(true);
         setError(null);
         const response = await getVedicGrid(payload);
-        if (mounted) setVedicGrid(response);
+        if (!mounted) return;
+        setVedicGrid(response);
+        const personalityNo = Number(response.driverNumber);
+        const destinyNo = Number(response.destinyNumber);
+        const relationshipRows = Number.isFinite(personalityNo) && Number.isFinite(destinyNo)
+          ? await getNumberRelationships(personalityNo, destinyNo)
+          : [];
+        if (mounted) setRelationships(relationshipRows);
       } catch (err) {
         if (mounted) setError(getApiErrorMessage(err, "Unable to load vedic grid"));
       } finally {
@@ -77,6 +86,7 @@ export function VedicGridScreen() {
           <NumberCard label={t("Running Age")} value={vedicGrid?.runningAge} note={t("Years")} />
           <NumberCard label={t("Zodiac")} value={vedicGrid?.zodiacNumber} note={vedicGrid?.zodiacSign || t("Zodiac Sign")} />
         </View>
+        <RelationTable relationships={relationships} personalityNo={vedicGrid?.driverNumber} destinyNo={vedicGrid?.destinyNumber} />
         <DashaChart dateOfBirth={vedicGrid?.dob || dob} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
