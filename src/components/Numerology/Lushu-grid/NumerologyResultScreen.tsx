@@ -9,7 +9,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useTranslation } from "@/context/LanguageContext";
 
-import { GridIntro, NumberCard, SectionLabel } from "./Common";
+import { GridIntro, NumberCard } from "./Common";
 import { Calculation } from "./constants";
 import { LoShuGrid } from "./LoShuGrid";
 import { LoShuRepetitionEffectsSection } from "./LoShuRepetitionEffectsSection";
@@ -96,13 +96,17 @@ export function NumerologyResultScreen() {
           <NumberCard label={t("Current Personal Month")} value={personalYear?.personalMonth} />
           <NumberCard label={t("Current Personal Day")} value={personalYear?.personalDay} />
         </View>
-        <SectionLabel title={t("Matrix for Personal Year & Month")} />
-        <View style={styles.yearInputs}>
-          <TextInput value={fromYear} onChangeText={setFromYear} keyboardType="number-pad" placeholder={t("From Year")} style={styles.yearInput} />
-          <TextInput value={toYear} onChangeText={setToYear} keyboardType="number-pad" placeholder={t("To Year")} style={styles.yearInput} />
-          <Pressable style={styles.smallBtn} onPress={refreshMatrix} disabled={matrixLoading}>
-            <Text style={styles.smallBtnText}>{matrixLoading ? t("Loading") : t("Apply")}</Text>
-          </Pressable>
+        <View style={styles.sectionLabel}>
+          <Text style={styles.sectionLabelText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.68}>
+            {t("Matrix for Personal Year & Month")}
+          </Text>
+          <View style={styles.yearInputsInHeading}>
+            <TextInput value={fromYear} onChangeText={setFromYear} keyboardType="number-pad" placeholder={t("From Year")} style={styles.yearInputInHeading} />
+            <TextInput value={toYear} onChangeText={setToYear} keyboardType="number-pad" placeholder={t("To Year")} style={styles.yearInputInHeading} />
+            <Pressable style={styles.smallBtnInHeading} onPress={refreshMatrix} disabled={matrixLoading}>
+              <Text style={styles.smallBtnText}>{matrixLoading ? t("Loading") : t("Apply")}</Text>
+            </Pressable>
+          </View>
         </View>
         {error ? <Text style={styles.validation}>{error}</Text> : null}
         <MatrixTable rows={matrix} />

@@ -8,18 +8,17 @@ import { ActiveHoroscopeTab } from "./types";
 
 type Props = {
   activeTab: ActiveHoroscopeTab;
-  hasAstrologer: boolean;
   hasDivine: boolean;
   onChangeTab: (tab: ActiveHoroscopeTab) => void;
 };
 
-export function HoroscopeTabs({ activeTab, hasAstrologer, hasDivine, onChangeTab }: Props) {
+export function HoroscopeTabs({ activeTab, hasDivine, onChangeTab }: Props) {
   const { t } = useTranslation();
 
   return (
     <View style={styles.tabs}>
       {horoscopeTabs.map((tab) => {
-        const enabled = tab.key === "astrologer" ? hasAstrologer : hasDivine;
+        const enabled = tab.key === "astrologer" ? true : hasDivine;
         return (
           <Pressable
             key={tab.key}

@@ -149,6 +149,19 @@ export type DashaCalculationResponse = {
   mahadashas?: DashaMahadashaItem[];
 };
 
+export type PratyantarDashaItem = {
+  calculationYear?: number;
+  pratyantarDashaNumber?: number;
+  birthdayDate?: string;
+  effectiveStartDate?: string;
+  effectiveEndDate?: string;
+  birthDay?: number;
+  birthMonth?: number;
+  yearWithoutCentury?: number;
+  dayLordNumber?: number;
+  dayLordName?: string;
+};
+
 export async function getLoShuGrid(payload: NumerologyPayload) {
   const response = await astroApi.post<ApiResponse<LoShuGridResponse>>(ENDPOINTS.loShuGrid, payload);
   return ((response as unknown as ApiResponse<LoShuGridResponse>).data || response) as LoShuGridResponse;
@@ -176,6 +189,25 @@ export async function getDashaCalculation(dateOfBirth: string, fromDate: string,
   );
 
   return ((response as unknown as ApiResponse<DashaCalculationResponse>).data || response) as DashaCalculationResponse;
+}
+
+export async function getPratyantarDasha(dateOfBirth: string, fromDate: string, years: number) {
+  const query = new URLSearchParams({
+    dateOfBirth,
+    fromDate,
+    years: String(years)
+  });
+
+  const response = await astroApi.get<ApiResponse<PratyantarDashaItem[]>>(
+    `${ENDPOINTS.pratyantarDasha}?${query.toString()}`,
+    {
+      headers: {
+        Accept: "application/json"
+      }
+    }
+  );
+
+  return ((response as unknown as ApiResponse<PratyantarDashaItem[]>).data || []) as PratyantarDashaItem[];
 }
 
 export async function getPersonalityDestinyDetails(type: PersonalityDestinyType, number: number) {

@@ -9,7 +9,7 @@ import { localizeDigitsInText } from "./utils";
 export function SectionLabel({ title }: { title: string }) {
   return (
     <View style={styles.sectionLabel}>
-      <Text style={styles.sectionLabelText} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.68}>
+      <Text style={styles.sectionLabelText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.68}>
         {title}
       </Text>
     </View>
@@ -20,7 +20,7 @@ export function GridIntro({ title, description }: { title: string; description: 
   return (
     <View style={styles.gridIntro}>
       <View style={styles.gridIntroTitleWrap}>
-        <Text style={styles.gridIntroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
+        <Text style={styles.gridIntroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
           {title}
         </Text>
       </View>

@@ -54,18 +54,14 @@ export function HoroscopeScreen() {
   const divine = horoscope.data?.divine?.data;
   const astrologerPrediction = getAstrologerPrediction(astrology);
   const divinePrediction = getDivinePrediction(divine, selectedPeriod);
-  const hasAstrologer = hasPredictionEntries(astrologerPrediction);
   const hasDivine = hasPredictionEntries(divinePrediction);
 
   useEffect(() => {
     if (horoscope.isLoading) return;
-    if (activeTab === "astrologer" && !hasAstrologer && hasDivine) {
-      setActiveTab("divine");
-    }
-    if (activeTab === "divine" && !hasDivine && hasAstrologer) {
+    if (activeTab === "divine" && !hasDivine) {
       setActiveTab("astrologer");
     }
-  }, [activeTab, hasAstrologer, hasDivine, horoscope.isLoading]);
+  }, [activeTab, hasDivine, horoscope.isLoading]);
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
@@ -88,7 +84,6 @@ export function HoroscopeScreen() {
 
         <HoroscopeTabs
           activeTab={activeTab}
-          hasAstrologer={hasAstrologer}
           hasDivine={hasDivine}
           onChangeTab={setActiveTab}
         />

@@ -121,13 +121,12 @@ export function DashaChart({ dateOfBirth }: { dateOfBirth?: string }) {
     <View style={styles.wrap}>
       <View style={styles.titleWrap}>
         <Text style={styles.title} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.78}>
-          {t("Mahadasha & Antardasha")}{'\n'}{t("Chart")}
+          {t("Mahadasha & Antardasha")} {t("Chart")}
         </Text>
-      </View>
-
-      <View style={styles.filters}>
-        <DateControl label="From Date" value={fromDate} onPress={() => setPickerTarget("from")} />
-        <DateControl label="To Date" value={toDate} onPress={() => setPickerTarget("to")} />
+        <View style={styles.filters}>
+          <DateControl label="From Date" value={fromDate} onPress={() => setPickerTarget("from")} />
+          <DateControl label="To Date" value={toDate} onPress={() => setPickerTarget("to")} />
+        </View>
       </View>
 
       {pickerTarget ? (
@@ -164,6 +163,7 @@ export function DashaChart({ dateOfBirth }: { dateOfBirth?: string }) {
             <ScrollView
               ref={listRef}
               nestedScrollEnabled
+              persistentScrollbar
               showsVerticalScrollIndicator
               onScroll={onScroll}
               scrollEventThrottle={80}
@@ -353,10 +353,10 @@ function pad(value: number) {
 
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
-  titleWrap: { minHeight: 74, borderRadius: 6, backgroundColor: "#bff2c6", alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.md, paddingVertical: 8, shadowColor: "#0d5a1d", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.18, shadowRadius: 5, elevation: 4 },
-  title: { color: "#145c24", fontSize: 20, lineHeight: 32, fontWeight: "900", textAlign: "center", includeFontPadding: true },
-  filters: { flexDirection: "row", gap: spacing.sm },
-  dateControl: { flex: 1, minHeight: 52, borderRadius: 6, borderWidth: 1, borderColor: "#b7dcae", backgroundColor: "#fffdf5", justifyContent: "center", paddingHorizontal: spacing.sm, paddingVertical: 5 },
+  titleWrap: { minHeight: 118, borderRadius: 6, backgroundColor: "#bff2c6", alignItems: "flex-start", justifyContent: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 8, shadowColor: "#0d5a1d", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.18, shadowRadius: 5, elevation: 4 },
+  title: { width: "100%", color: "#145c24", fontSize: 20, lineHeight: 32, fontWeight: "900", textAlign: "left", writingDirection: "ltr", includeFontPadding: true },
+  filters: { width: "100%", flexDirection: "row", gap: spacing.sm },
+  dateControl: { flex: 1, minHeight: 44, borderRadius: 6, borderWidth: 1, borderColor: "#8dcc83", backgroundColor: "#fffdf5", justifyContent: "center", paddingHorizontal: spacing.sm, paddingVertical: 5 },
   dateLabel: { color: "#375c34", fontSize: 11, fontWeight: "900", textAlign: "center" },
   dateValue: { color: "#111", fontSize: 13, lineHeight: 18, fontWeight: "900", textAlign: "center" },
   validation: { color: colors.danger, textAlign: "center", fontSize: 12, lineHeight: 17, fontWeight: "800" },

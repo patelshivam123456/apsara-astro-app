@@ -20,12 +20,21 @@ export type HoroscopeSign =
 export type HoroscopePeriod = "daily" | "weekly" | "monthly" | "yearly";
 
 export type HoroscopePredictionMap = Record<string, string | string[] | number | undefined>;
+type AstrologerPrediction = HoroscopePredictionMap | string[] | string;
 
 export type AstrologerHoroscope = {
   status?: boolean;
   sun_sign?: string;
   prediction_date?: string;
-  prediction?: HoroscopePredictionMap;
+  week_start_date?: string;
+  prediction_month?: string;
+  prediction_year?: string;
+  year?: string;
+  prediction?: AstrologerPrediction;
+  daily_horoscope?: AstrologerPrediction;
+  weekly_horoscope?: AstrologerPrediction;
+  monthly_horoscope?: AstrologerPrediction;
+  yearly_horoscope?: AstrologerPrediction;
 };
 
 export type DivineHoroscope = {
@@ -63,10 +72,34 @@ const horoscopeEndpoints: Record<HoroscopePeriod, string> = {
 };
 
 export async function getHoroscope(sign: HoroscopeSign, period: HoroscopePeriod, language: LanguageCode = "en") {
-  const response = await astroApi.post<ApiResponse<HoroscopeResponse>>(horoscopeEndpoints[period], {
+  const endpoint = horoscopeEndpoints[period];
+  const payload = {
     sign,
     language
+  };
+
+  console.log(`[horoscope.${period}.request]`, {
+    period,
+    endpoint,
+    payload
   });
 
-  return ((response as unknown as ApiResponse<HoroscopeResponse>).data || response) as HoroscopeResponse;
+  const response = await astroApi.post<ApiResponse<HoroscopeResponse>>(endpoint, payload);
+  const data = ((response as unknown as ApiResponse<HoroscopeResponse>).data || response) as HoroscopeResponse;
+
+  console.log(`[horoscope.${period}.response]`, {
+    period,
+    endpoint,
+    hasAstrology: Boolean(data?.astrology),
+    astrologyType: Array.isArray(data?.astrology) ? "array" : typeof data?.astrology,
+    astrologyKeys:
+      data?.astrology && typeof data.astrology === "object" && !Array.isArray(data.astrology)
+        ? Object.keys(data.astrology)
+        : [],
+    hasDivine: Boolean(data?.divine),
+    divineSuccess: data?.divine?.success,
+    divineDataKeys: data?.divine?.data ? Object.keys(data.divine.data) : []
+  });
+
+  return data;
 }

@@ -14,6 +14,7 @@ import { getNumberRelationships, getVedicGrid, NumberRelationshipItem, VedicGrid
 import { GridIntro, NumberCard } from "@/components/Numerology/Lushu-grid/Common";
 import { DashaChart } from "@/components/Numerology/Vedic-grid/DashaChart";
 import { LoShuGrid } from "@/components/Numerology/Lushu-grid/LoShuGrid";
+import { PratyantarDashaChart } from "@/components/Numerology/Vedic-grid/PratyantarDashaChart";
 import { RelationTable } from "@/components/Numerology/Lushu-grid/RelationTable";
 import { styles } from "@/components/Numerology/Lushu-grid/styles";
 
@@ -88,6 +89,7 @@ export function VedicGridScreen() {
         </View>
         <RelationTable relationships={relationships} personalityNo={vedicGrid?.driverNumber} destinyNo={vedicGrid?.destinyNumber} />
         <DashaChart dateOfBirth={vedicGrid?.dob || dob} />
+        <PratyantarDashaChart dateOfBirth={vedicGrid?.dob || dob} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
       <AstrologerBottomNav active="home" respectSafeArea />
