@@ -32,6 +32,17 @@ export type VedicGridResponse = LoShuGridResponse & {
   destinyAddedToGrid?: boolean;
 };
 
+export type PythagoreanGridResponse = LoShuGridResponse & {
+  driverAddedToGrid?: boolean;
+  destinyAddedToGrid?: boolean;
+  challengeNumber?: {
+    challengeOne?: number;
+    challengeTwo?: number;
+    challengeThree?: number;
+    challengeFour?: number;
+  };
+};
+
 export type PersonalYearResponse = {
   personalMonth?: string;
   personalDay?: string;
@@ -170,6 +181,11 @@ export async function getLoShuGrid(payload: NumerologyPayload) {
 export async function getVedicGrid(payload: NumerologyPayload) {
   const response = await astroApi.post<ApiResponse<VedicGridResponse>>(ENDPOINTS.vedicGrid, payload);
   return ((response as unknown as ApiResponse<VedicGridResponse>).data || response) as VedicGridResponse;
+}
+
+export async function getPythagoreanGrid(payload: NumerologyPayload) {
+  const response = await astroApi.post<ApiResponse<PythagoreanGridResponse>>(ENDPOINTS.pythagoreanGrid, payload);
+  return ((response as unknown as ApiResponse<PythagoreanGridResponse>).data || response) as PythagoreanGridResponse;
 }
 
 export async function getDashaCalculation(dateOfBirth: string, fromDate: string, toDate: string) {

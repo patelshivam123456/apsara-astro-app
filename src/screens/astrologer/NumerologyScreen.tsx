@@ -12,6 +12,7 @@ import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 
 export { NumerologyResultScreen, PersonalityDestinyScreen } from "@/components/Numerology/Lushu-grid";
+export { PythagorasGridScreen } from "@/components/Numerology/Pythoras";
 export { VedicGridScreen } from "@/components/Numerology/Vedic-grid";
 
 type Gender = "Male" | "Female" | "Other";
@@ -57,14 +58,21 @@ export function NumerologyScreen() {
     fullName.trim().length > 1 &&
     /^\d{2}-\d{2}-\d{4}$/.test(dob.trim()) &&
     gender &&
-    (calculation === "lo-shu-grid" || calculation === "vedic-grid");
+    (calculation === "lo-shu-grid" || calculation === "vedic-grid" || calculation === "pythagoras-grid");
 
   const submit = () => {
     setSubmitted(true);
     setCalculationOpen(false);
     if (!canSubmit) return;
+    const pathname =
+      calculation === "vedic-grid"
+        ? "/astrologer/vedic-grid"
+        : calculation === "pythagoras-grid"
+          ? "/astrologer/pythagoras-grid"
+          : "/astrologer/numerology-result";
+
     router.push({
-      pathname: calculation === "vedic-grid" ? "/astrologer/vedic-grid" : "/astrologer/numerology-result",
+      pathname,
       params: { fullName: fullName.trim(), dob: dob.trim(), gender, calculation }
     });
   };
@@ -155,7 +163,7 @@ export function NumerologyScreen() {
           </View>
           {submitted && !canSubmit ? (
             <Text style={styles.validation}>
-              {calculation !== "lo-shu-grid" && calculation !== "vedic-grid" ? t("Please select Lo Shu Grid or Vedic Grid calculation.") : t("Enter full name, DOB, and gender.")}
+              {calculation !== "lo-shu-grid" && calculation !== "vedic-grid" && calculation !== "pythagoras-grid" ? t("Please select Lo Shu Grid, Vedic Grid, or Pythagoras Grid calculation.") : t("Enter full name, DOB, and gender.")}
             </Text>
           ) : null}
           <View style={styles.actionRow}>
