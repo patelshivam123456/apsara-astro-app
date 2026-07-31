@@ -11,7 +11,7 @@ import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
 import { getNumberRelationships, getVedicGrid, NumberRelationshipItem, VedicGridResponse } from "@/services/numerology.service";
 
-import { GridIntro, NumberCard } from "@/components/Numerology/Lushu-grid/Common";
+import { GridIntro, NumberSummaryGrid } from "@/components/Numerology/Lushu-grid/Common";
 import { DashaChart } from "@/components/Numerology/Vedic-grid/DashaChart";
 import { LoShuGrid } from "@/components/Numerology/Lushu-grid/LoShuGrid";
 import { PratyantarDashaChart } from "@/components/Numerology/Vedic-grid/PratyantarDashaChart";
@@ -79,14 +79,20 @@ export function VedicGridScreen() {
           description={t("Vedic number placement showing core numbers, zodiac influence, and active grid energy.")}
         />
         <LoShuGrid grid={vedicGrid?.grid} />
-        <View style={styles.cardGrid}>
-          <NumberCard label={t("Personality Number")} value={vedicGrid?.driverNumber} note={t("Inner Nature")} />
-          <NumberCard label={t("Destiny Number")} value={vedicGrid?.destinyNumber} note={t("Life Path")} />
-          <NumberCard label={t("Kua Number")} value={vedicGrid?.kuaNumber} note={t("Personal Energy")} />
-          <NumberCard label={t("Name Number")} value={vedicGrid?.nameNumber} note={t("Compound")} />
-          <NumberCard label={t("Running Age")} value={vedicGrid?.runningAge} note={t("Years")} />
-          <NumberCard label={t("Zodiac")} value={vedicGrid?.zodiacNumber} note={vedicGrid?.zodiacSign || t("Zodiac Sign")} />
-        </View>
+        <NumberSummaryGrid
+          rows={[
+            [
+              { label: t("Personality Number"), value: vedicGrid?.driverNumber, note: t("Inner Nature") },
+              { label: t("Destiny Number"), value: vedicGrid?.destinyNumber, note: t("Life Path") },
+              { label: t("Kua Number"), value: vedicGrid?.kuaNumber, note: t("Personal Energy") }
+            ],
+            [
+              { label: t("Name Number"), value: vedicGrid?.nameNumber, note: t("Compound") },
+              { label: t("Running Age"), value: vedicGrid?.runningAge, note: t("Years") },
+              { label: t("Zodiac"), value: vedicGrid?.zodiacNumber, note: vedicGrid?.zodiacSign || t("Zodiac Sign") }
+            ]
+          ]}
+        />
         <RelationTable relationships={relationships} personalityNo={vedicGrid?.driverNumber} destinyNo={vedicGrid?.destinyNumber} />
         <DashaChart dateOfBirth={vedicGrid?.dob || dob} />
         <PratyantarDashaChart dateOfBirth={vedicGrid?.dob || dob} />

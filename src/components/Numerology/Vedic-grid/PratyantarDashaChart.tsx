@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
-import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Text } from "react-native-paper";
 
 import { localizeDigitsInText } from "@/components/Numerology/Lushu-grid/utils";
@@ -14,68 +13,177 @@ type PratyantarRow = {
   fromDate: string;
   toDate: string;
   pratyantarDashaNumber?: number;
+  startTimestamp: number;
+  endTimestamp: number;
 };
 
+type PratyantarRange = {
+  fromDate: string;
+  date: Date;
+  data: PratyantarRow[];
+};
+
+type LoadDirection = "initial" | "previous" | "next";
+
 const defaultYears = 10;
+const initialFromDate = new Date(2021, 0, 1);
+const maxForwardFromDate = new Date(2051, 0, 1);
 const rowHeight = 38;
+const scrollThreshold = rowHeight * 2;
 
 export function PratyantarDashaChart({ dateOfBirth }: { dateOfBirth?: string }) {
   const { language, t } = useTranslation();
-  const initialDobRef = useRef("");
+  const listRef = useRef<ScrollView>(null);
+  const loadedFromDatesRef = useRef<Set<string>>(new Set());
+  const inFlightFromDatesRef = useRef<Set<string>>(new Set());
+  const lastContentHeightRef = useRef(0);
+  const lastScrollTopRef = useRef(0);
+  const pendingPrependRef = useRef(false);
+  const { height } = useWindowDimensions();
   const dobDate = useMemo(() => normalizeDate(dateOfBirth), [dateOfBirth]);
-  const [fromDate, setFromDate] = useState<Date>(() => new Date(new Date().getFullYear(), 0, 1));
-  const [yearsText, setYearsText] = useState(String(defaultYears));
-  const [showPicker, setShowPicker] = useState(false);
-  const [rows, setRows] = useState<PratyantarRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [hasGenerated, setHasGenerated] = useState(false);
+  const dobKey = useMemo(() => (dobDate ? formatDisplayDate(dobDate) : ""), [dobDate]);
+  const [ranges, setRanges] = useState<PratyantarRange[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
+  const [isLoadingPrevious, setIsLoadingPrevious] = useState(false);
+  const [isLoadingNext, setIsLoadingNext] = useState(false);
+  const [initialError, setInitialError] = useState("");
+  const [previousError, setPreviousError] = useState("");
+  const [nextError, setNextError] = useState("");
 
-  const years = Number(yearsText);
   const validationMessage = useMemo(() => {
     if (!dobDate) return "Please select a valid Date of Birth.";
-    if (compareDates(fromDate, dobDate) < 0) return "From Date cannot be earlier than Date of Birth.";
-    if (!Number.isInteger(years) || years < 1 || years > 99) return "Years must be between 1 and 99.";
     return "";
-  }, [dobDate, fromDate, years]);
+  }, [dobDate]);
 
-  const tableBodyHeight = loading || error || validationMessage || !hasGenerated
+  const rows = useMemo(() => mergePratyantarRows(ranges.flatMap((range) => range.data)), [ranges]);
+  const earliestRange = ranges[0];
+  const latestRange = ranges[ranges.length - 1];
+  const loadedRangeLabel = useMemo(() => {
+    if (!earliestRange || !latestRange) return `${t("Years")}: ${defaultYears}`;
+    return `${localizeDigitsInText(earliestRange.fromDate, language)} - ${localizeDigitsInText(latestRange.fromDate, language)} | ${t("Years")}: ${localizeDigitsInText(defaultYears, language)}`;
+  }, [earliestRange, language, latestRange, t]);
+  const tableMaxHeight = Math.min(430, Math.round(height * 0.46));
+  const tableBodyHeight = isInitialLoading || initialError || validationMessage
     ? 130
-    : Math.min(430, Math.max(rowHeight, rows.length * rowHeight));
+    : Math.min(tableMaxHeight, Math.max(rowHeight, rows.length * rowHeight + loadingIndicatorHeight(isLoadingPrevious || !!previousError) + loadingIndicatorHeight(isLoadingNext || !!nextError)));
 
-  const loadChart = useCallback(async () => {
-    if (!dobDate || validationMessage) return;
+  const loadRange = useCallback(async (fromDate: Date, direction: LoadDirection) => {
+    if (!dobDate) return;
+
+    const normalizedFromDate = normalizeFromDate(fromDate, dobDate);
+    const fromDateKey = formatDisplayDate(normalizedFromDate);
+    if (loadedFromDatesRef.current.has(fromDateKey) || inFlightFromDatesRef.current.has(fromDateKey)) return;
+
+    if (direction === "previous") {
+      setIsLoadingPrevious(true);
+      setPreviousError("");
+    } else if (direction === "next") {
+      setIsLoadingNext(true);
+      setNextError("");
+    } else {
+      setIsInitialLoading(true);
+      setInitialError("");
+    }
+
+    inFlightFromDatesRef.current.add(fromDateKey);
 
     try {
-      setLoading(true);
-      setError("");
-      setHasGenerated(true);
-      const response = await getPratyantarDasha(formatDisplayDate(dobDate), formatDisplayDate(fromDate), years);
-      const nextRows = response.map(mapPratyantarRow).filter((row) => row.fromDate || row.toDate);
-      setRows(nextRows);
+      const response = await getPratyantarDasha(formatDisplayDate(dobDate), fromDateKey, defaultYears);
+      const rangeRows = response
+        .map(mapPratyantarRow)
+        .filter((row) => row.fromDate || row.toDate)
+        .filter((row) => isRowOnOrAfterDob(row, dobDate));
 
-      if (!nextRows.length) {
-        setError("No Pratyantar Dasha data is available for the selected range.");
+      loadedFromDatesRef.current.add(fromDateKey);
+      if (direction === "previous" && rangeRows.length) {
+        pendingPrependRef.current = true;
+      }
+      setRanges((currentRanges) => {
+        if (currentRanges.some((range) => range.fromDate === fromDateKey)) return currentRanges;
+
+        return [
+          ...currentRanges,
+          {
+            fromDate: fromDateKey,
+            date: normalizedFromDate,
+            data: rangeRows
+          }
+        ].sort((a, b) => compareDates(a.date, b.date));
+      });
+
+      if (direction === "initial" && !rangeRows.length) {
+        setInitialError("No Pratyantar Dasha data is available for the selected range.");
       }
     } catch (err) {
-      setError(getApiErrorMessage(err, "Unable to generate Pratyantar Dasha chart."));
+      const message = getApiErrorMessage(err, "Unable to generate Pratyantar Dasha chart.");
+      if (direction === "previous") setPreviousError(message);
+      else if (direction === "next") setNextError(message);
+      else setInitialError(message);
     } finally {
-      setLoading(false);
+      inFlightFromDatesRef.current.delete(fromDateKey);
+      if (direction === "previous") setIsLoadingPrevious(false);
+      else if (direction === "next") setIsLoadingNext(false);
+      else setIsInitialLoading(false);
     }
-  }, [dobDate, fromDate, validationMessage, years]);
+  }, [dobDate]);
 
   useEffect(() => {
-    if (!dobDate || validationMessage) return;
-    const dobKey = formatDisplayDate(dobDate);
-    if (initialDobRef.current === dobKey) return;
-    initialDobRef.current = dobKey;
-    loadChart();
-  }, [dobDate, loadChart, validationMessage]);
+    loadedFromDatesRef.current = new Set();
+    inFlightFromDatesRef.current = new Set();
+    lastContentHeightRef.current = 0;
+    lastScrollTopRef.current = 0;
+    pendingPrependRef.current = false;
+    setRanges([]);
+    setInitialError("");
+    setPreviousError("");
+    setNextError("");
+    if (!dobDate) return;
+    loadRange(getInitialFromDate(dobDate), "initial");
+  }, [dobDate, dobKey, loadRange]);
 
-  const selectFromDate = (event: DateTimePickerEvent, selected?: Date) => {
-    setShowPicker(false);
-    if (event.type === "dismissed" || !selected) return;
-    setFromDate(stripTime(selected));
+  const loadPreviousRange = useCallback(() => {
+    if (!dobDate || !earliestRange || isLoadingPrevious || isInitialLoading) return;
+    const previousFromDate = getPreviousFromDate(earliestRange.date, dobDate);
+    if (!previousFromDate) return;
+    void loadRange(previousFromDate, "previous");
+  }, [dobDate, earliestRange, isInitialLoading, isLoadingPrevious, loadRange]);
+
+  const loadNextRange = useCallback(() => {
+    if (!latestRange || isLoadingNext || isInitialLoading) return;
+    const nextFromDate = getNextFromDate(latestRange.date);
+    if (!nextFromDate) return;
+    void loadRange(nextFromDate, "next");
+  }, [isInitialLoading, isLoadingNext, latestRange, loadRange]);
+
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    lastScrollTopRef.current = contentOffset.y;
+    lastContentHeightRef.current = contentSize.height;
+
+    if (contentOffset.y <= scrollThreshold) {
+      loadPreviousRange();
+    }
+
+    if (contentOffset.y + layoutMeasurement.height >= contentSize.height - scrollThreshold) {
+      loadNextRange();
+    }
+  };
+
+  const onContentSizeChange = (_width: number, contentHeight: number) => {
+    if (!pendingPrependRef.current) {
+      lastContentHeightRef.current = contentHeight;
+      return;
+    }
+
+    const heightDelta = contentHeight - lastContentHeightRef.current;
+    pendingPrependRef.current = false;
+    lastContentHeightRef.current = contentHeight;
+
+    if (heightDelta > 0) {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollTo({ y: lastScrollTopRef.current + heightDelta, animated: false });
+      });
+    }
   };
 
   return (
@@ -84,72 +192,53 @@ export function PratyantarDashaChart({ dateOfBirth }: { dateOfBirth?: string }) 
         <Text style={styles.title} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.78}>
           {t("Pratyantar Dasha")} {t("Chart")}
         </Text>
-        <View style={styles.filters}>
-          <DateControl value={fromDate} onPress={() => setShowPicker(true)} />
-          <View style={styles.inputControl}>
-            <Text style={styles.inputLabel}>{t("Years")}</Text>
-            <TextInput
-              value={yearsText}
-              onChangeText={(value) => setYearsText(value.replace(/[^0-9]/g, "").slice(0, 2))}
-              keyboardType="number-pad"
-              style={styles.yearsInput}
-              maxLength={2}
-            />
-          </View>
-          <Pressable style={[styles.goButton, (loading || !!validationMessage) && styles.goButtonDisabled]} onPress={loadChart} disabled={loading || !!validationMessage}>
-            <Text style={styles.goButtonText}>{loading ? t("Loading") : t("Go")}</Text>
-          </Pressable>
-        </View>
+        <Text style={styles.rangeText}>{loadedRangeLabel}</Text>
       </View>
-
-      {showPicker ? (
-        <DateTimePicker
-          value={fromDate}
-          mode="date"
-          display="default"
-          minimumDate={dobDate || undefined}
-          onChange={selectFromDate}
-        />
-      ) : null}
 
       {validationMessage ? <Text style={styles.validation}>{t(validationMessage)}</Text> : null}
 
       <View style={styles.table}>
         <TableHeader />
         <View style={[styles.tableBody, { height: tableBodyHeight }]}>
-          {!hasGenerated ? (
-            <View style={styles.tableState}>
-              <Text style={styles.emptyText}>{t("Select From Date and Years, then tap Go.")}</Text>
-            </View>
-          ) : loading ? (
+          {isInitialLoading ? (
             <View style={styles.tableState}>
               <ActivityIndicator />
               <Text style={styles.loadingText}>{t("Loading")}</Text>
             </View>
-          ) : error || validationMessage ? (
+          ) : initialError || validationMessage ? (
             <View style={styles.tableState}>
-              <Text style={styles.validation}>{t(error || validationMessage)}</Text>
+              <Text style={styles.validation}>{t(initialError || validationMessage)}</Text>
             </View>
           ) : (
-            <ScrollView nestedScrollEnabled persistentScrollbar showsVerticalScrollIndicator>
+            <ScrollView
+              ref={listRef}
+              nestedScrollEnabled
+              persistentScrollbar
+              showsVerticalScrollIndicator
+              onScroll={onScroll}
+              onContentSizeChange={onContentSizeChange}
+              scrollEventThrottle={80}
+            >
+              <RangeStatus
+                loading={isLoadingPrevious}
+                error={previousError}
+                loadingLabel="Loading previous Pratyantardasha..."
+                onRetry={loadPreviousRange}
+              />
               {rows.map((item) => (
                 <TableRow key={item.id} row={item} language={language} />
               ))}
+              <RangeStatus
+                loading={isLoadingNext}
+                error={nextError}
+                loadingLabel="Loading next Pratyantardasha..."
+                onRetry={loadNextRange}
+              />
             </ScrollView>
           )}
         </View>
       </View>
     </View>
-  );
-}
-
-function DateControl({ value, onPress }: { value: Date; onPress: () => void }) {
-  const { language, t } = useTranslation();
-  return (
-    <Pressable style={styles.dateControl} onPress={onPress}>
-      <Text style={styles.inputLabel}>{t("From Date")}</Text>
-      <Text style={styles.dateValue}>{localizeDigitsInText(formatDisplayDate(value), language)}</Text>
-    </Pressable>
   );
 }
 
@@ -172,6 +261,27 @@ function TableHeader() {
         <Text style={styles.headerText}>{t("Pratyantar")}{'\n'}{t("Dasha")}</Text>
       </View>
     </View>
+  );
+}
+
+function RangeStatus({ loading, error, loadingLabel, onRetry }: { loading: boolean; error: string; loadingLabel: string; onRetry: () => void }) {
+  const { t } = useTranslation();
+  if (loading) {
+    return (
+      <View style={styles.rangeStatus}>
+        <ActivityIndicator size="small" />
+        <Text style={styles.loadingText}>{t(loadingLabel)}</Text>
+      </View>
+    );
+  }
+
+  if (!error) return null;
+
+  return (
+    <Pressable style={styles.rangeStatus} onPress={onRetry}>
+      <Text style={styles.validation}>{t(error)}</Text>
+      <Text style={styles.retryText}>{t("Tap to retry")}</Text>
+    </Pressable>
   );
 }
 
@@ -198,11 +308,15 @@ function Cell({ value, style, accent }: { value: string | number; style: object;
 function mapPratyantarRow(item: PratyantarDashaItem, index: number): PratyantarRow {
   const fromDate = normalizeApiDate(item.effectiveStartDate || item.birthdayDate);
   const toDate = normalizeApiDate(item.effectiveEndDate || item.birthdayDate);
+  const startDate = parseDisplayDate(fromDate);
+  const endDate = parseDisplayDate(toDate);
   return {
     id: `${item.calculationYear || index}-${fromDate}-${toDate}-${item.pratyantarDashaNumber || "-"}`,
     fromDate,
     toDate,
-    pratyantarDashaNumber: item.pratyantarDashaNumber
+    pratyantarDashaNumber: item.pratyantarDashaNumber,
+    startTimestamp: startDate?.getTime() ?? NaN,
+    endTimestamp: endDate?.getTime() ?? NaN
   };
 }
 
@@ -235,6 +349,55 @@ function formatDisplayDate(date: Date) {
   return `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()}`;
 }
 
+function getInitialFromDate(dobDate: Date) {
+  return normalizeFromDate(initialFromDate, dobDate);
+}
+
+function getPreviousFromDate(currentFromDate: Date, dobDate: Date) {
+  if (compareDates(currentFromDate, dobDate) <= 0) return null;
+
+  const previousFromDate = addYears(currentFromDate, -defaultYears);
+  if (compareDates(previousFromDate, dobDate) < 0) return dobDate;
+  return previousFromDate;
+}
+
+function getNextFromDate(currentFromDate: Date) {
+  const nextFromDate = addYears(currentFromDate, defaultYears);
+  if (compareDates(nextFromDate, maxForwardFromDate) > 0) return null;
+  return nextFromDate;
+}
+
+function normalizeFromDate(fromDate: Date, dobDate: Date) {
+  if (compareDates(fromDate, dobDate) < 0) return dobDate;
+  return stripTime(fromDate);
+}
+
+function addYears(date: Date, years: number) {
+  return new Date(date.getFullYear() + years, date.getMonth(), date.getDate());
+}
+
+function isRowOnOrAfterDob(row: PratyantarRow, dobDate: Date) {
+  if (!Number.isFinite(row.startTimestamp)) return false;
+  return row.startTimestamp >= dobDate.getTime();
+}
+
+function mergePratyantarRows(nextRows: PratyantarRow[]) {
+  const unique = new Map<string, PratyantarRow>();
+  nextRows
+    .filter((row) => Number.isFinite(row.startTimestamp))
+    .sort((a, b) => a.startTimestamp - b.startTimestamp)
+    .forEach((row) => {
+      const key = `${row.fromDate}-${row.toDate}-${row.pratyantarDashaNumber ?? "-"}`;
+      if (!unique.has(key)) unique.set(key, row);
+    });
+
+  return Array.from(unique.values());
+}
+
+function loadingIndicatorHeight(visible: boolean) {
+  return visible ? 44 : 0;
+}
+
 function compactDate(value: string) {
   const parsed = parseDisplayDate(value);
   if (!parsed) return value;
@@ -255,17 +418,9 @@ function pad(value: number) {
 
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
-  titleWrap: { minHeight: 118, borderRadius: 6, backgroundColor: "#dfff45", alignItems: "flex-start", justifyContent: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 7, shadowColor: "#0d5a1d", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 3 },
+  titleWrap: { minHeight: 118, borderRadius: 6, backgroundColor: "#bff2c6", alignItems: "flex-start", justifyContent: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 7, shadowColor: "#0d5a1d", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 3 },
   title: { width: "100%", color: "#145c24", fontSize: 19, lineHeight: 25, fontWeight: "900", textAlign: "left", writingDirection: "ltr", includeFontPadding: true },
-  filters: { width: "100%", flexDirection: "row", gap: spacing.sm },
-  dateControl: { flex: 1, minHeight: 44, borderRadius: 6, borderWidth: 1, borderColor: "#b7dcae", backgroundColor: "#fffdf5", justifyContent: "center", paddingHorizontal: spacing.sm, paddingVertical: 5 },
-  inputControl: { width: 82, minHeight: 44, borderRadius: 6, borderWidth: 1, borderColor: "#b7dcae", backgroundColor: "#fffdf5", justifyContent: "center", paddingHorizontal: spacing.sm, paddingVertical: 5 },
-  inputLabel: { color: "#375c34", fontSize: 11, fontWeight: "900", textAlign: "center" },
-  dateValue: { color: "#111", fontSize: 13, lineHeight: 18, fontWeight: "900", textAlign: "center" },
-  yearsInput: { minHeight: 23, padding: 0, color: "#111", fontSize: 14, lineHeight: 18, fontWeight: "900", textAlign: "center" },
-  goButton: { width: 58, minHeight: 44, borderRadius: 6, backgroundColor: "#ffcf28", alignItems: "center", justifyContent: "center", paddingHorizontal: 6, shadowColor: "#7a6100", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 },
-  goButtonDisabled: { opacity: 0.58 },
-  goButtonText: { color: "#111", fontSize: 13, lineHeight: 17, fontWeight: "900", textAlign: "center" },
+  rangeText: { color: "#375c34", fontSize: 12, lineHeight: 17, fontWeight: "900" },
   validation: { color: colors.danger, textAlign: "center", fontSize: 12, lineHeight: 17, fontWeight: "800" },
   table: { borderWidth: 1, borderColor: "#d8e8cf", borderRadius: 6, backgroundColor: "#fffdf5", overflow: "hidden", shadowColor: "#0d5a1d", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 3 },
   headerRow: { flexDirection: "row", minHeight: 56, backgroundColor: "#ffd866" },
@@ -280,7 +435,8 @@ const styles = StyleSheet.create({
   tableBody: { backgroundColor: "#efefef" },
   tableState: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.md },
   loadingText: { marginTop: spacing.sm, color: "#375c34", fontWeight: "900" },
-  emptyText: { color: "#375c34", textAlign: "center", fontSize: 12, lineHeight: 17, fontWeight: "800" },
+  rangeStatus: { minHeight: 44, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.sm, paddingVertical: 6, backgroundColor: "#efefef" },
+  retryText: { marginTop: 2, color: "#375c34", fontSize: 11, lineHeight: 15, fontWeight: "900", textAlign: "center" },
   bodyRow: { height: rowHeight, flexDirection: "row", backgroundColor: "#efefef" },
   bodyCell: { borderTopWidth: 1, borderRightWidth: 1, borderColor: "#d6dfc9", alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
   dateSubCol: { width: "50%" },

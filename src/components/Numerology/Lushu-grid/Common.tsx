@@ -41,3 +41,31 @@ export function NumberCard({ label, value, note }: { label: string; value?: stri
     </View>
   );
 }
+
+type SummaryItem = {
+  label: string;
+  value?: string | number;
+  note?: string;
+};
+
+export function NumberSummaryGrid({ rows }: { rows: SummaryItem[][] }) {
+  const { language } = useTranslation();
+  return (
+    <View style={styles.numberSummaryBox}>
+      {rows.map((row, rowIndex) => (
+        <View key={`summary-row-${rowIndex}`} style={[styles.numberSummaryRow, rowIndex > 0 && styles.numberSummaryRowDivider]}>
+          {row.map((item, itemIndex) => (
+            <View key={`${item.label}-${itemIndex}`} style={styles.numberSummaryCellWrap}>
+              <View style={styles.numberSummaryCell}>
+                <Text style={styles.numberLabel} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.68}>{item.label}</Text>
+                <Text style={styles.numberValue}>{localizeDigitsInText(item.value ?? "-", language)}</Text>
+                {item.note ? <Text style={styles.numberNote} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>{item.note}</Text> : null}
+              </View>
+              {itemIndex < row.length - 1 ? <View style={styles.numberSummaryDivider} /> : null}
+            </View>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}

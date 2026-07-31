@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
-import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Text } from "react-native-paper";
 
 import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
-import { DashaMahadashaItem, getDashaCalculation } from "@/services/numerology.service";
+import { DashaCalculationResponse, DashaMahadashaItem, getDashaCalculation } from "@/services/numerology.service";
 import { localizeDigitsInText } from "@/components/Numerology/Lushu-grid/utils";
 
 type DashaRow = {
@@ -19,101 +18,140 @@ type DashaRow = {
   endTimestamp: number;
 };
 
-type PickerTarget = "from" | "to";
+type YearWindow = {
+  startYear: number;
+  endYear: number;
+};
 
 const maxToDate = new Date(2060, 11, 31);
-const defaultToDate = new Date(2030, 11, 31);
-const batchSize = 28;
+const windowYears = 11;
+const windowRadius = 5;
 const rowHeight = 36;
+const scrollThreshold = rowHeight * 2;
 
 export function DashaChart({ dateOfBirth }: { dateOfBirth?: string }) {
   const { language, t } = useTranslation();
   const listRef = useRef<ScrollView>(null);
+  const lastContentHeightRef = useRef(0);
+  const lastScrollTopRef = useRef(0);
+  const pendingPrependRef = useRef(false);
   const { height } = useWindowDimensions();
   const dobDate = useMemo(() => normalizeDisplayDate(dateOfBirth), [dateOfBirth]);
-  const [fromDate, setFromDate] = useState<Date | null>(dobDate);
-  const [toDate, setToDate] = useState<Date>(defaultToDate);
-  const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
+  const [fullDashaData, setFullDashaData] = useState<DashaCalculationResponse | null>(null);
   const [allRows, setAllRows] = useState<DashaRow[]>([]);
-  const [visibleStartIndex, setVisibleStartIndex] = useState(0);
-  const [visibleEndIndex, setVisibleEndIndex] = useState(-1);
+  const [visibleWindow, setVisibleWindow] = useState<YearWindow | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isLoadingPrevious, setIsLoadingPrevious] = useState(false);
+  const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!dobDate) return;
-    setFromDate((current) => current || dobDate);
-  }, [dobDate]);
-
-  const validationMessage = useMemo(() => validateDates(dobDate, fromDate, toDate), [dobDate, fromDate, toDate]);
-  const visibleRows = useMemo(() => allRows.slice(visibleStartIndex, visibleEndIndex + 1), [allRows, visibleEndIndex, visibleStartIndex]);
+  const validationMessage = useMemo(() => validateDates(dobDate), [dobDate]);
+  const visibleRows = useMemo(() => {
+    if (!visibleWindow) return [];
+    return getRowsForYearWindow(allRows, visibleWindow);
+  }, [allRows, visibleWindow]);
   const missingDob = !dobDate;
+  const loadedRangeLabel = useMemo(() => {
+    if (!visibleWindow) return "";
+    return `${localizeDigitsInText(visibleWindow.startYear, language)} - ${localizeDigitsInText(visibleWindow.endYear, language)}`;
+  }, [language, visibleWindow]);
   const tableMaxHeight = Math.min(430, Math.round(height * 0.46));
-  const tableBodyHeight = loading || error || missingDob
+  const tableBodyHeight = loading || error || missingDob || validationMessage
     ? 150
-    : Math.min(tableMaxHeight, Math.max(rowHeight, visibleRows.length * rowHeight));
+    : Math.min(tableMaxHeight, Math.max(rowHeight, visibleRows.length * rowHeight + loadingIndicatorHeight(isLoadingPrevious) + loadingIndicatorHeight(isLoadingNext)));
 
   const generateChart = useCallback(async () => {
-    if (!dobDate || !fromDate || !toDate || validationMessage) return;
+    if (!dobDate || validationMessage) {
+      setFullDashaData(null);
+      setAllRows([]);
+      setVisibleWindow(null);
+      setError("");
+      return;
+    }
 
     try {
       setLoading(true);
       setError("");
-      const response = await getDashaCalculation(formatDisplayDate(dobDate), formatDisplayDate(fromDate), formatDisplayDate(toDate));
-      const rows = flattenDashaRows(response.mahadashas || [], fromDate, toDate);
+      setFullDashaData(null);
+      setAllRows([]);
+      setVisibleWindow(null);
+      const response = await getDashaCalculation(formatDisplayDate(dobDate), formatDisplayDate(dobDate), formatDisplayDate(maxToDate));
+      const rows = flattenDashaRows(response.mahadashas || [], dobDate, maxToDate);
+      setFullDashaData(response);
       setAllRows(rows);
 
       if (!rows.length) {
-        setVisibleStartIndex(0);
-        setVisibleEndIndex(-1);
         setError("No Dasha data is available for the selected date range.");
         return;
       }
 
-      const initialWindow = getInitialWindow(rows, fromDate, toDate);
-      setVisibleStartIndex(initialWindow.start);
-      setVisibleEndIndex(initialWindow.end);
-
-      requestAnimationFrame(() => {
-        const activeVisibleIndex = rows.slice(initialWindow.start, initialWindow.end + 1).findIndex((row) => isTodayInRow(row));
-        if (activeVisibleIndex >= 0) {
-          listRef.current?.scrollTo({ y: Math.max(0, activeVisibleIndex * rowHeight - rowHeight * 3), animated: false });
-        }
-      });
+      setVisibleWindow(getInitialYearWindow(dobDate, maxToDate));
     } catch (err) {
       setError(getApiErrorMessage(err, "Unable to generate Mahadasha and Antardasha chart."));
     } finally {
       setLoading(false);
     }
-  }, [dobDate, fromDate, toDate, validationMessage]);
+  }, [dobDate, validationMessage]);
 
   useEffect(() => {
     generateChart();
   }, [generateChart]);
 
-  const selectDate = (event: DateTimePickerEvent, selected?: Date) => {
-    const target = pickerTarget;
-    setPickerTarget(null);
-    if (event.type === "dismissed" || !selected || !target || !dobDate) return;
+  const loadPreviousWindow = useCallback(() => {
+    if (!visibleWindow || isLoadingPrevious || !fullDashaData) return;
 
-    if (target === "from") {
-      const nextFrom = clampDateToRange(stripTime(selected), dobDate, toDate);
-      setFromDate(nextFrom);
-      return;
-    }
+    const nextStartYear = Math.max(getMinimumYear(dobDate), visibleWindow.startYear - windowYears);
+    if (nextStartYear >= visibleWindow.startYear) return;
 
-    setToDate(clampDateToRange(stripTime(selected), fromDate || dobDate, maxToDate));
-  };
+    pendingPrependRef.current = true;
+    setIsLoadingPrevious(true);
+    requestAnimationFrame(() => {
+      setVisibleWindow((current) => current ? { ...current, startYear: nextStartYear } : current);
+      requestAnimationFrame(() => setIsLoadingPrevious(false));
+    });
+  }, [dobDate, fullDashaData, isLoadingPrevious, visibleWindow]);
+
+  const loadNextWindow = useCallback(() => {
+    if (!visibleWindow || isLoadingNext || !fullDashaData) return;
+
+    const nextEndYear = Math.min(maxToDate.getFullYear(), visibleWindow.endYear + windowYears);
+    if (nextEndYear <= visibleWindow.endYear) return;
+
+    setIsLoadingNext(true);
+    requestAnimationFrame(() => {
+      setVisibleWindow((current) => current ? { ...current, endYear: nextEndYear } : current);
+      requestAnimationFrame(() => setIsLoadingNext(false));
+    });
+  }, [fullDashaData, isLoadingNext, visibleWindow]);
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    lastScrollTopRef.current = contentOffset.y;
+    lastContentHeightRef.current = contentSize.height;
 
-    if (contentOffset.y < rowHeight * 2 && visibleStartIndex > 0) {
-      setVisibleStartIndex((current) => Math.max(0, current - batchSize));
+    if (contentOffset.y <= scrollThreshold) {
+      loadPreviousWindow();
     }
 
-    if (contentOffset.y + layoutMeasurement.height > contentSize.height - rowHeight * 3 && visibleEndIndex < allRows.length - 1) {
-      setVisibleEndIndex((current) => Math.min(allRows.length - 1, current + batchSize));
+    if (contentOffset.y + layoutMeasurement.height >= contentSize.height - scrollThreshold) {
+      loadNextWindow();
+    }
+  };
+
+  const onContentSizeChange = (_width: number, contentHeight: number) => {
+    if (!pendingPrependRef.current) {
+      lastContentHeightRef.current = contentHeight;
+      return;
+    }
+
+    const heightDelta = contentHeight - lastContentHeightRef.current;
+    pendingPrependRef.current = false;
+    lastContentHeightRef.current = contentHeight;
+
+    if (heightDelta > 0) {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollTo({ y: lastScrollTopRef.current + heightDelta, animated: false });
+      });
     }
   };
 
@@ -123,22 +161,8 @@ export function DashaChart({ dateOfBirth }: { dateOfBirth?: string }) {
         <Text style={styles.title} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.78}>
           {t("Mahadasha & Antardasha")} {t("Chart")}
         </Text>
-        <View style={styles.filters}>
-          <DateControl label="From Date" value={fromDate} onPress={() => setPickerTarget("from")} />
-          <DateControl label="To Date" value={toDate} onPress={() => setPickerTarget("to")} />
-        </View>
+        {loadedRangeLabel ? <Text style={styles.rangeText}>{loadedRangeLabel}</Text> : null}
       </View>
-
-      {pickerTarget ? (
-        <DateTimePicker
-          value={(pickerTarget === "from" ? fromDate : toDate) || dobDate || new Date()}
-          mode="date"
-          display="default"
-          minimumDate={pickerTarget === "from" ? dobDate || undefined : fromDate || dobDate || undefined}
-          maximumDate={pickerTarget === "to" ? maxToDate : toDate}
-          onChange={selectDate}
-        />
-      ) : null}
 
       {missingDob ? <Text style={styles.validation}>{t("Please select a valid Date of Birth.")}</Text> : null}
       {!missingDob && validationMessage ? <Text style={styles.validation}>{t(validationMessage)}</Text> : null}
@@ -155,9 +179,9 @@ export function DashaChart({ dateOfBirth }: { dateOfBirth?: string }) {
               <ActivityIndicator />
               <Text style={styles.loadingText}>{t("Loading")}</Text>
             </View>
-          ) : error ? (
+          ) : error || validationMessage ? (
             <View style={styles.tableState}>
-              <Text style={styles.validation}>{t(error)}</Text>
+              <Text style={styles.validation}>{t(error || validationMessage)}</Text>
             </View>
           ) : (
             <ScrollView
@@ -166,26 +190,19 @@ export function DashaChart({ dateOfBirth }: { dateOfBirth?: string }) {
               persistentScrollbar
               showsVerticalScrollIndicator
               onScroll={onScroll}
+              onContentSizeChange={onContentSizeChange}
               scrollEventThrottle={80}
             >
+              <RangeStatus loading={isLoadingPrevious} label="Loading previous Dasha..." />
               {visibleRows.map((item) => (
                 <DashaTableRow key={item.id} row={item} active={isTodayInRow(item)} language={language} />
               ))}
+              <RangeStatus loading={isLoadingNext} label="Loading next Dasha..." />
             </ScrollView>
           )}
         </View>
       </View>
     </View>
-  );
-}
-
-function DateControl({ label, value, onPress }: { label: string; value: Date | null; onPress: () => void }) {
-  const { language, t } = useTranslation();
-  return (
-    <Pressable style={styles.dateControl} onPress={onPress}>
-      <Text style={styles.dateLabel}>{t(label)}</Text>
-      <Text style={styles.dateValue}>{value ? localizeDigitsInText(formatDisplayDate(value), language) : t("Select Date")}</Text>
-    </Pressable>
   );
 }
 
@@ -214,6 +231,17 @@ function TableHeader() {
   );
 }
 
+function RangeStatus({ loading, label }: { loading: boolean; label: string }) {
+  const { t } = useTranslation();
+  if (!loading) return null;
+  return (
+    <View style={styles.rangeStatus}>
+      <ActivityIndicator size="small" />
+      <Text style={styles.loadingText}>{t(label)}</Text>
+    </View>
+  );
+}
+
 function DashaTableRow({ row, active, language }: { row: DashaRow; active: boolean; language: ReturnType<typeof useTranslation>["language"] }) {
   return (
     <View style={[styles.bodyRow, active && styles.activeRow]}>
@@ -237,8 +265,14 @@ function Cell({ value, style, accent }: { value: string | number; style: object;
 
 export function parseDisplayDate(value?: string) {
   if (!value) return null;
-  const match = value.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-  if (!match) return null;
+  const trimmedValue = value.trim();
+  const match = trimmedValue.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (!match) {
+    const isoMatch = trimmedValue.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (!isoMatch) return null;
+    const [, isoYear, isoMonth, isoDay] = isoMatch;
+    return parseDisplayDate(`${isoDay}-${isoMonth}-${isoYear}`);
+  }
   const [, day, month, year] = match;
   const date = new Date(Number(year), Number(month) - 1, Number(day));
   if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return null;
@@ -258,6 +292,11 @@ function formatDisplayDate(date: Date) {
   return `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()}`;
 }
 
+function normalizeDashaDate(value?: string) {
+  const parsed = parseDisplayDate(value);
+  return parsed ? formatDisplayDate(parsed) : value || "";
+}
+
 function compactDate(value: string) {
   const parsed = parseDisplayDate(value);
   if (!parsed) return value;
@@ -268,31 +307,23 @@ function compareDates(a: Date, b: Date) {
   return stripTime(a).getTime() - stripTime(b).getTime();
 }
 
-function clampDateToRange(date: Date, minDate: Date, maxDate: Date) {
-  if (compareDates(date, minDate) < 0) return minDate;
-  if (compareDates(date, maxDate) > 0) return maxDate;
-  return date;
-}
-
-function validateDates(dobDate: Date | null, fromDate: Date | null, toDate: Date | null) {
-  if (!dobDate) return "Please select a valid From Date.";
-  if (!fromDate) return "Please select a valid From Date.";
-  if (!toDate) return "Please select a valid To Date.";
-  if (compareDates(fromDate, dobDate) < 0) return "From Date cannot be earlier than Date of Birth.";
-  if (compareDates(toDate, fromDate) < 0) return "To Date cannot be earlier than From Date.";
-  if (compareDates(toDate, maxToDate) > 0) return "To Date cannot be later than 31-12-2060.";
+function validateDates(dobDate: Date | null) {
+  if (!dobDate) return "Please select a valid Date of Birth.";
+  if (compareDates(dobDate, maxToDate) > 0) return "Date of Birth cannot be later than 31-12-2060.";
   return "";
 }
 
 function flattenDashaRows(mahadashas: DashaMahadashaItem[] = [], selectedFromDate: Date, selectedToDate: Date) {
   const rows = mahadashas.flatMap((mahadasha, mahaIndex) =>
     (mahadasha.antardashas || []).map((antardasha, antarIndex) => {
-      const startDate = parseDisplayDate(antardasha.startDate);
-      const endDate = parseDisplayDate(antardasha.endDate);
+      const fromDate = normalizeDashaDate(antardasha.startDate);
+      const toDate = normalizeDashaDate(antardasha.endDate);
+      const startDate = parseDisplayDate(fromDate);
+      const endDate = parseDisplayDate(toDate);
       return {
-        id: `${mahaIndex}-${antarIndex}-${antardasha.startDate}-${antardasha.endDate}`,
-        fromDate: antardasha.startDate || "",
-        toDate: antardasha.endDate || "",
+        id: `${mahaIndex}-${antarIndex}-${fromDate}-${toDate}`,
+        fromDate,
+        toDate,
         mahadashaNumber: antardasha.mahadashaNumber ?? mahadasha.mahadashaNumber,
         antardashaNumber: antardasha.antardashaNumber,
         startTimestamp: startDate?.getTime() ?? NaN,
@@ -314,28 +345,37 @@ function flattenDashaRows(mahadashas: DashaMahadashaItem[] = [], selectedFromDat
   return Array.from(unique.values());
 }
 
-function getInitialWindow(rows: DashaRow[], fromDate: Date, toDate: Date) {
-  if (rows.length <= batchSize) return { start: 0, end: rows.length - 1 };
+function getInitialYearWindow(dobDate: Date, toDate: Date): YearWindow {
+  const minYear = getMinimumYear(dobDate);
+  const maxYear = toDate.getFullYear();
+  const anchorYear = clampYear(new Date().getFullYear(), minYear, maxYear);
+  let startYear = Math.max(minYear, anchorYear - windowRadius);
+  let endYear = Math.min(maxYear, anchorYear + windowRadius);
 
-  const selectedRangeYears = Math.abs(toDate.getFullYear() - fromDate.getFullYear());
-  if (selectedRangeYears <= 10) return { start: 0, end: rows.length - 1 };
-
-  const today = stripTime(new Date());
-  let anchorIndex = 0;
-
-  if (compareDates(today, fromDate) >= 0 && compareDates(today, toDate) <= 0) {
-    anchorIndex = rows.findIndex((row) => isTodayInRow(row));
-    if (anchorIndex < 0) anchorIndex = rows.findIndex((row) => row.startTimestamp >= today.getTime());
-  } else if (compareDates(toDate, today) < 0) {
-    anchorIndex = rows.length - 1;
-  } else {
-    anchorIndex = 0;
+  if (endYear - startYear + 1 < windowYears) {
+    if (startYear === minYear) endYear = Math.min(maxYear, startYear + windowYears - 1);
+    if (endYear === maxYear) startYear = Math.max(minYear, endYear - windowYears + 1);
   }
 
-  anchorIndex = Math.max(0, anchorIndex);
-  const start = Math.max(0, anchorIndex - Math.floor(batchSize / 2));
-  const end = Math.min(rows.length - 1, start + batchSize - 1);
-  return { start: Math.max(0, end - batchSize + 1), end };
+  return { startYear, endYear };
+}
+
+function getRowsForYearWindow(rows: DashaRow[], window: YearWindow) {
+  const windowStart = new Date(window.startYear, 0, 1).getTime();
+  const windowEnd = new Date(window.endYear, 11, 31).getTime();
+  return rows.filter((row) => row.startTimestamp <= windowEnd && row.endTimestamp >= windowStart);
+}
+
+function getMinimumYear(dobDate: Date | null) {
+  return dobDate ? dobDate.getFullYear() : 0;
+}
+
+function clampYear(year: number, minYear: number, maxYear: number) {
+  return Math.min(maxYear, Math.max(minYear, year));
+}
+
+function loadingIndicatorHeight(visible: boolean) {
+  return visible ? 44 : 0;
 }
 
 function isTodayInRow(row: DashaRow) {
@@ -355,10 +395,7 @@ const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
   titleWrap: { minHeight: 118, borderRadius: 6, backgroundColor: "#bff2c6", alignItems: "flex-start", justifyContent: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 8, shadowColor: "#0d5a1d", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.18, shadowRadius: 5, elevation: 4 },
   title: { width: "100%", color: "#145c24", fontSize: 20, lineHeight: 32, fontWeight: "900", textAlign: "left", writingDirection: "ltr", includeFontPadding: true },
-  filters: { width: "100%", flexDirection: "row", gap: spacing.sm },
-  dateControl: { flex: 1, minHeight: 44, borderRadius: 6, borderWidth: 1, borderColor: "#8dcc83", backgroundColor: "#fffdf5", justifyContent: "center", paddingHorizontal: spacing.sm, paddingVertical: 5 },
-  dateLabel: { color: "#375c34", fontSize: 11, fontWeight: "900", textAlign: "center" },
-  dateValue: { color: "#111", fontSize: 13, lineHeight: 18, fontWeight: "900", textAlign: "center" },
+  rangeText: { color: "#375c34", fontSize: 12, lineHeight: 17, fontWeight: "900" },
   validation: { color: colors.danger, textAlign: "center", fontSize: 12, lineHeight: 17, fontWeight: "800" },
   table: { borderWidth: 1, borderColor: "#b7dcae", borderRadius: 6, backgroundColor: "#fffdf5", overflow: "hidden", shadowColor: "#0d5a1d", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.14, shadowRadius: 5, elevation: 3 },
   headerRow: { flexDirection: "row", minHeight: 88, backgroundColor: "#ffe082" },
@@ -373,6 +410,7 @@ const styles = StyleSheet.create({
   tableBody: { backgroundColor: "#fffdf5" },
   tableState: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.md },
   loadingText: { marginTop: spacing.sm, color: "#375c34", fontWeight: "900" },
+  rangeStatus: { minHeight: 44, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.sm, paddingVertical: 6, backgroundColor: "#fffdf5" },
   bodyRow: { height: rowHeight, flexDirection: "row", backgroundColor: "#fffdf5" },
   activeRow: { backgroundColor: "#f4ffe0" },
   bodyCell: { borderTopWidth: 1, borderRightWidth: 1, borderColor: "#d6dfc9", alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },

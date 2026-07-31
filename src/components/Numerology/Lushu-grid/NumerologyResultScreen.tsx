@@ -9,7 +9,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useTranslation } from "@/context/LanguageContext";
 
-import { GridIntro, NumberCard } from "./Common";
+import { GridIntro, NumberCard, NumberSummaryGrid } from "./Common";
 import { Calculation } from "./constants";
 import { LoShuGrid } from "./LoShuGrid";
 import { LoShuRepetitionEffectsSection } from "./LoShuRepetitionEffectsSection";
@@ -72,14 +72,20 @@ export function NumerologyResultScreen() {
           description={t("Birth-date numbers arranged to reveal strengths, missing energies, and life patterns.")}
         />
         <LoShuGrid grid={loShu?.grid} />
-        <View style={styles.cardGrid}>
-          <NumberCard label={t("Personality Number")} value={loShu?.driverNumber} note={t("Inner Nature")} />
-          <NumberCard label={t("Destiny Number")} value={loShu?.destinyNumber} note={t("Life Path")} />
-          <NumberCard label={t("Kua Number")} value={loShu?.kuaNumber} note={t("Personal Energy")} />
-          <NumberCard label={t("Name Number")} value={loShu?.nameNumber} note={t("Compound")} />
-          <NumberCard label={t("Running Age")} value={loShu?.runningAge} note={t("Years")} />
-          <NumberCard label={t("Zodiac")} value={loShu?.zodiacNumber} note={loShu?.zodiacSign || t("Zodiac Sign")} />
-        </View>
+        <NumberSummaryGrid
+          rows={[
+            [
+              { label: t("Personality Number"), value: loShu?.driverNumber, note: t("Inner Nature") },
+              { label: t("Destiny Number"), value: loShu?.destinyNumber, note: t("Life Path") },
+              { label: t("Kua Number"), value: loShu?.kuaNumber, note: t("Personal Energy") }
+            ],
+            [
+              { label: t("Name Number"), value: loShu?.nameNumber, note: t("Compound") },
+              { label: t("Running Age"), value: loShu?.runningAge, note: t("Years") },
+              { label: t("Zodiac"), value: loShu?.zodiacNumber, note: loShu?.zodiacSign || t("Zodiac Sign") }
+            ]
+          ]}
+        />
         <Pressable style={styles.detailButton} onPress={openPersonalityDestinyDetails}>
           <View style={styles.detailButtonCopy}>
             <Text style={styles.detailButtonTitle}>{t("Check Personality and Destiny Details")}</Text>

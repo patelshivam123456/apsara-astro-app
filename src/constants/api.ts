@@ -23,7 +23,7 @@ export const ENDPOINTS = {
   vedicGrid: "/astrology-services/home-page/vedic-grid",
   pythagoreanGrid: "/astrology-services/home-page/pythagorean-grid-details",
   dashaCalculation: "/astrology-services/home-page/numerology/dasha-calculation",
-  pratyantarDasha: "/astrology-services/home-page/numerology/pratyantar-dasha",
+  pratyantarDasha: "https://apsara-talk-frontend-new.vercel.app/api/astro-proxy/astrology-services/home-page/numerology/pratyantar-dasha",
   personalityDestinyDetails: "/astrology-services/home-page/personality-destiny-details",
   numberRelationships: "/astrology-services/home-page/number-relationships",
   sectorWiseEffects: "/astrology-services/home-page/get-sector-wise-effects",
