@@ -50,6 +50,9 @@ export function PythagorasGridScreen() {
   if (loading) return <LoadingState label="Loading Pythagoras grid" />;
   if (error && !pythagorasGrid) return <ErrorState message={error} onRetry={() => router.replace("/astrologer/numerology")} />;
 
+  const challengeNumber = pythagorasGrid?.challengeNumber;
+  const pinnacleNumber = pythagorasGrid?.pinnacleNumber;
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
@@ -80,10 +83,50 @@ export function PythagorasGridScreen() {
         />
         <StatRow
           items={[
-            { label: t("Challenge One"), value: pythagorasGrid?.challengeNumber?.challengeOne },
-            { label: t("Challenge Two"), value: pythagorasGrid?.challengeNumber?.challengeTwo },
-            { label: t("Challenge Three"), value: pythagorasGrid?.challengeNumber?.challengeThree },
-            { label: t("Challenge Four"), value: pythagorasGrid?.challengeNumber?.challengeFour }
+            {
+              label: t("Challenge One"),
+              value: challengeNumber?.firstChallengeNumber ?? challengeNumber?.challengeOne,
+              note: challengeNumber?.firstChallengeTimePeriod
+            },
+            {
+              label: t("Challenge Two"),
+              value: challengeNumber?.secondChallengeNumber ?? challengeNumber?.challengeTwo,
+              note: challengeNumber?.secondChallengeTimePeriod
+            },
+            {
+              label: t("Challenge Three"),
+              value: challengeNumber?.thirdChallengeNumber ?? challengeNumber?.challengeThree,
+              note: challengeNumber?.thirdChallengeTimePeriod
+            },
+            {
+              label: t("Challenge Four"),
+              value: challengeNumber?.fourthChallengeNumber ?? challengeNumber?.challengeFour,
+              note: challengeNumber?.fourthChallengeTimePeriod
+            }
+          ]}
+        />
+        <StatRow
+          items={[
+            {
+              label: t("Pinnacle One"),
+              value: pinnacleNumber?.firstPinnacleNumber,
+              note: pinnacleNumber?.firstPinnacleTimePeriod ?? pinnacleNumber?.firstChallengeTimePeriod
+            },
+            {
+              label: t("Pinnacle Two"),
+              value: pinnacleNumber?.secondPinnacleNumber,
+              note: pinnacleNumber?.secondPinnacleTimePeriod ?? pinnacleNumber?.secondChallengeTimePeriod
+            },
+            {
+              label: t("Pinnacle Three"),
+              value: pinnacleNumber?.thirdPinnacleNumber,
+              note: pinnacleNumber?.thirdPinnacleTimePeriod ?? pinnacleNumber?.thirdChallengeTimePeriod
+            },
+            {
+              label: t("Pinnacle Four"),
+              value: pinnacleNumber?.fourthPinnacleNumber,
+              note: pinnacleNumber?.fourthPinnacleTimePeriod ?? pinnacleNumber?.fourthChallengeTimePeriod
+            }
           ]}
         />
         {error ? <Text style={styles.validation}>{error}</Text> : null}

@@ -36,10 +36,32 @@ export type PythagoreanGridResponse = LoShuGridResponse & {
   driverAddedToGrid?: boolean;
   destinyAddedToGrid?: boolean;
   challengeNumber?: {
-    challengeOne?: number;
-    challengeTwo?: number;
-    challengeThree?: number;
-    challengeFour?: number;
+    challengeOne?: string | number;
+    challengeTwo?: string | number;
+    challengeThree?: string | number;
+    challengeFour?: string | number;
+    firstChallengeNumber?: string | number;
+    secondChallengeNumber?: string | number;
+    thirdChallengeNumber?: string | number;
+    fourthChallengeNumber?: string | number;
+    firstChallengeTimePeriod?: string;
+    secondChallengeTimePeriod?: string;
+    thirdChallengeTimePeriod?: string;
+    fourthChallengeTimePeriod?: string;
+  };
+  pinnacleNumber?: {
+    firstPinnacleNumber?: string | number;
+    secondPinnacleNumber?: string | number;
+    thirdPinnacleNumber?: string | number;
+    fourthPinnacleNumber?: string | number;
+    firstChallengeTimePeriod?: string;
+    secondChallengeTimePeriod?: string;
+    thirdChallengeTimePeriod?: string;
+    fourthChallengeTimePeriod?: string;
+    firstPinnacleTimePeriod?: string;
+    secondPinnacleTimePeriod?: string;
+    thirdPinnacleTimePeriod?: string;
+    fourthPinnacleTimePeriod?: string;
   };
 };
 
