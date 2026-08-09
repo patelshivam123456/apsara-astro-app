@@ -5,6 +5,8 @@ const exclusionList = exclusionListModule.default || exclusionListModule;
 const config = getDefaultConfig(__dirname);
 const root = __dirname.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+config.resolver.unstable_conditionNames = ["react-native"];
+
 config.resolver.blockList = exclusionList([
   new RegExp(`${root}/\\.agents/.*`),
   new RegExp(`${root}/\\.codex/.*`),

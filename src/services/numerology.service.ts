@@ -15,6 +15,7 @@ export type LoShuGridResponse = {
   runningAge?: number;
   kuaNumber?: number;
   nameNumber?: number;
+  soulNumber?: number;
   zodiacNumber?: number;
   zodiacSign?: string;
   missingNumbers?: number[];
@@ -62,6 +63,28 @@ export type PythagoreanGridResponse = LoShuGridResponse & {
     secondPinnacleTimePeriod?: string;
     thirdPinnacleTimePeriod?: string;
     fourthPinnacleTimePeriod?: string;
+  };
+};
+
+export type PythagoreanNameTable = {
+  namePart?: string;
+  name?: string;
+  letters?: string[];
+  values?: number[];
+  tableRows?: number[][];
+};
+
+export type PythagoreanNameTableResponse = {
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  targetAge?: number;
+  firstNameTable?: PythagoreanNameTable;
+  lastNameTable?: PythagoreanNameTable;
+  runningYearSequence?: {
+    sequence?: string[];
+    twoSeries?: number[];
+    threeSeries?: number[];
   };
 };
 
@@ -208,6 +231,19 @@ export async function getVedicGrid(payload: NumerologyPayload) {
 export async function getPythagoreanGrid(payload: NumerologyPayload) {
   const response = await astroApi.post<ApiResponse<PythagoreanGridResponse>>(ENDPOINTS.pythagoreanGrid, payload);
   return ((response as unknown as ApiResponse<PythagoreanGridResponse>).data || response) as PythagoreanGridResponse;
+}
+
+export async function getPythagoreanNameTable(name: string, maxAge = 90) {
+  const query = new URLSearchParams({
+    name,
+    maxAge: String(maxAge)
+  });
+
+  const response = await astroApi.get<ApiResponse<PythagoreanNameTableResponse>>(
+    `${ENDPOINTS.pythagoreanNameTable}?${query.toString()}`
+  );
+
+  return ((response as unknown as ApiResponse<PythagoreanNameTableResponse>).data || response) as PythagoreanNameTableResponse;
 }
 
 export async function getDashaCalculation(dateOfBirth: string, fromDate: string, toDate: string) {

@@ -5,13 +5,32 @@
   },
   "build": {
     "development": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://staging.apsraastro.com",
+        "EXPO_PUBLIC_ASTRO_API_URL": "https://staging.apsraastro.com"
+      },
       "developmentClient": true,
       "distribution": "internal"
     },
+    "staging": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://staging.apsraastro.com",
+        "EXPO_PUBLIC_ASTRO_API_URL": "https://staging.apsraastro.com"
+      }
+    },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://staging.apsraastro.com",
+        "EXPO_PUBLIC_ASTRO_API_URL": "https://staging.apsraastro.com"
+      }
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://apsraastro.com",
+        "EXPO_PUBLIC_ASTRO_API_URL": "https://apsraastro.com"
+      },
       "autoIncrement": true
     }
   },

@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 
 const ACCESS_TOKEN_KEY = "apsara.accessToken";
 const REFRESH_TOKEN_KEY = "apsara.refreshToken";
@@ -8,29 +9,29 @@ const ONBOARDING_KEY = "apsara.onboardingComplete";
 
 export async function setSecureToken(accessToken: string | null, refreshToken?: string | null) {
   if (accessToken) {
-    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken);
+    await setTokenItem(ACCESS_TOKEN_KEY, accessToken);
   } else {
-    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+    await deleteTokenItem(ACCESS_TOKEN_KEY);
   }
 
   if (refreshToken !== undefined) {
-    if (refreshToken) await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
-    else await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+    if (refreshToken) await setTokenItem(REFRESH_TOKEN_KEY, refreshToken);
+    else await deleteTokenItem(REFRESH_TOKEN_KEY);
   }
 }
 
 export async function getAccessToken() {
-  return SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  return getTokenItem(ACCESS_TOKEN_KEY);
 }
 
 export async function getRefreshToken() {
-  return SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  return getTokenItem(REFRESH_TOKEN_KEY);
 }
 
 export async function clearSecureTokens() {
   await Promise.all([
-    SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
-    SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
+    deleteTokenItem(ACCESS_TOKEN_KEY),
+    deleteTokenItem(REFRESH_TOKEN_KEY),
     AsyncStorage.removeItem(CLAIMS_KEY)
   ]);
 }
@@ -50,4 +51,19 @@ export async function setOnboardingComplete() {
 
 export async function hasCompletedOnboarding() {
   return (await AsyncStorage.getItem(ONBOARDING_KEY)) === "true";
+}
+
+function getTokenItem(key: string) {
+  if (Platform.OS === "web") return AsyncStorage.getItem(key);
+  return SecureStore.getItemAsync(key);
+}
+
+function setTokenItem(key: string, value: string) {
+  if (Platform.OS === "web") return AsyncStorage.setItem(key, value);
+  return SecureStore.setItemAsync(key, value);
+}
+
+function deleteTokenItem(key: string) {
+  if (Platform.OS === "web") return AsyncStorage.removeItem(key);
+  return SecureStore.deleteItemAsync(key);
 }
