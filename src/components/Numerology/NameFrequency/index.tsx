@@ -1,0 +1,300 @@
+import { useEffect, useMemo, useState } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router, useLocalSearchParams } from "expo-router";
+import { Button, Text } from "react-native-paper";
+
+import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { GridIntro } from "@/components/Numerology/Lushu-grid/Common";
+import { localizeDigitsInText } from "@/components/Numerology/Lushu-grid/utils";
+import { ErrorState, LoadingState } from "@/components/StateViews";
+import { colors, spacing } from "@/constants/theme";
+import { useTranslation } from "@/context/LanguageContext";
+import { getApiErrorMessage } from "@/services/apiClient";
+import {
+  ChaldeanNameLetterAnalysisChartResponse,
+  ChaldeanNamePairEventsResponse,
+  getChaldeanNameLetterAnalysisChart,
+  getChaldeanNamePairEvents
+} from "@/services/numerology.service";
+
+export function NameFrequencyScreen() {
+  const { t } = useTranslation();
+  const params = useLocalSearchParams<{ fullName?: string }>();
+  const fullName = String(params.fullName || "");
+  const [pairEvents, setPairEvents] = useState<ChaldeanNamePairEventsResponse | null>(null);
+  const [letterAnalysis, setLetterAnalysis] = useState<ChaldeanNameLetterAnalysisChartResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadNameFrequency() {
+      try {
+        setLoading(true);
+        setError(null);
+        const pairEventResponse = await getChaldeanNamePairEvents(fullName);
+        if (!mounted) return;
+        setPairEvents(pairEventResponse);
+
+        const letterAnalysisResponse = await getChaldeanNameLetterAnalysisChart(fullName);
+        if (mounted) setLetterAnalysis(letterAnalysisResponse);
+      } catch (err) {
+        if (mounted) setError(getApiErrorMessage(err, "Unable to load name frequency"));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadNameFrequency();
+    return () => {
+      mounted = false;
+    };
+  }, [fullName]);
+
+  const summaryRows = useMemo(
+    () => [
+      [
+        { label: t("Total Letters"), value: letterAnalysis?.totalLetters },
+        { label: t("Compound Name Number"), value: letterAnalysis?.compoundNameNumber },
+        { label: t("Total Name Number"), value: letterAnalysis?.totalNameNumber }
+      ],
+      [
+        { label: t("Total Life Years"), value: pairEvents?.totalLifeYears },
+        { label: t("First Name"), value: letterAnalysis?.firstName || "-" },
+        { label: t("Last Name"), value: letterAnalysis?.lastName || "-" }
+      ]
+    ],
+    [letterAnalysis, pairEvents, t]
+  );
+
+  if (loading) return <LoadingState label="Loading name frequency" />;
+  if (error && !pairEvents) return <ErrorState message={error} onRetry={() => router.replace("/astrologer/numerology")} />;
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.header}>
+        <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
+        <Text variant="headlineSmall" style={styles.headerTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>{t("Numerology")}</Text>
+        <LanguageSelector />
+      </View>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <GridIntro
+          title={t("Name Frequency")}
+          description={t("Chaldean name pair events and letter frequency analysis.")}
+        />
+        <NameSummary fullName={letterAnalysis?.fullName || pairEvents?.fullName || fullName} normalizedName={letterAnalysis?.normalizedName || pairEvents?.normalizedName} />
+        <SummaryGrid rows={summaryRows} />
+        <PairEventsTable data={pairEvents} />
+        <NumberFrequencyTable data={letterAnalysis} />
+        <NameLettersTable data={letterAnalysis} />
+        {error ? <Text style={styles.validation}>{error}</Text> : null}
+      </ScrollView>
+      <AstrologerBottomNav active="home" respectSafeArea />
+    </SafeAreaView>
+  );
+}
+
+function NameSummary({ fullName, normalizedName }: { fullName?: string; normalizedName?: string }) {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.infoTable}>
+      <InfoRow label={t("Full Name")} value={fullName || "-"} />
+      <InfoRow label={t("Normalized Name")} value={normalizedName || "-"} last />
+    </View>
+  );
+}
+
+function InfoRow({ label, value, last = false }: { label: string; value: string; last?: boolean }) {
+  return (
+    <View style={[styles.infoRow, last && styles.lastRow]}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.68}>{value}</Text>
+    </View>
+  );
+}
+
+function SummaryGrid({ rows }: { rows: { label: string; value?: string | number }[][] }) {
+  const { language } = useTranslation();
+  return (
+    <View style={styles.summaryTable}>
+      {rows.map((row, rowIndex) => (
+        <View key={`summary-${rowIndex}`} style={styles.summaryRow}>
+          {row.map((item, itemIndex) => (
+            <View key={`${item.label}-${itemIndex}`} style={[styles.summaryCell, itemIndex < row.length - 1 && styles.cellRightBorder]}>
+              <Text style={styles.summaryLabel} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.62}>{item.label}</Text>
+              <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62}>
+                {localizeDigitsInText(item.value ?? "-", language)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function PairEventsTable({ data }: { data: ChaldeanNamePairEventsResponse | null }) {
+  const { language, t } = useTranslation();
+  const rows = data?.events?.length ? data.events : [];
+
+  return (
+    <View style={styles.tablePanel}>
+      <Text style={styles.tableTitle}>{t("Name Pair Events")}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.wideTable}>
+          <TableRow
+            cells={[t("Year"), t("Pair"), t("First"), t("Second"), t("First No."), t("Second No."), t("Event 1"), t("Event 2"), t("Vibration"), t("Found")]}
+            header
+          />
+          {rows.map((row, index) => (
+            <TableRow
+              key={`${row.letterPair}-${row.lifeYear}-${index}`}
+              cells={[
+                localizeDigitsInText(row.lifeYear ?? "-", language),
+                row.letterPair || "-",
+                row.firstLetter || "-",
+                row.secondLetter || "-",
+                localizeDigitsInText(row.firstLetterNumber ?? "-", language),
+                localizeDigitsInText(row.secondLetterNumber ?? "-", language),
+                localizeDigitsInText(row.eventOne ?? "-", language),
+                localizeDigitsInText(row.eventTwo ?? "-", language),
+                row.vibration || "-",
+                row.vibrationFound ? t("Yes") : t("No")
+              ]}
+            />
+          ))}
+          {!rows.length ? <EmptyTableRow label={t("No records found")} /> : null}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function NumberFrequencyTable({ data }: { data: ChaldeanNameLetterAnalysisChartResponse | null }) {
+  const { language, t } = useTranslation();
+  const rows = data?.numberFrequency?.length ? data.numberFrequency : [];
+
+  return (
+    <View style={styles.tablePanel}>
+      <Text style={styles.tableTitle}>{t("Number Frequency")}</Text>
+      <View style={styles.compactTable}>
+        <TableRow cells={[t("Number"), t("Count")]} header />
+        {rows.map((row) => (
+          <TableRow
+            key={row.number}
+            cells={[
+              localizeDigitsInText(row.number ?? "-", language),
+              localizeDigitsInText(row.count ?? "-", language)
+            ]}
+          />
+        ))}
+        {!rows.length ? <EmptyTableRow label={t("No records found")} /> : null}
+      </View>
+    </View>
+  );
+}
+
+function NameLettersTable({ data }: { data: ChaldeanNameLetterAnalysisChartResponse | null }) {
+  const { language, t } = useTranslation();
+  const rows = data?.nameLetters?.length ? data.nameLetters : [];
+
+  return (
+    <View style={styles.tablePanel}>
+      <Text style={styles.tableTitle}>{t("Name Letters")}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.mediumTable}>
+          <TableRow cells={[t("Part"), t("Letter"), t("Number"), t("Full Pos."), t("Part Pos.")]} header />
+          {rows.map((row, index) => (
+            <TableRow
+              key={`${row.namePart}-${row.nameLetter}-${index}`}
+              cells={[
+                formatNamePart(row.namePart),
+                row.nameLetter || "-",
+                localizeDigitsInText(row.chaldeanNumber ?? "-", language),
+                localizeDigitsInText(row.positionInFullName ?? "-", language),
+                localizeDigitsInText(row.positionInNamePart ?? "-", language)
+              ]}
+            />
+          ))}
+          {!rows.length ? <EmptyTableRow label={t("No records found")} /> : null}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function TableRow({ cells, header = false }: { cells: (string | number)[]; header?: boolean }) {
+  return (
+    <View style={styles.tableRow}>
+      {cells.map((cell, index) => (
+        <Text
+          key={`${cell}-${index}`}
+          style={[styles.tableCell, header && styles.tableHeadCell, index === cells.length - 1 && styles.lastCell]}
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.62}
+        >
+          {cell}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+function EmptyTableRow({ label }: { label: string }) {
+  return (
+    <View style={styles.tableRow}>
+      <Text style={[styles.tableCell, styles.emptyCell, styles.lastCell]}>{label}</Text>
+    </View>
+  );
+}
+
+function formatNamePart(value?: string) {
+  if (!value) return "-";
+  return value
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#f8f7f2" },
+  header: {
+    minHeight: 58,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm
+  },
+  headerTitle: { flex: 1, minWidth: 0, color: colors.ink, fontWeight: "700", fontSize: 12, lineHeight: 19, textAlign: "center" },
+  scroll: { flex: 1 },
+  content: { alignSelf: "center", width: "100%", maxWidth: 420, minHeight: "100%", backgroundColor: "#ffffc9", padding: spacing.lg, paddingBottom: 104, gap: spacing.lg },
+  infoTable: { borderWidth: 1, borderColor: "#d6d6d6", borderRadius: 6, backgroundColor: "#fff", overflow: "hidden" },
+  infoRow: { minHeight: 34, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#d6d6d6" },
+  lastRow: { borderBottomWidth: 0 },
+  infoLabel: { flex: 1, borderRightWidth: 1, borderRightColor: "#d6d6d6", color: "#000", fontSize: 13, lineHeight: 16, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 6, paddingVertical: 5 },
+  infoValue: { flex: 1.35, color: "#000", fontSize: 13, lineHeight: 16, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 6, paddingVertical: 5 },
+  summaryTable: { borderWidth: 1, borderColor: "#d6d6d6", borderRadius: 6, backgroundColor: "#fff", overflow: "hidden" },
+  summaryRow: { minHeight: 58, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#d6d6d6" },
+  summaryCell: { flex: 1, minWidth: 0, alignItems: "center", justifyContent: "center", paddingHorizontal: 4, paddingVertical: 6 },
+  cellRightBorder: { borderRightWidth: 1, borderRightColor: "#d6d6d6" },
+  summaryLabel: { color: "#777", fontSize: 10, lineHeight: 14, fontWeight: "800", textAlign: "center" },
+  summaryValue: { color: "#136a28", fontSize: 13, lineHeight: 18, fontWeight: "700", textAlign: "center", marginTop: 3 },
+  tablePanel: { borderWidth: 1, borderColor: "#d6d6d6", borderRadius: 6, backgroundColor: "#fff", overflow: "hidden" },
+  tableTitle: { borderBottomWidth: 1, borderBottomColor: "#d6d6d6", color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "700", textAlign: "center", paddingHorizontal: 6, paddingVertical: 6 },
+  wideTable: { width: 690 },
+  mediumTable: { width: 460 },
+  compactTable: { width: "100%" },
+  tableRow: { minHeight: 31, flexDirection: "row" },
+  tableCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
+  tableHeadCell: { backgroundColor: "#d8f4d1", fontSize: 12, lineHeight: 15, fontWeight: "800" },
+  lastCell: { borderRightWidth: 0 },
+  emptyCell: { flex: 1, color: "#777" },
+  validation: { color: colors.danger, fontSize: 12, fontWeight: "800", lineHeight: 17 }
+});

@@ -88,6 +88,53 @@ export type PythagoreanNameTableResponse = {
   };
 };
 
+export type ChaldeanNamePairEvent = {
+  lifeYear?: number;
+  letterPair?: string;
+  firstLetter?: string;
+  secondLetter?: string;
+  firstLetterNumber?: number;
+  secondLetterNumber?: number;
+  eventOne?: number;
+  eventTwo?: number;
+  vibration?: string;
+  vibrationFound?: boolean;
+};
+
+export type ChaldeanNamePairEventsResponse = {
+  fullName?: string;
+  normalizedName?: string;
+  totalLifeYears?: number;
+  events?: ChaldeanNamePairEvent[];
+};
+
+export type ChaldeanNumberFrequencyItem = {
+  number?: number;
+  count?: number;
+};
+
+export type ChaldeanNameLetterItem = {
+  namePart?: string;
+  nameLetter?: string;
+  chaldeanNumber?: number;
+  positionInFullName?: number;
+  positionInNamePart?: number;
+};
+
+export type ChaldeanNameLetterAnalysisChartResponse = {
+  fullName?: string;
+  normalizedName?: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  totalLetters?: number;
+  compoundNameNumber?: number;
+  totalNameNumber?: number;
+  numberFrequency?: ChaldeanNumberFrequencyItem[];
+  nameLetters?: ChaldeanNameLetterItem[];
+  numberFrequencyCount?: Record<string, number>;
+};
+
 export type PersonalYearResponse = {
   personalMonth?: string;
   personalDay?: string;
@@ -244,6 +291,36 @@ export async function getPythagoreanNameTable(name: string, maxAge = 90) {
   );
 
   return ((response as unknown as ApiResponse<PythagoreanNameTableResponse>).data || response) as PythagoreanNameTableResponse;
+}
+
+export async function getChaldeanNamePairEvents(name: string) {
+  const query = new URLSearchParams({ name });
+
+  const response = await astroApi.get<ApiResponse<ChaldeanNamePairEventsResponse>>(
+    `${ENDPOINTS.chaldeanNamePairEvents}?${query.toString()}`,
+    {
+      headers: {
+        Accept: "*/*"
+      }
+    }
+  );
+
+  return ((response as unknown as ApiResponse<ChaldeanNamePairEventsResponse>).data || response) as ChaldeanNamePairEventsResponse;
+}
+
+export async function getChaldeanNameLetterAnalysisChart(fullName: string) {
+  const query = new URLSearchParams({ fullName });
+
+  const response = await astroApi.get<ApiResponse<ChaldeanNameLetterAnalysisChartResponse>>(
+    `${ENDPOINTS.chaldeanNameLetterAnalysisChart}?${query.toString()}`,
+    {
+      headers: {
+        Accept: "*/*"
+      }
+    }
+  );
+
+  return ((response as unknown as ApiResponse<ChaldeanNameLetterAnalysisChartResponse>).data || response) as ChaldeanNameLetterAnalysisChartResponse;
 }
 
 export async function getDashaCalculation(dateOfBirth: string, fromDate: string, toDate: string) {

@@ -23,6 +23,8 @@ export const ENDPOINTS = {
   vedicGrid: "/astrology-services/home-page/vedic-grid",
   pythagoreanGrid: "/astrology-services/home-page/pythagorean-grid-details",
   pythagoreanNameTable: "/astrology-services/home-page/numerology/pythagorean/name-table",
+  chaldeanNamePairEvents: "/astrology-services/home-page/api/numerology/chaldean/name-pair-events",
+  chaldeanNameLetterAnalysisChart: "/astrology-services/home-page/api/numerology/chaldean/name-letter-analysis-chart",
   dashaCalculation: "/astrology-services/home-page/numerology/dasha-calculation",
   pratyantarDasha: "/astrology-services/home-page/numerology/pratyantar-dasha",
   personalityDestinyDetails: "/astrology-services/home-page/personality-destiny-details",

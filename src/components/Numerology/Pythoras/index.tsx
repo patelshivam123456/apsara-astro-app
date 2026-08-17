@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   pythagorasGrid: {
     alignSelf: "center",
     width: 204,
-    height: 204,
+    height: 156,
     borderRadius: 10,
     backgroundColor: "#fff",
     flexDirection: "row",
@@ -412,14 +412,19 @@ const styles = StyleSheet.create({
   },
   gridCell: {
     width: 61.33,
-    height: 61.33,
+    height: 45.33,
     borderRadius: 7,
     backgroundColor: "#f8fff6",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 5
+    paddingHorizontal: 5,
+    shadowColor: "#0d3440",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1
   },
-  gridText: { color: "#111", fontSize: 13, lineHeight: 30, fontWeight: "600", textAlign: "center" },
+  gridText: { color: "#111", fontSize: 18, fontWeight: "900", textAlign: "center" },
   statPanel: {
     minHeight: 86,
     borderRadius: 8,

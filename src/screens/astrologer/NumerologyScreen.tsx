@@ -14,6 +14,7 @@ import { useTranslation } from "@/context/LanguageContext";
 export { NumerologyResultScreen, PersonalityDestinyScreen } from "@/components/Numerology/Lushu-grid";
 export { PythagorasGridScreen } from "@/components/Numerology/Pythoras";
 export { VedicGridScreen } from "@/components/Numerology/Vedic-grid";
+export { NameFrequencyScreen } from "@/components/Numerology/NameFrequency";
 
 type Gender = "Male" | "Female" | "Other";
 type Calculation = "lo-shu-grid" | "vedic-grid" | "pythagoras-grid" | "name-frequency" | "daily-numeroscope";
@@ -56,9 +57,10 @@ export function NumerologyScreen() {
 
   const canSubmit =
     fullName.trim().length > 1 &&
-    /^\d{2}-\d{2}-\d{4}$/.test(dob.trim()) &&
-    gender &&
-    (calculation === "lo-shu-grid" || calculation === "vedic-grid" || calculation === "pythagoras-grid");
+    (calculation === "name-frequency" ||
+      (/^\d{2}-\d{2}-\d{4}$/.test(dob.trim()) &&
+        gender &&
+        (calculation === "lo-shu-grid" || calculation === "vedic-grid" || calculation === "pythagoras-grid")));
 
   const submit = () => {
     setSubmitted(true);
@@ -69,7 +71,9 @@ export function NumerologyScreen() {
         ? "/astrologer/vedic-grid"
         : calculation === "pythagoras-grid"
           ? "/astrologer/pythagoras-grid"
-          : "/astrologer/numerology-result";
+          : calculation === "name-frequency"
+            ? "/astrologer/name-frequency"
+            : "/astrologer/numerology-result";
 
     router.push({
       pathname,
@@ -163,7 +167,11 @@ export function NumerologyScreen() {
           </View>
           {submitted && !canSubmit ? (
             <Text style={styles.validation}>
-              {calculation !== "lo-shu-grid" && calculation !== "vedic-grid" && calculation !== "pythagoras-grid" ? t("Please select Lo Shu Grid, Vedic Grid, or Pythagoras Grid calculation.") : t("Enter full name, DOB, and gender.")}
+              {calculation === "name-frequency"
+                ? t("Enter full name.")
+                : calculation !== "lo-shu-grid" && calculation !== "vedic-grid" && calculation !== "pythagoras-grid"
+                  ? t("Please select Lo Shu Grid, Vedic Grid, or Pythagoras Grid calculation.")
+                  : t("Enter full name, DOB, and gender.")}
             </Text>
           ) : null}
           <View style={styles.actionRow}>
