@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Avatar, Button, ProgressBar, Text } from "react-native-paper";
 
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { Screen } from "@/components/Screen";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { colors, spacing } from "@/constants/theme";
@@ -19,6 +20,35 @@ function initialsFromName(name: string) {
     .map((part) => part[0])
     .join("")
     .toUpperCase();
+}
+
+function formatProfileValue(value: unknown) {
+  if (Array.isArray(value)) return value.filter(Boolean).join(", ");
+  if (value === null || value === undefined || value === "") return "";
+  return String(value);
+}
+
+function formatTranslatedProfileValue(label: string, value: unknown, translate: (text: string) => string) {
+  if (Array.isArray(value)) return value.filter(Boolean).map((item) => translate(String(item))).join(", ");
+
+  const displayValue = formatProfileValue(value);
+  if (!displayValue) return "";
+
+  const rawDataLabels = new Set([
+    "Full Name",
+    "Display Name",
+    "Email",
+    "Mobile",
+    "Date of Birth",
+    "Date of Joining",
+    "Profile Completion",
+    "Experience",
+    "Aadhaar No",
+    "Address",
+    "Pin Code"
+  ]);
+
+  return rawDataLabels.has(label) ? displayValue : translate(displayValue);
 }
 
 export function AstrologerProfileScreen() {
@@ -42,21 +72,33 @@ export function AstrologerProfileScreen() {
     t("Astrologer");
   const completion = Math.max(0, Math.min(100, data.profileCompletionPercentage || 0));
 
+  const about = data.aboutYourself || data.bio;
   const rows = [
+    ["Full Name", data.fullName, "account"],
+    ["Display Name", data.displayName, "account-star"],
     ["Email", data.email, "email"],
     ["Mobile", data.mobileNo || data.mobileNumber || data.phone, "phone"],
     ["Gender", data.gender, "gender-male-female"],
+    ["Date of Birth", data.dateOfBirth, "calendar-account"],
+    ["Date of Joining", data.dateOfJoining, "calendar-clock"],
+    ["Profile Status", data.profileStatus, "check-decagram"],
+    ["Profile Completion", data.profileCompletionPercentage !== undefined ? `${completion}%` : undefined, "progress-check"],
     ["Experience", data.yearsOfExperience ? `${data.yearsOfExperience} ${t("years")}` : undefined, "star-circle"],
     ["Specialization", data.specialization, "creation"],
+    ["Expertise", data.expertise, "star-four-points"],
     ["Languages", data.language || data.languagesKnown, "translate"],
+    ["Consultation Modes", data.consultationModes, "video-account"],
+    ["Education", data.educationalQualification, "school"],
+    ["Aadhaar No", data.aadhaarNo, "card-account-details"],
     ["Address", data.address, "map-marker"],
-    ["City", [data.city, data.state, data.pinCode].filter(Boolean).join(", "), "city"],
+    ["City", data.city, "city"],
+    ["State", data.state, "map"],
+    ["Pin Code", data.pinCode, "map-marker-radius"],
     ["Country", data.country, "earth"],
     ["Religion", data.religion, "temple-hindu"],
     ["Caste", data.caste, "account-group"],
     ["Gotra", data.gotra, "leaf"],
-    ["Mother Tongue", data.motherTongue, "comment-text"],
-    ["Joined", [data.dateOfJoining, data.timeOfJoining].filter(Boolean).join(` ${t("at")} `), "calendar-clock"]
+    ["Mother Tongue", data.motherTongue, "comment-text"]
   ] as const;
 
   return (
@@ -66,7 +108,7 @@ export function AstrologerProfileScreen() {
           <View style={styles.header}>
             <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
             <Text variant="titleMedium" style={styles.headerTitle}>{t("Profile")}</Text>
-            <View style={styles.headerSpacer} />
+            <LanguageSelector />
           </View>
 
           <View style={styles.hero}>
@@ -84,23 +126,26 @@ export function AstrologerProfileScreen() {
             </View>
           </View>
 
-          {data.bio ? (
+          {about ? (
             <View style={styles.bioCard}>
               <Text variant="titleMedium">{t("About")}</Text>
-              <Text style={styles.bio}>{data.bio}</Text>
+              <Text style={styles.bio}>{t(about)}</Text>
             </View>
           ) : null}
 
           <View style={styles.grid}>
-            {rows.map(([label, value, icon]) => value ? (
-              <View key={label} style={styles.infoCard}>
-                <MaterialCommunityIcons name={icon} size={22} color={colors.ink} />
-                <View style={styles.infoCopy}>
-                  <Text style={styles.infoLabel}>{t(label)}</Text>
-                  <Text style={styles.infoValue}>{t(String(value))}</Text>
+            {rows.map(([label, value, icon]) => {
+              const displayValue = formatTranslatedProfileValue(label, value, t);
+              return displayValue ? (
+                <View key={label} style={styles.infoCard}>
+                  <MaterialCommunityIcons name={icon} size={22} color={colors.ink} />
+                  <View style={styles.infoCopy}>
+                    <Text style={styles.infoLabel}>{t(label)}</Text>
+                    <Text style={styles.infoValue}>{displayValue}</Text>
+                  </View>
                 </View>
-              </View>
-            ) : null)}
+              ) : null;
+            })}
           </View>
             </View>
       </Screen>
@@ -113,8 +158,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { paddingBottom: 96, gap: spacing.lg },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  headerTitle: { fontWeight: "800", color: colors.ink },
-  headerSpacer: { width: 70 },
+  headerTitle: { flex: 1, minWidth: 0, fontWeight: "800", color: colors.ink, textAlign: "center" },
   hero: { flexDirection: "row", gap: spacing.md, alignItems: "center", borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: spacing.lg },
   avatar: { backgroundColor: colors.ink },
   avatarLabel: { color: colors.lime, fontWeight: "800" },

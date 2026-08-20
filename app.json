@@ -5,14 +5,14 @@
     "scheme": "apsaraastro",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/logo_apsara.png",
+    "icon": "./src/assets/new_logo_apsara.jpeg",
     "jsEngine": "hermes",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "**/*"
     ],
     "splash": {
-      "image": "./src/assets/logo_apsara.png",
+      "image": "./src/assets/new_logo_apsara.jpeg",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -33,7 +33,7 @@
         "INTERNET"
       ],
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/logo_apsara.png",
+        "foregroundImage": "./src/assets/new_logo_apsara.jpeg",
         "backgroundColor": "#fff7e8"
       }
     },

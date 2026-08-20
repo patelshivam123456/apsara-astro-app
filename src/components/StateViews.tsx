@@ -9,7 +9,7 @@ export function LoadingState({ label = "Loading" }: { label?: string }) {
 
   return (
     <View style={styles.center}>
-      <Image source={require("@/assets/logo_apsara.jpeg")} resizeMode="contain" style={styles.loadingLogo} />
+      <Image source={require("@/assets/new_logo_apsara.jpeg")} resizeMode="contain" style={styles.loadingLogo} />
       <ActivityIndicator />
       <Text variant="bodyMedium" style={styles.centerText}>{t(label)}</Text>
     </View>

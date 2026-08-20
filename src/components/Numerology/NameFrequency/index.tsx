@@ -19,6 +19,10 @@ import {
   getChaldeanNamePairEvents
 } from "@/services/numerology.service";
 
+const EMPTY_NAME_LETTERS: NonNullable<ChaldeanNameLetterAnalysisChartResponse["nameLetters"]> = [];
+const EMPTY_NUMBER_FREQUENCY: NonNullable<ChaldeanNameLetterAnalysisChartResponse["numberFrequency"]> = [];
+const FREQUENCY_LABELS = ["Once", "Twice", "Thrice", "Four", "Five", "Six", "Seven", "Eight", "Ninth"];
+
 export function NameFrequencyScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ fullName?: string }>();
@@ -88,8 +92,8 @@ export function NameFrequencyScreen() {
         <NameSummary fullName={letterAnalysis?.fullName || pairEvents?.fullName || fullName} normalizedName={letterAnalysis?.normalizedName || pairEvents?.normalizedName} />
         <SummaryGrid rows={summaryRows} />
         <PairEventsTable data={pairEvents} />
-        <NumberFrequencyTable data={letterAnalysis} />
         <NameLettersTable data={letterAnalysis} />
+        <NumberFrequencyTable data={letterAnalysis} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
       <AstrologerBottomNav active="home" respectSafeArea />
@@ -146,7 +150,7 @@ function PairEventsTable({ data }: { data: ChaldeanNamePairEventsResponse | null
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.wideTable}>
           <TableRow
-            cells={[t("Year"), t("Pair"), t("First"), t("Second"), t("First No."), t("Second No."), t("Event 1"), t("Event 2"), t("Vibration"), t("Found")]}
+            cells={[t("Year"), t("Pair"), t("Event 1"), t("Event 2"), t("Vibration")]}
             header
           />
           {rows.map((row, index) => (
@@ -155,14 +159,9 @@ function PairEventsTable({ data }: { data: ChaldeanNamePairEventsResponse | null
               cells={[
                 localizeDigitsInText(row.lifeYear ?? "-", language),
                 row.letterPair || "-",
-                row.firstLetter || "-",
-                row.secondLetter || "-",
-                localizeDigitsInText(row.firstLetterNumber ?? "-", language),
-                localizeDigitsInText(row.secondLetterNumber ?? "-", language),
                 localizeDigitsInText(row.eventOne ?? "-", language),
                 localizeDigitsInText(row.eventTwo ?? "-", language),
-                row.vibration || "-",
-                row.vibrationFound ? t("Yes") : t("No")
+                row.vibration || "-"
               ]}
             />
           ))}
@@ -175,23 +174,24 @@ function PairEventsTable({ data }: { data: ChaldeanNamePairEventsResponse | null
 
 function NumberFrequencyTable({ data }: { data: ChaldeanNameLetterAnalysisChartResponse | null }) {
   const { language, t } = useTranslation();
-  const rows = data?.numberFrequency?.length ? data.numberFrequency : [];
+  const rows = data?.numberFrequency?.length ? data.numberFrequency : EMPTY_NUMBER_FREQUENCY;
+  const frequencyRows = useMemo(() => buildNumberFrequencyRows(rows), [rows]);
 
   return (
     <View style={styles.tablePanel}>
-      <Text style={styles.tableTitle}>{t("Number Frequency")}</Text>
+      <Text style={styles.numberFrequencyTitle}>{t("Number Frequencies")}</Text>
       <View style={styles.compactTable}>
-        <TableRow cells={[t("Number"), t("Count")]} header />
-        {rows.map((row) => (
+        <TableRow cells={[t("Frequency"), t("Numbers")]} header />
+        {frequencyRows.map((row) => (
           <TableRow
-            key={row.number}
+            key={row.frequency}
             cells={[
-              localizeDigitsInText(row.number ?? "-", language),
-              localizeDigitsInText(row.count ?? "-", language)
+              t(row.frequency),
+              localizeDigitsInText(row.numbers, language)
             ]}
           />
         ))}
-        {!rows.length ? <EmptyTableRow label={t("No records found")} /> : null}
+        {!frequencyRows.length ? <EmptyTableRow label={t("No records found")} /> : null}
       </View>
     </View>
   );
@@ -199,29 +199,92 @@ function NumberFrequencyTable({ data }: { data: ChaldeanNameLetterAnalysisChartR
 
 function NameLettersTable({ data }: { data: ChaldeanNameLetterAnalysisChartResponse | null }) {
   const { language, t } = useTranslation();
-  const rows = data?.nameLetters?.length ? data.nameLetters : [];
+  const rows = data?.nameLetters?.length ? data.nameLetters : EMPTY_NAME_LETTERS;
+  const columns = useMemo(() => buildNameLetterChartColumns(rows), [rows]);
 
   return (
     <View style={styles.tablePanel}>
-      <Text style={styles.tableTitle}>{t("Name Letters")}</Text>
+      <Text style={styles.letterAnalysisTitle}>{t("Name Letter Analysis")}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.mediumTable}>
-          <TableRow cells={[t("Part"), t("Letter"), t("Number"), t("Full Pos."), t("Part Pos.")]} header />
-          {rows.map((row, index) => (
-            <TableRow
-              key={`${row.namePart}-${row.nameLetter}-${index}`}
-              cells={[
-                formatNamePart(row.namePart),
-                row.nameLetter || "-",
-                localizeDigitsInText(row.chaldeanNumber ?? "-", language),
-                localizeDigitsInText(row.positionInFullName ?? "-", language),
-                localizeDigitsInText(row.positionInNamePart ?? "-", language)
-              ]}
-            />
-          ))}
-          {!rows.length ? <EmptyTableRow label={t("No records found")} /> : null}
+        <View style={styles.letterAnalysisTable}>
+          {rows.length ? (
+            <>
+              <LetterAnalysisRow
+                label={t("Letter")}
+                values={columns.map((column) => column.letter)}
+                header
+              />
+              <LetterAnalysisRow
+                label={t("Chaldean Number")}
+                values={columns.map((column) => localizeDigitsInText(column.chaldeanNumber ?? "-", language))}
+              />
+              <LetterAnalysisRow
+                label={t("Placement")}
+                values={columns.map((column) => localizeDigitsInText(column.positionInFullName ?? "-", language))}
+                last
+              />
+            </>
+          ) : (
+            <EmptyTableRow label={t("No records found")} />
+          )}
         </View>
       </ScrollView>
+    </View>
+  );
+}
+
+type NameLetterChartColumn = {
+  letter: string;
+  chaldeanNumber?: number | string;
+  positionInFullName?: number | string;
+};
+
+function buildNameLetterChartColumns(rows: NonNullable<ChaldeanNameLetterAnalysisChartResponse["nameLetters"]>) {
+  const columns: NameLetterChartColumn[] = [];
+
+  rows.forEach((row, index) => {
+    const previous = rows[index - 1];
+    if (index > 0 && row.namePart && previous?.namePart && row.namePart !== previous.namePart) {
+      columns.push({ letter: "-", chaldeanNumber: "-", positionInFullName: "-" });
+    }
+
+    columns.push({
+      letter: row.nameLetter || "-",
+      chaldeanNumber: row.chaldeanNumber ?? "-",
+      positionInFullName: row.positionInFullName ?? "-"
+    });
+  });
+
+  return columns;
+}
+
+function buildNumberFrequencyRows(rows: NonNullable<ChaldeanNameLetterAnalysisChartResponse["numberFrequency"]>) {
+  return FREQUENCY_LABELS.map((frequency, index) => {
+    const count = index + 1;
+    const numbers = rows
+      .filter((row) => row.count === count && row.number !== undefined)
+      .map((row) => String(row.number))
+      .join(", ");
+
+    return { frequency, numbers };
+  }).filter((row) => row.numbers.length > 0);
+}
+
+function LetterAnalysisRow({ label, values, header = false, last = false }: { label: string; values: (string | number)[]; header?: boolean; last?: boolean }) {
+  return (
+    <View style={[styles.letterAnalysisRow, last && styles.lastRow]}>
+      <Text style={[styles.letterAnalysisLabel, header && styles.letterAnalysisLabelHeader]}>{label}</Text>
+      {values.map((value, index) => (
+        <Text
+          key={`${label}-${value}-${index}`}
+          style={[styles.letterAnalysisCell, header && styles.letterAnalysisHeadCell, index === values.length - 1 && styles.lastCell]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.6}
+        >
+          {value}
+        </Text>
+      ))}
     </View>
   );
 }
@@ -252,14 +315,6 @@ function EmptyTableRow({ label }: { label: string }) {
   );
 }
 
-function formatNamePart(value?: string) {
-  if (!value) return "-";
-  return value
-    .toLowerCase()
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f8f7f2" },
   header: {
@@ -287,14 +342,21 @@ const styles = StyleSheet.create({
   summaryLabel: { color: "#777", fontSize: 10, lineHeight: 14, fontWeight: "800", textAlign: "center" },
   summaryValue: { color: "#136a28", fontSize: 13, lineHeight: 18, fontWeight: "700", textAlign: "center", marginTop: 3 },
   tablePanel: { borderWidth: 1, borderColor: "#d6d6d6", borderRadius: 6, backgroundColor: "#fff", overflow: "hidden" },
-  tableTitle: { borderBottomWidth: 1, borderBottomColor: "#d6d6d6", color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "700", textAlign: "center", paddingHorizontal: 6, paddingVertical: 6 },
-  wideTable: { width: 690 },
-  mediumTable: { width: 460 },
+  tableTitle: { borderBottomWidth: 1, borderBottomColor: "#d6d6d6", color: "#000", fontSize: 15, lineHeight: 18, fontWeight: "700", textAlign: "left", paddingHorizontal: 12, paddingVertical: 8 },
+  numberFrequencyTitle: { color: "black", fontSize: 15, lineHeight: 22, fontWeight: "800", textAlign: "left", paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8 },
+  letterAnalysisTitle: { color: "black", fontSize: 15, lineHeight: 24, fontWeight: "700", textAlign: "left", paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8,borderBottomWidth: 1, borderBottomColor: "#d6d6d6" },
+  wideTable: { width: 420 },
   compactTable: { width: "100%" },
   tableRow: { minHeight: 31, flexDirection: "row" },
   tableCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
-  tableHeadCell: { backgroundColor: "#d8f4d1", fontSize: 12, lineHeight: 15, fontWeight: "800" },
+  tableHeadCell: { backgroundColor: "#354f82",color:"white", fontSize: 12, lineHeight: 15, fontWeight: "700" },
   lastCell: { borderRightWidth: 0 },
   emptyCell: { flex: 1, color: "#777" },
+  letterAnalysisTable: { alignSelf: "flex-start" },
+  letterAnalysisRow: { minHeight: 27, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#8c8c8c" },
+  letterAnalysisLabel: { width: 108, borderRightWidth: 1, borderRightColor: "#8c8c8c", backgroundColor: "#354f82", color: "#fff", fontSize: 11, lineHeight: 14, fontWeight: "500", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 4 },
+  letterAnalysisLabelHeader: { fontWeight: "800" },
+  letterAnalysisCell: { width: 38, borderRightWidth: 1, borderRightColor: "#8c8c8c", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 4 },
+  letterAnalysisHeadCell: { fontWeight: "800" },
   validation: { color: colors.danger, fontSize: 12, fontWeight: "800", lineHeight: 17 }
 });

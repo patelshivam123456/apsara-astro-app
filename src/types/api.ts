@@ -57,12 +57,19 @@ export type Astrologer = {
   specialization?: string;
   expertise?: string[] | string;
   language?: string;
-  languagesKnown?: string;
+  languagesKnown?: string[] | string;
+  consultationModes?: string[] | string;
   city?: string;
   state?: string;
   gender?: string;
+  dateOfBirth?: string;
   bio?: string;
   aboutYourself?: string;
+  aadhaarNo?: string;
+  aadhaarFileUuid?: string;
+  educationalQualification?: string;
+  educationalQualificationFileUuid?: string;
+  experienceFileUuid?: string;
   address?: string;
   country?: string;
   pinCode?: string;
@@ -73,6 +80,7 @@ export type Astrologer = {
   dateOfJoining?: string;
   timeOfJoining?: string;
   profileCompletionPercentage?: number;
+  profileStatus?: string;
   yearsOfExperience?: number | string;
   pricePerMinute?: number;
   isOnline?: boolean;

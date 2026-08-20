@@ -80,7 +80,7 @@ export function AstrologerDashboardScreen() {
           <Pressable style={styles.iconTap} onPress={() => setDrawerOpen(true)}>
             <MaterialCommunityIcons name="menu" size={25} color={colors.ink} />
           </Pressable>
-          <Image source={require("@/assets/logo_apsara.jpeg")} resizeMode="cover" style={styles.headerLogo} />
+          <Image source={require("@/assets/new_logo_apsara.jpeg")} resizeMode="cover" style={styles.headerLogo} />
           <View style={styles.brandBlock}>
             <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
               Apsara Astro

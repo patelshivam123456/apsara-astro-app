@@ -15,9 +15,11 @@ import { getApiErrorMessage } from "@/services/apiClient";
 import {
   getPythagoreanGrid,
   getPythagoreanNameTable,
+  getPythagoreanRunningAgeAlphabet,
   PythagoreanGridResponse,
   PythagoreanNameTable,
-  PythagoreanNameTableResponse
+  PythagoreanNameTableResponse,
+  PythagoreanRunningAgeAlphabetItem
 } from "@/services/numerology.service";
 
 export function PythagorasGridScreen() {
@@ -29,6 +31,7 @@ export function PythagorasGridScreen() {
   const payload = useMemo(() => ({ dob, fullName, gender }), [dob, fullName, gender]);
   const [pythagorasGrid, setPythagorasGrid] = useState<PythagoreanGridResponse | null>(null);
   const [nameTable, setNameTable] = useState<PythagoreanNameTableResponse | null>(null);
+  const [runningAgeAlphabet, setRunningAgeAlphabet] = useState<PythagoreanRunningAgeAlphabetItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,13 +42,15 @@ export function PythagorasGridScreen() {
       try {
         setLoading(true);
         setError(null);
-        const [gridResponse, nameTableResponse] = await Promise.all([
+        const [gridResponse, nameTableResponse, runningAgeAlphabetResponse] = await Promise.all([
           getPythagoreanGrid(payload),
-          getPythagoreanNameTable(fullName, 90)
+          getPythagoreanNameTable(fullName, 90),
+          getPythagoreanRunningAgeAlphabet(payload)
         ]);
         if (mounted) {
           setPythagorasGrid(gridResponse);
           setNameTable(nameTableResponse);
+          setRunningAgeAlphabet(runningAgeAlphabetResponse);
         }
       } catch (err) {
         if (mounted) setError(getApiErrorMessage(err, "Unable to load Pythagoras grid"));
@@ -98,6 +103,7 @@ export function PythagorasGridScreen() {
           pinnacleNumber={pinnacleNumber}
           runningAge={pythagorasGrid?.runningAge}
         />
+        <RunningAgeAlphabetTable rows={runningAgeAlphabet} />
         <NameValueTable title={t("First Name")} table={nameTable?.firstNameTable} />
         <NameValueTable title={t("Last Name")} table={nameTable?.lastNameTable} />
         <YearSequenceSeries sequence={nameTable?.runningYearSequence} />
@@ -105,6 +111,31 @@ export function PythagorasGridScreen() {
       </ScrollView>
       <AstrologerBottomNav active="home" respectSafeArea />
     </SafeAreaView>
+  );
+}
+
+function RunningAgeAlphabetTable({ rows }: { rows: PythagoreanRunningAgeAlphabetItem[] }) {
+  const { language, t } = useTranslation();
+  const tableRows = rows.length ? rows : [{ letter: "-", periodInYear: undefined, fromYear: undefined, toYear: undefined }];
+
+  return (
+    <View style={styles.runningAgePanel}>
+      <Text style={styles.runningAgeTitle}>{t("Running Age Alphabet")}</Text>
+      <View style={styles.runningAgeHeaderRow}>
+        <Text style={styles.runningAgeHeadCell}>{t("Alphabet")}</Text>
+        <Text style={styles.runningAgeHeadCell}>{t("Period (in year)")}</Text>
+        <Text style={styles.runningAgeHeadCell}>{t("From")}</Text>
+        <Text style={styles.runningAgeHeadCell}>{t("To")}</Text>
+      </View>
+      {tableRows.map((row, index) => (
+        <View key={`${row.letter || "-"}-${row.fromYear || index}`} style={styles.runningAgeRow}>
+          <Text style={styles.runningAgeCell}>{row.letter || "-"}</Text>
+          <Text style={styles.runningAgeCell}>{localizeDigitsInText(row.periodInYear ?? "-", language)}</Text>
+          <Text style={styles.runningAgeCell}>{localizeDigitsInText(row.fromYear ?? "-", language)}</Text>
+          <Text style={styles.runningAgeCell}>{localizeDigitsInText(row.toYear ?? "-", language)}</Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -575,5 +606,17 @@ const styles = StyleSheet.create({
   sequenceHeadCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 13, lineHeight: 16, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
   sequenceRow: { minHeight: 27, flexDirection: "row" },
   sequenceCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
+  runningAgePanel: {
+    borderWidth: 1,
+    borderColor: "#333",
+    borderRadius: 6,
+    backgroundColor: "#fff",
+    overflow: "hidden"
+  },
+  runningAgeTitle: { borderBottomWidth: 1, borderBottomColor: "#333", color: "#000", fontSize: 15, lineHeight: 20, fontWeight: "800", textAlign: "center", paddingHorizontal: 6, paddingVertical: 7 },
+  runningAgeHeaderRow: { minHeight: 34, flexDirection: "row", backgroundColor: "#fffbe6" },
+  runningAgeRow: { minHeight: 32, flexDirection: "row" },
+  runningAgeHeadCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#333", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "800", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 3, paddingVertical: 5 },
+  runningAgeCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#333", color: "#000", fontSize: 13, lineHeight: 16, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
   validation: { color: colors.danger, fontSize: 12, fontWeight: "800", lineHeight: 17 }
 });

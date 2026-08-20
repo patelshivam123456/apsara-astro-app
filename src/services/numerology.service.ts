@@ -88,6 +88,15 @@ export type PythagoreanNameTableResponse = {
   };
 };
 
+export type PythagoreanRunningAgeAlphabetItem = {
+  age?: number;
+  letter?: string;
+  periodInYear?: number;
+  fromYear?: number;
+  toYear?: number;
+  source?: string;
+};
+
 export type ChaldeanNamePairEvent = {
   lifeYear?: number;
   letterPair?: string;
@@ -291,6 +300,20 @@ export async function getPythagoreanNameTable(name: string, maxAge = 90) {
   );
 
   return ((response as unknown as ApiResponse<PythagoreanNameTableResponse>).data || response) as PythagoreanNameTableResponse;
+}
+
+export async function getPythagoreanRunningAgeAlphabet(payload: NumerologyPayload) {
+  const response = await astroApi.post<ApiResponse<PythagoreanRunningAgeAlphabetItem[]>>(
+    ENDPOINTS.pythagoreanRunningAgeAlphabet,
+    payload,
+    {
+      headers: {
+        Accept: "*/*"
+      }
+    }
+  );
+
+  return ((response as unknown as ApiResponse<PythagoreanRunningAgeAlphabetItem[]>).data || []) as PythagoreanRunningAgeAlphabetItem[];
 }
 
 export async function getChaldeanNamePairEvents(name: string) {

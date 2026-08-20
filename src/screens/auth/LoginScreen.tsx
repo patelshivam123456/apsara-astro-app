@@ -81,7 +81,7 @@ export function LoginScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View style={{ flex: 1, gap: 4,width: "30%" }}>
         <Image
-          source={require("@/assets/logo_apsara.jpeg")}
+          source={require("@/assets/new_logo_apsara.jpeg")}
           resizeMode="contain"
           style={styles.logo}
         />
