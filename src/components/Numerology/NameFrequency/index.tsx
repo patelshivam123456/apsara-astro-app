@@ -16,7 +16,9 @@ import {
   ChaldeanNameLetterAnalysisChartResponse,
   ChaldeanNamePairEventsResponse,
   getChaldeanNameLetterAnalysisChart,
-  getChaldeanNamePairEvents
+  getChaldeanNamePairEvents,
+  getPythagoreanRunningAgeAlphabet,
+  PythagoreanRunningAgeAlphabetItem
 } from "@/services/numerology.service";
 
 const EMPTY_NAME_LETTERS: NonNullable<ChaldeanNameLetterAnalysisChartResponse["nameLetters"]> = [];
@@ -25,10 +27,14 @@ const FREQUENCY_LABELS = ["Once", "Twice", "Thrice", "Four", "Five", "Six", "Sev
 
 export function NameFrequencyScreen() {
   const { t } = useTranslation();
-  const params = useLocalSearchParams<{ fullName?: string }>();
+  const params = useLocalSearchParams<{ fullName?: string; dob?: string; gender?: string }>();
   const fullName = String(params.fullName || "");
+  const dob = String(params.dob || "");
+  const gender = String(params.gender || "Male");
+  const payload = useMemo(() => ({ dob, fullName, gender }), [dob, fullName, gender]);
   const [pairEvents, setPairEvents] = useState<ChaldeanNamePairEventsResponse | null>(null);
   const [letterAnalysis, setLetterAnalysis] = useState<ChaldeanNameLetterAnalysisChartResponse | null>(null);
+  const [runningAgeAlphabet, setRunningAgeAlphabet] = useState<PythagoreanRunningAgeAlphabetItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +51,14 @@ export function NameFrequencyScreen() {
 
         const letterAnalysisResponse = await getChaldeanNameLetterAnalysisChart(fullName);
         if (mounted) setLetterAnalysis(letterAnalysisResponse);
+
+        if (!dob) {
+          if (mounted) setRunningAgeAlphabet([]);
+          return;
+        }
+
+        const runningAgeAlphabetResponse = await getPythagoreanRunningAgeAlphabet(payload);
+        if (mounted) setRunningAgeAlphabet(runningAgeAlphabetResponse);
       } catch (err) {
         if (mounted) setError(getApiErrorMessage(err, "Unable to load name frequency"));
       } finally {
@@ -56,7 +70,7 @@ export function NameFrequencyScreen() {
     return () => {
       mounted = false;
     };
-  }, [fullName]);
+  }, [dob, fullName, payload]);
 
   const summaryRows = useMemo(
     () => [
@@ -92,6 +106,7 @@ export function NameFrequencyScreen() {
         <NameSummary fullName={letterAnalysis?.fullName || pairEvents?.fullName || fullName} normalizedName={letterAnalysis?.normalizedName || pairEvents?.normalizedName} />
         <SummaryGrid rows={summaryRows} />
         <PairEventsTable data={pairEvents} />
+        <RunningAgeAlphabetTable rows={runningAgeAlphabet} />
         <NameLettersTable data={letterAnalysis} />
         <NumberFrequencyTable data={letterAnalysis} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
@@ -193,6 +208,31 @@ function NumberFrequencyTable({ data }: { data: ChaldeanNameLetterAnalysisChartR
         ))}
         {!frequencyRows.length ? <EmptyTableRow label={t("No records found")} /> : null}
       </View>
+    </View>
+  );
+}
+
+function RunningAgeAlphabetTable({ rows }: { rows: PythagoreanRunningAgeAlphabetItem[] }) {
+  const { language, t } = useTranslation();
+  const tableRows = rows.length ? rows : [{ letter: "-", periodInYear: undefined, fromYear: undefined, toYear: undefined }];
+
+  return (
+    <View style={styles.runningAgePanel}>
+      <Text style={styles.runningAgeTitle}>{t("Running Age Alphabet")}</Text>
+      <View style={styles.runningAgeHeaderRow}>
+        <Text style={styles.runningAgeHeadCell}>{t("Alphabet")}</Text>
+        <Text style={styles.runningAgeHeadCell}>{t("Period (in year)")}</Text>
+        <Text style={styles.runningAgeHeadCell}>{t("From")}</Text>
+        <Text style={styles.runningAgeHeadCell}>{t("To")}</Text>
+      </View>
+      {tableRows.map((row, index) => (
+        <View key={`${row.letter || "-"}-${row.fromYear || index}`} style={styles.runningAgeRow}>
+          <Text style={styles.runningAgeCell}>{row.letter || "-"}</Text>
+          <Text style={styles.runningAgeCell}>{localizeDigitsInText(row.periodInYear ?? "-", language)}</Text>
+          <Text style={styles.runningAgeCell}>{localizeDigitsInText(row.fromYear ?? "-", language)}</Text>
+          <Text style={styles.runningAgeCell}>{localizeDigitsInText(row.toYear ?? "-", language)}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -358,5 +398,17 @@ const styles = StyleSheet.create({
   letterAnalysisLabelHeader: { fontWeight: "800" },
   letterAnalysisCell: { width: 38, borderRightWidth: 1, borderRightColor: "#8c8c8c", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 4 },
   letterAnalysisHeadCell: { fontWeight: "800" },
+  runningAgePanel: {
+    borderWidth: 1,
+    borderColor: "#d6d6d6",
+    borderRadius: 6,
+    backgroundColor: "#fff",
+    overflow: "hidden"
+  },
+  runningAgeTitle: { borderBottomWidth: 1, borderBottomColor: "#d6d6d6", color: "#000", fontSize: 15, lineHeight: 20, fontWeight: "800", textAlign: "left", paddingHorizontal: 12, paddingVertical: 7 },
+  runningAgeHeaderRow: { minHeight: 34, flexDirection: "row", backgroundColor: "#354f82" },
+  runningAgeRow: { minHeight: 32, flexDirection: "row" },
+  runningAgeHeadCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#fff", fontSize: 13, lineHeight: 15, fontWeight: "800", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 3, paddingVertical: 5 },
+  runningAgeCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 13, lineHeight: 16, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
   validation: { color: colors.danger, fontSize: 12, fontWeight: "800", lineHeight: 17 }
 });
