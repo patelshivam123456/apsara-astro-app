@@ -6,6 +6,7 @@ import { Button, Text } from "react-native-paper";
 
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { NumerologyCalculationTabs } from "@/components/Numerology/CalculationTabs";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { GridIntro } from "@/components/Numerology/Lushu-grid/Common";
 import { localizeDigitsInText } from "@/components/Numerology/Lushu-grid/utils";
@@ -22,10 +23,20 @@ import {
 
 export function PythagorasGridScreen() {
   const { t } = useTranslation();
-  const params = useLocalSearchParams<{ fullName?: string; dob?: string; gender?: string }>();
+  const params = useLocalSearchParams<{
+    fullName?: string;
+    dob?: string;
+    gender?: string;
+    personBFullName?: string;
+    personBDob?: string;
+    personBGender?: string;
+  }>();
   const fullName = String(params.fullName || "");
   const dob = String(params.dob || "");
   const gender = String(params.gender || "Male");
+  const personBFullName = String(params.personBFullName || "");
+  const personBDob = String(params.personBDob || "");
+  const personBGender = String(params.personBGender || "Female");
   const payload = useMemo(() => ({ dob, fullName, gender }), [dob, fullName, gender]);
   const [pythagorasGrid, setPythagorasGrid] = useState<PythagoreanGridResponse | null>(null);
   const [nameTable, setNameTable] = useState<PythagoreanNameTableResponse | null>(null);
@@ -74,7 +85,16 @@ export function PythagorasGridScreen() {
         <Text variant="headlineSmall" style={styles.headerTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>{t("Numerology")}</Text>
         <LanguageSelector />
       </View>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false}>
+        <NumerologyCalculationTabs
+          active="pythagoras-grid"
+          fullName={fullName}
+          dob={dob}
+          gender={gender}
+          personBFullName={personBFullName}
+          personBDob={personBDob}
+          personBGender={personBGender}
+        />
         <GridIntro
           title={t("Pythagoras Grid")}
           description={t("Pythagorean number placement arranged as a Lu Shu style grid for repeated and missing number analysis.")}

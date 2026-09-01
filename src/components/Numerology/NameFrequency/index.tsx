@@ -6,6 +6,7 @@ import { Button, Text } from "react-native-paper";
 
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { NumerologyCalculationTabs } from "@/components/Numerology/CalculationTabs";
 import { GridIntro } from "@/components/Numerology/Lushu-grid/Common";
 import { localizeDigitsInText } from "@/components/Numerology/Lushu-grid/utils";
 import { ErrorState, LoadingState } from "@/components/StateViews";
@@ -17,7 +18,9 @@ import {
   ChaldeanNamePairEventsResponse,
   getChaldeanNameLetterAnalysisChart,
   getChaldeanNamePairEvents,
+  getNameFrequencyNameChart,
   getPythagoreanRunningAgeAlphabet,
+  NameFrequencyNameChartResponse,
   PythagoreanRunningAgeAlphabetItem
 } from "@/services/numerology.service";
 
@@ -27,11 +30,22 @@ const FREQUENCY_LABELS = ["Once", "Twice", "Thrice", "Four", "Five", "Six", "Sev
 
 export function NameFrequencyScreen() {
   const { t } = useTranslation();
-  const params = useLocalSearchParams<{ fullName?: string; dob?: string; gender?: string }>();
+  const params = useLocalSearchParams<{
+    fullName?: string;
+    dob?: string;
+    gender?: string;
+    personBFullName?: string;
+    personBDob?: string;
+    personBGender?: string;
+  }>();
   const fullName = String(params.fullName || "");
   const dob = String(params.dob || "");
   const gender = String(params.gender || "Male");
+  const personBFullName = String(params.personBFullName || "");
+  const personBDob = String(params.personBDob || "");
+  const personBGender = String(params.personBGender || "Female");
   const payload = useMemo(() => ({ dob, fullName, gender }), [dob, fullName, gender]);
+  const [nameChart, setNameChart] = useState<NameFrequencyNameChartResponse | null>(null);
   const [pairEvents, setPairEvents] = useState<ChaldeanNamePairEventsResponse | null>(null);
   const [letterAnalysis, setLetterAnalysis] = useState<ChaldeanNameLetterAnalysisChartResponse | null>(null);
   const [runningAgeAlphabet, setRunningAgeAlphabet] = useState<PythagoreanRunningAgeAlphabetItem[]>([]);
@@ -45,6 +59,10 @@ export function NameFrequencyScreen() {
       try {
         setLoading(true);
         setError(null);
+        const nameChartResponse = await getNameFrequencyNameChart(payload);
+        if (!mounted) return;
+        setNameChart(nameChartResponse);
+
         const pairEventResponse = await getChaldeanNamePairEvents(fullName);
         if (!mounted) return;
         setPairEvents(pairEventResponse);
@@ -89,7 +107,7 @@ export function NameFrequencyScreen() {
   );
 
   if (loading) return <LoadingState label="Loading name frequency" />;
-  if (error && !pairEvents) return <ErrorState message={error} onRetry={() => router.replace("/astrologer/numerology")} />;
+  if (error && !nameChart && !pairEvents) return <ErrorState message={error} onRetry={() => router.replace("/astrologer/numerology")} />;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -98,21 +116,70 @@ export function NameFrequencyScreen() {
         <Text variant="headlineSmall" style={styles.headerTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>{t("Numerology")}</Text>
         <LanguageSelector />
       </View>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false}>
+        <NumerologyCalculationTabs
+          active="name-frequency"
+          fullName={fullName}
+          dob={dob}
+          gender={gender}
+          personBFullName={personBFullName}
+          personBDob={personBDob}
+          personBGender={personBGender}
+        />
         <GridIntro
           title={t("Name Frequency")}
           description={t("Chaldean name pair events and letter frequency analysis.")}
         />
         <NameSummary fullName={letterAnalysis?.fullName || pairEvents?.fullName || fullName} normalizedName={letterAnalysis?.normalizedName || pairEvents?.normalizedName} />
+        
         <SummaryGrid rows={summaryRows} />
         <PairEventsTable data={pairEvents} />
         <RunningAgeAlphabetTable rows={runningAgeAlphabet} />
         <NameLettersTable data={letterAnalysis} />
         <NumberFrequencyTable data={letterAnalysis} />
+        <NameChartTable data={nameChart} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
       <AstrologerBottomNav active="home" respectSafeArea />
     </SafeAreaView>
+  );
+}
+
+function NameChartTable({ data }: { data: NameFrequencyNameChartResponse | null }) {
+  const { language, t } = useTranslation();
+  const rows = useMemo(
+    () => [
+      { particular: t("Name Age"), number: data?.nameAge },
+      { particular: t("Running Age"), number: data?.runningAge },
+      { particular: t("First Name Number"), number: data?.firstNameNumber },
+      { particular: t("Name Number"), number: data?.nameNumber },
+      { particular: t("Name Number with Personality"), number: data?.nameNumberWithPersonality, relation: data?.nameNumberPersonalityRelation },
+      { particular: t("Name Number with Destiny"), number: data?.nameNumberWithDestiny, relation: data?.nameNumberDestinyRelation },
+      { particular: t("First Letter with Name Number"), number: data?.firstNameLetterWithNameNumber, relation: data?.firstNameLetterWithNameNumberRelation },
+      { particular: t("Second Letter with Name Number"), number: data?.secondNameLetterWithNameNumber, relation: data?.secondNameLetterWithNameNumberRelation },
+      { particular: t("First Letter with Zodiac Number"), number: data?.firstNameLetterWithZodicNumber, relation: data?.firstLetterWithZodiacRelation },
+      { particular: t("First and Second Letter Relation"), number: data?.firstAndSecondNameLetterNumber, relation: data?.firstAndSecondNameLetterRelation }
+    ],
+    [data, t]
+  );
+
+  return (
+    <View style={styles.tablePanel}>
+      <Text style={styles.tableTitle}>{t("Name Chart")}</Text>
+      <View style={styles.nameChartTable}>
+        <NameChartRow cells={[t("Particular"), t("Numbers"), t("Relation")]} header />
+        {rows.map((row) => (
+          <NameChartRow
+            key={row.particular}
+            cells={[
+              row.particular,
+              localizeDigitsInText(row.number || "-", language),
+              row.relation || "-"
+            ]}
+          />
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -355,6 +422,30 @@ function EmptyTableRow({ label }: { label: string }) {
   );
 }
 
+function NameChartRow({ cells, header = false }: { cells: string[]; header?: boolean }) {
+  return (
+    <View style={styles.nameChartRow}>
+      {cells.map((cell, index) => (
+        <Text
+          key={`${cell}-${index}`}
+          style={[
+            styles.nameChartCell,
+            index === 0 && styles.nameChartParticularCell,
+            index === 1 && styles.nameChartNumberCell,
+            header && styles.tableHeadCell,
+            index === cells.length - 1 && styles.lastCell
+          ]}
+          numberOfLines={3}
+          adjustsFontSizeToFit
+          minimumFontScale={0.58}
+        >
+          {cell}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f8f7f2" },
   header: {
@@ -390,6 +481,11 @@ const styles = StyleSheet.create({
   tableRow: { minHeight: 31, flexDirection: "row" },
   tableCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
   tableHeadCell: { backgroundColor: "#354f82",color:"white", fontSize: 12, lineHeight: 15, fontWeight: "700" },
+  nameChartTable: { width: "100%" },
+  nameChartRow: { minHeight: 36, flexDirection: "row" },
+  nameChartCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
+  nameChartParticularCell: { flex: 1.45 },
+  nameChartNumberCell: { flex: 0.95 },
   lastCell: { borderRightWidth: 0 },
   emptyCell: { flex: 1, color: "#777" },
   letterAnalysisTable: { alignSelf: "flex-start" },

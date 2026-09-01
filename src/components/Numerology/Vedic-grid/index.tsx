@@ -6,6 +6,7 @@ import { Button, Text } from "react-native-paper";
 
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { NumerologyCalculationTabs } from "@/components/Numerology/CalculationTabs";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
@@ -20,10 +21,20 @@ import { styles } from "@/components/Numerology/Lushu-grid/styles";
 
 export function VedicGridScreen() {
   const { t } = useTranslation();
-  const params = useLocalSearchParams<{ fullName?: string; dob?: string; gender?: string }>();
+  const params = useLocalSearchParams<{
+    fullName?: string;
+    dob?: string;
+    gender?: string;
+    personBFullName?: string;
+    personBDob?: string;
+    personBGender?: string;
+  }>();
   const fullName = String(params.fullName || "");
   const dob = String(params.dob || "");
   const gender = String(params.gender || "Male");
+  const personBFullName = String(params.personBFullName || "");
+  const personBDob = String(params.personBDob || "");
+  const personBGender = String(params.personBGender || "Female");
   const payload = useMemo(() => ({ dob, fullName, gender }), [dob, fullName, gender]);
   const [vedicGrid, setVedicGrid] = useState<VedicGridResponse | null>(null);
   const [relationships, setRelationships] = useState<NumberRelationshipItem[]>([]);
@@ -72,8 +83,18 @@ export function VedicGridScreen() {
       <ScrollView
         style={[styles.scroll, vedicStyles.screenBackground]}
         contentContainerStyle={[styles.resultContent, vedicStyles.contentBackground]}
+        stickyHeaderIndices={[0]}
         showsVerticalScrollIndicator={false}
       >
+        <NumerologyCalculationTabs
+          active="vedic-grid"
+          fullName={fullName}
+          dob={dob}
+          gender={gender}
+          personBFullName={personBFullName}
+          personBDob={personBDob}
+          personBGender={personBGender}
+        />
         <GridIntro
           title={t("Master Vedic Grid")}
           description={t("Vedic number placement showing core numbers, zodiac influence, and active grid energy.")}

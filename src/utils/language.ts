@@ -6,7 +6,9 @@ const apiLanguageNames: Record<LanguageCode, string> = {
   mr: "Marathi",
   bn: "Bengali",
   ta: "Tamil",
-  te: "Telugu"
+  te: "Telugu",
+  gu: "Gujarati",
+  mwr: "Marwari"
 };
 
 export function getApiLanguageName(language: LanguageCode) {

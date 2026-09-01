@@ -8,7 +8,7 @@ export function GenericFeatureScreen() {
   return (
     <FeatureListScreen
       title={title}
-      subtitle="This mobile module is routed and ready for the matching backend workflow from ApsaraAstro."
+      subtitle="This mobile module is routed and ready for the matching backend workflow from ApsraAstro."
       items={["Saved requests", "Secure wallet flow", "Notifications", "Order history"]}
     />
   );

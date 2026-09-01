@@ -6,6 +6,7 @@ import { Button, Text } from "react-native-paper";
 
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { NumerologyCalculationTabs } from "@/components/Numerology/CalculationTabs";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useTranslation } from "@/context/LanguageContext";
 
@@ -22,10 +23,21 @@ import { useNumerologyReport } from "./useNumerologyReport";
 
 export function NumerologyResultScreen() {
   const { language, t } = useTranslation();
-  const params = useLocalSearchParams<{ fullName?: string; dob?: string; gender?: string; calculation?: Calculation }>();
+  const params = useLocalSearchParams<{
+    fullName?: string;
+    dob?: string;
+    gender?: string;
+    calculation?: Calculation;
+    personBFullName?: string;
+    personBDob?: string;
+    personBGender?: string;
+  }>();
   const fullName = String(params.fullName || "");
   const dob = String(params.dob || "");
   const gender = String(params.gender || "Male");
+  const personBFullName = String(params.personBFullName || "");
+  const personBDob = String(params.personBDob || "");
+  const personBGender = String(params.personBGender || "Female");
   const {
     currentSectorEffects,
     error,
@@ -65,8 +77,16 @@ export function NumerologyResultScreen() {
         <Text variant="headlineSmall" style={styles.headerTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>{t("Numerology")}</Text>
         <LanguageSelector />
       </View>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.resultContent} showsVerticalScrollIndicator={false}>
-        
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.resultContent} stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false}>
+        <NumerologyCalculationTabs
+          active="lo-shu-grid"
+          fullName={fullName}
+          dob={dob}
+          gender={gender}
+          personBFullName={personBFullName}
+          personBDob={personBDob}
+          personBGender={personBGender}
+        />
         <GridIntro
           title={t("Lo Shu Grid")}
           description={t("Birth-date numbers arranged to reveal strengths, missing energies, and life patterns.")}

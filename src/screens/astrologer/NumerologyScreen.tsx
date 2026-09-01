@@ -8,6 +8,7 @@ import { Button, Text } from "react-native-paper";
 
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { Calculation } from "@/components/Numerology/Lushu-grid/constants";
 import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 
@@ -17,26 +18,38 @@ export { VedicGridScreen } from "@/components/Numerology/Vedic-grid";
 export { NameFrequencyScreen } from "@/components/Numerology/NameFrequency";
 
 type Gender = "Male" | "Female" | "Other";
-type Calculation = "lo-shu-grid" | "vedic-grid" | "pythagoras-grid" | "name-frequency" | "daily-numeroscope";
 
 const calculationOptions: { label: string; value: Calculation }[] = [
   { label: "Lo Shu Grid", value: "lo-shu-grid" },
   { label: "Vedic Grid", value: "vedic-grid" },
   { label: "Pythagoras Grid", value: "pythagoras-grid" },
   { label: "Name Frequency", value: "name-frequency" },
+  { label: "Compatibility/Relationship", value: "compatibility-relationship" },
   { label: "Daily Numeroscope", value: "daily-numeroscope" }
 ];
 const minimumDobDate = new Date(1900, 0, 1);
 
 export function NumerologyScreen() {
   const { t } = useTranslation();
-  const formParams = useLocalSearchParams<{ fullName?: string; dob?: string; gender?: Gender; calculation?: Calculation }>();
+  const formParams = useLocalSearchParams<{
+    fullName?: string;
+    dob?: string;
+    gender?: Gender;
+    calculation?: Calculation;
+    personBFullName?: string;
+    personBDob?: string;
+    personBGender?: Gender;
+  }>();
   const [fullName, setFullName] = useState(String(formParams.fullName || ""));
   const [dob, setDob] = useState(String(formParams.dob || ""));
   const [gender, setGender] = useState<Gender>(formParams.gender || "Male");
+  const [personBFullName, setPersonBFullName] = useState(String(formParams.personBFullName || ""));
+  const [personBDob, setPersonBDob] = useState(String(formParams.personBDob || ""));
+  const [personBGender, setPersonBGender] = useState<Gender>(formParams.personBGender || "Female");
   const [calculation, setCalculation] = useState<Calculation>(formParams.calculation || "lo-shu-grid");
   const [calculationOpen, setCalculationOpen] = useState(false);
   const [showDobPicker, setShowDobPicker] = useState(false);
+  const [showPersonBDobPicker, setShowPersonBDobPicker] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
@@ -53,14 +66,29 @@ export function NumerologyScreen() {
     if (formParams.dob !== undefined) setDob(String(formParams.dob));
     if (formParams.gender) setGender(formParams.gender);
     if (formParams.calculation) setCalculation(formParams.calculation);
-  }, [formParams.calculation, formParams.dob, formParams.fullName, formParams.gender]);
+    if (formParams.personBFullName !== undefined) setPersonBFullName(String(formParams.personBFullName));
+    if (formParams.personBDob !== undefined) setPersonBDob(String(formParams.personBDob));
+    if (formParams.personBGender) setPersonBGender(formParams.personBGender);
+  }, [
+    formParams.calculation,
+    formParams.dob,
+    formParams.fullName,
+    formParams.gender,
+    formParams.personBDob,
+    formParams.personBFullName,
+    formParams.personBGender
+  ]);
 
+  const isCompatibility = calculation === "compatibility-relationship";
+  const hasPersonAData = fullName.trim().length > 1 && /^\d{2}-\d{2}-\d{4}$/.test(dob.trim()) && gender;
+  const hasPersonBData = personBFullName.trim().length > 1 && /^\d{2}-\d{2}-\d{4}$/.test(personBDob.trim()) && personBGender;
   const canSubmit =
     fullName.trim().length > 1 &&
-    (calculation === "name-frequency" ||
-      (/^\d{2}-\d{2}-\d{4}$/.test(dob.trim()) &&
-        gender &&
-        (calculation === "lo-shu-grid" || calculation === "vedic-grid" || calculation === "pythagoras-grid")));
+    /^\d{2}-\d{2}-\d{4}$/.test(dob.trim()) &&
+    gender &&
+    (isCompatibility
+      ? hasPersonBData
+      : calculation === "lo-shu-grid" || calculation === "vedic-grid" || calculation === "pythagoras-grid" || calculation === "name-frequency");
 
   const submit = () => {
     setSubmitted(true);
@@ -73,23 +101,66 @@ export function NumerologyScreen() {
           ? "/astrologer/pythagoras-grid"
           : calculation === "name-frequency"
             ? "/astrologer/name-frequency"
-            : "/astrologer/numerology-result";
+            : calculation === "compatibility-relationship"
+              ? "/astrologer/compatibility-relationship"
+              : "/astrologer/numerology-result";
 
     router.push({
       pathname,
-      params: { fullName: fullName.trim(), dob: dob.trim(), gender, calculation }
+      params: {
+        fullName: fullName.trim(),
+        dob: dob.trim(),
+        gender,
+        calculation,
+        personBFullName: personBFullName.trim(),
+        personBDob: personBDob.trim(),
+        personBGender
+      }
     });
   };
 
   const clearForm = () => {
     setFullName("");
     setDob("");
+    setPersonBFullName("");
+    setPersonBDob("");
+    setPersonBGender("Female");
     setSubmitted(false);
     setCalculationOpen(false);
     setShowDobPicker(false);
+    setShowPersonBDobPicker(false);
   };
 
-  const hasFormData = Boolean(fullName.trim() || dob.trim());
+  const hasFormData = Boolean(fullName.trim() || dob.trim() || personBFullName.trim() || personBDob.trim());
+  const calculationField = (
+    <View style={styles.formStack}>
+      <FieldIcon icon="arrow-down-circle" />
+      <View style={styles.calculationSelect}>
+        <Pressable style={styles.calculationTrigger} onPress={() => setCalculationOpen((open) => !open)}>
+          <Text style={styles.calculationValue}>{t(calculationOptions.find((item) => item.value === calculation)?.label || "")}</Text>
+          <MaterialCommunityIcons name={calculationOpen ? "chevron-up" : "chevron-down"} size={22} color="#111" />
+        </Pressable>
+        {calculationOpen ? (
+          <View style={styles.calculationMenu}>
+            {calculationOptions.map((item) => (
+              <Pressable
+                key={item.value}
+                style={[styles.calculationOption, calculation === item.value && styles.calculationOptionActive]}
+                onPress={() => {
+                  setCalculation(item.value);
+                  setCalculationOpen(false);
+                }}
+              >
+                <Text style={[styles.calculationOptionText, calculation === item.value && styles.calculationOptionTextActive]}>
+                  {t(item.label)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -138,39 +209,56 @@ export function NumerologyScreen() {
               </Pressable>
             ))}
           </View>
-          <View style={styles.formStack}>
-            <FieldIcon icon="arrow-down-circle" />
-            <View style={styles.calculationSelect}>
-              <Pressable style={styles.calculationTrigger} onPress={() => setCalculationOpen((open) => !open)}>
-                <Text style={styles.calculationValue}>{t(calculationOptions.find((item) => item.value === calculation)?.label || "")}</Text>
-                <MaterialCommunityIcons name={calculationOpen ? "chevron-up" : "chevron-down"} size={22} color="#111" />
-              </Pressable>
-              {calculationOpen ? (
-                <View style={styles.calculationMenu}>
-                  {calculationOptions.map((item) => (
-                    <Pressable
-                      key={item.value}
-                      style={[styles.calculationOption, calculation === item.value && styles.calculationOptionActive]}
-                      onPress={() => {
-                        setCalculation(item.value);
-                        setCalculationOpen(false);
-                      }}
-                    >
-                      <Text style={[styles.calculationOptionText, calculation === item.value && styles.calculationOptionTextActive]}>
-                        {t(item.label)}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
+          {!isCompatibility ? calculationField : null}
+          {isCompatibility ? (
+            <View style={styles.personBPanel}>
+              <Text style={styles.personBTitle}>{t("Person B")}</Text>
+              <View style={styles.formStack}>
+                <FieldIcon icon="account-heart" />
+                <TextInput
+                  value={personBFullName}
+                  onChangeText={setPersonBFullName}
+                  placeholder={t("Full Name")}
+                  placeholderTextColor="#9c9c9c"
+                  style={styles.input}
+                />
+              </View>
+              <View style={styles.genderRow}>
+                {(["Male", "Female", "Other"] as Gender[]).map((item) => (
+                  <Pressable key={item} onPress={() => setPersonBGender(item)} style={[styles.genderBtn, personBGender === item && styles.genderBtnActive]}>
+                    <Text style={[styles.genderText, personBGender === item && styles.genderTextActive]}>{t(item)}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <View style={styles.formStack}>
+                <FieldIcon icon="calendar-heart" />
+                <Pressable style={styles.dateSelect} onPress={() => setShowPersonBDobPicker(true)}>
+                  <Text style={[styles.dateSelectText, !personBDob && styles.placeholderText]}>{personBDob || t("Date of Birth (DD-MM-YYYY)")}</Text>
+                </Pressable>
+              </View>
+              {showPersonBDobPicker ? (
+                <DateTimePicker
+                  value={parseDob(personBDob) || new Date(1990, 0, 1)}
+                  mode="date"
+                  minimumDate={minimumDobDate}
+                  maximumDate={new Date()}
+                  onChange={(_, selectedDate) => {
+                    setShowPersonBDobPicker(false);
+                    if (selectedDate) {
+                      setPersonBDob(formatDob(selectedDate));
+                    }
+                  }}
+                />
               ) : null}
             </View>
-          </View>
+          ) : null}
+          {isCompatibility ? calculationField : null}
           {submitted && !canSubmit ? (
             <Text style={styles.validation}>
-              {calculation === "name-frequency"
-                ? t("Enter full name.")
-                : calculation !== "lo-shu-grid" && calculation !== "vedic-grid" && calculation !== "pythagoras-grid"
-                  ? t("Please select Lo Shu Grid, Vedic Grid, or Pythagoras Grid calculation.")
+              {isCompatibility && hasPersonAData
+                ? t("Enter Person B full name, DOB, and gender.")
+                : calculation !== "lo-shu-grid" && calculation !== "vedic-grid" && calculation !== "pythagoras-grid" && calculation !== "name-frequency" && !isCompatibility
+                  ? t("Please select Lo Shu Grid, Vedic Grid, Pythagoras Grid, Name Frequency, or Compatibility/Relationship calculation.")
                   : t("Enter full name, DOB, and gender.")}
             </Text>
           ) : null}
@@ -251,6 +339,8 @@ const styles = StyleSheet.create({
   calculationOptionActive: { backgroundColor: "#c7efc8" },
   calculationOptionText: { fontFamily: "serif", fontSize: 15, color: "#111" },
   calculationOptionTextActive: { color: "#145c24", fontWeight: "900" },
+  personBPanel: { gap: spacing.md, borderRadius: 10, borderWidth: 1, borderColor: "#bde8c2", backgroundColor: "#f8fff6", padding: spacing.md },
+  personBTitle: { color: "#145c24", fontSize: 16, lineHeight: 20, fontWeight: "900" },
   validation: { color: colors.danger, fontSize: 12, fontWeight: "800", lineHeight: 17, paddingHorizontal: 2 },
   actionRow: { flexDirection: "row", gap: spacing.sm },
   clearBtn: { minWidth: 104, minHeight: 44, borderRadius: 10, backgroundColor: "#fff", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: spacing.sm, paddingVertical: 3, shadowColor: "#0d3440", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 2 },

@@ -24,5 +24,5 @@ export default function Index() {
     route().finally(() => setCheckedOnboarding(true));
   }, [isAuthLoaded, isLoggedIn, roles]);
 
-  return <LoadingState label={checkedOnboarding ? "Opening ApsaraAstro" : "Preparing"} />;
+  return <LoadingState label={checkedOnboarding ? "Opening ApsraAstro" : "Preparing"} />;
 }

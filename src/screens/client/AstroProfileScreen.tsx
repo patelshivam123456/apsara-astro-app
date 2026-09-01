@@ -116,7 +116,7 @@ export function AstroProfileScreen() {
       setResult(response, payload);
       router.push("/apsara-astro-profile-result");
     } catch (error) {
-      setSubmitError(getApiErrorMessage(error, "Unable to load Apsara Astro Profile"));
+      setSubmitError(getApiErrorMessage(error, "Unable to load Apsra Astro Profile"));
     } finally {
       setSubmitting(false);
     }
@@ -129,7 +129,7 @@ export function AstroProfileScreen() {
           {t("Back")}
         </Button>
         <Text variant="titleMedium" style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
-          {t("Apsara Astro Profile")}
+          {t("Apsra Astro Profile")}
         </Text>
         <LanguageSelector />
       </View>
@@ -144,7 +144,7 @@ export function AstroProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.intro}>
-          <Text variant="headlineSmall" style={styles.introTitle} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Create Apsara Astro Profile")}</Text>
+          <Text variant="headlineSmall" style={styles.introTitle} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Create Apsra Astro Profile")}</Text>
           <Text style={styles.muted}>{t("Enter birth details and select a place from suggestions.")}</Text>
         </View>
 

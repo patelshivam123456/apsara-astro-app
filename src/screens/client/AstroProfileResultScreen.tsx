@@ -70,21 +70,21 @@ export function AstroProfileResultScreen() {
           {t("Back")}
         </Button>
         <Text variant="titleMedium" style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
-          {t("Apsara Astro Profile")}
+          {t("Apsra Astro Profile")}
         </Text>
         <LanguageSelector />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.titleBlock}>
-          <Text variant="headlineSmall" style={styles.title} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Apsara Astro Profile Result")}</Text>
+          <Text variant="headlineSmall" style={styles.title} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Apsra Astro Profile Result")}</Text>
           {details?.full_name ? <Text style={styles.muted}>{details.full_name}</Text> : null}
           {refreshing ? <Text style={styles.muted}>{t("Loading response for selected language")}</Text> : null}
           {refreshError ? <Text style={styles.errorText}>{t(refreshError)}</Text> : null}
         </View>
 
         {!result ? (
-          <EmptyState title="No Apsara Astro Profile result" description="Please submit birth details first." />
+          <EmptyState title="No Apsra Astro Profile result" description="Please submit birth details first." />
         ) : (
           <>
             <View style={styles.tabs}>

@@ -1,6 +1,10 @@
 import { type LanguageCode } from "@/context/LanguageContext";
 
 const googleTranslateUrl = "https://translate.googleapis.com/translate_a/single";
+const googleLanguageCodes: Partial<Record<LanguageCode, string>> = {
+  gu: "gu",
+  mwr: "mwr"
+};
 
 export async function translateText(text: string, targetLanguage: LanguageCode) {
   const cleanText = text.trim();
@@ -9,7 +13,7 @@ export async function translateText(text: string, targetLanguage: LanguageCode) 
   const query = new URLSearchParams({
     client: "gtx",
     sl: "en",
-    tl: targetLanguage,
+    tl: googleLanguageCodes[targetLanguage] || targetLanguage,
     dt: "t",
     q: cleanText
   });

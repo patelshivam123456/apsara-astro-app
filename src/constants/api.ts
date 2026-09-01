@@ -26,6 +26,8 @@ export const ENDPOINTS = {
   pythagoreanRunningAgeAlphabet: "/astrology-services/home-page/api/numerology/pythagorean/running-age-alphabet",
   chaldeanNamePairEvents: "/astrology-services/home-page/api/numerology/chaldean/name-pair-events",
   chaldeanNameLetterAnalysisChart: "/astrology-services/home-page/api/numerology/chaldean/name-letter-analysis-chart",
+  nameFrequencyNameChart: "/astrology-services/home-page/api/numerology/name-frequency/name-chart",
+  compatibilityGrid: "/astrology-services/numerology/match-making/compatibility-grid",
   dashaCalculation: "/astrology-services/home-page/numerology/dasha-calculation",
   pratyantarDasha: "/astrology-services/home-page/numerology/pratyantar-dasha",
   personalityDestinyDetails: "/astrology-services/home-page/personality-destiny-details",

@@ -333,7 +333,7 @@ export function RegisterScreen() {
       </Text>
 
       <Text style={styles.muted}>
-        {t("Complete your verification profile with ApsaraAstro.")}
+        {t("Complete your verification profile with ApsraAstro.")}
       </Text>
     </View>
 

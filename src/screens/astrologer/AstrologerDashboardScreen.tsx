@@ -22,7 +22,7 @@ const services: { label: string; icon: IconName; route?: string }[] = [
   { label: "Compatibility", icon: "heart-multiple" },
   { label: "Kundali PDF", icon: "file-document-outline", route: "/kundali-pdf" },
   { label: "Match Making PDF", icon: "account-heart-outline", route: "/match-making-pdf" },
-  { label: "Apsara Astro Profile", icon: "account-star-outline", route: "/apsara-astro-profile" },
+  { label: "Apsra Astro Profile", icon: "account-star-outline", route: "/apsara-astro-profile" },
   { label: "Today's\nMuhurta", icon: "calendar-star" },
   { label: "Today's\nPanchang", icon: "script-text" },
   { label: "Numeroscope", icon: "numeric", route: "/astrologer/numerology" },
@@ -83,7 +83,7 @@ export function AstrologerDashboardScreen() {
           <Image source={require("@/assets/new_logo_apsara.jpeg")} resizeMode="cover" style={styles.headerLogo} />
           <View style={styles.brandBlock}>
             <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
-              Apsara Astro
+              Apsra Astro
             </Text>
             <Text style={styles.tagline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6}>{t("ACCOUNT PREDICTIONS SACRED RITUALS ACCESSIBLE")}</Text>
           </View>

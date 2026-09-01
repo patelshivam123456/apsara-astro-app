@@ -28,6 +28,25 @@ export type LoShuGridResponse = {
   };
 };
 
+export type CompatibilityGridPayload = {
+  personA: NumerologyPayload;
+  personB: NumerologyPayload;
+};
+
+export type CompatibilityGridResponse = {
+  personA?: LoShuGridResponse;
+  personB?: LoShuGridResponse;
+  mixedGrid?: LoShuGridResponse["grid"];
+  mixedCounts?: Record<string, number>;
+  mixedMissingNumbers?: number[];
+  mixedRepeatedNumbers?: number[];
+  compatibility?: {
+    personalityStatus?: string;
+    destinyStatus?: string;
+    zodiacStatus?: string;
+  };
+};
+
 export type VedicGridResponse = LoShuGridResponse & {
   driverAddedToGrid?: boolean;
   destinyAddedToGrid?: boolean;
@@ -142,6 +161,25 @@ export type ChaldeanNameLetterAnalysisChartResponse = {
   numberFrequency?: ChaldeanNumberFrequencyItem[];
   nameLetters?: ChaldeanNameLetterItem[];
   numberFrequencyCount?: Record<string, number>;
+};
+
+export type NameFrequencyNameChartResponse = {
+  firstNameLetterWithNameNumber?: string;
+  secondNameLetterWithNameNumber?: string;
+  firstNameNumber?: string;
+  nameNumberWithDestiny?: string;
+  firstAndSecondNameLetterNumber?: string;
+  nameNumberWithPersonality?: string;
+  firstAndSecondNameLetterRelation?: string;
+  secondNameLetterWithNameNumberRelation?: string;
+  firstLetterWithZodiacRelation?: string;
+  runningAge?: string;
+  nameNumberDestinyRelation?: string;
+  firstNameLetterWithNameNumberRelation?: string;
+  nameAge?: string;
+  firstNameLetterWithZodicNumber?: string;
+  nameNumberPersonalityRelation?: string;
+  nameNumber?: string;
 };
 
 export type PersonalYearResponse = {
@@ -344,6 +382,35 @@ export async function getChaldeanNameLetterAnalysisChart(fullName: string) {
   );
 
   return ((response as unknown as ApiResponse<ChaldeanNameLetterAnalysisChartResponse>).data || response) as ChaldeanNameLetterAnalysisChartResponse;
+}
+
+export async function getNameFrequencyNameChart(payload: NumerologyPayload) {
+  const response = await astroApi.post<ApiResponse<NameFrequencyNameChartResponse>>(
+    ENDPOINTS.nameFrequencyNameChart,
+    payload,
+    {
+      headers: {
+        Accept: "*/*"
+      }
+    }
+  );
+
+  return ((response as unknown as ApiResponse<NameFrequencyNameChartResponse>).data || response) as NameFrequencyNameChartResponse;
+}
+
+export async function getCompatibilityGrid(payload: CompatibilityGridPayload) {
+  const response = await astroApi.post<ApiResponse<CompatibilityGridResponse>>(
+    ENDPOINTS.compatibilityGrid,
+    payload,
+    {
+      headers: {
+        Accept: "*/*",
+        "Content-Type": "application/json"
+      }
+    }
+  );
+
+  return ((response as unknown as ApiResponse<CompatibilityGridResponse>).data || response) as CompatibilityGridResponse;
 }
 
 export async function getDashaCalculation(dateOfBirth: string, fromDate: string, toDate: string) {

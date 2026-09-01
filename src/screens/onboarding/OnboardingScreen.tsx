@@ -47,7 +47,7 @@ export function OnboardingScreen() {
       <View style={styles.overlay} />
       <View style={styles.content}>
         <View style={styles.brand}>
-          <Text variant="labelLarge" style={styles.brandText}>ApsaraAstro</Text>
+          <Text variant="labelLarge" style={styles.brandText}>ApsraAstro</Text>
           <Text variant="bodySmall" style={styles.progress}>{progress}</Text>
         </View>
         <View style={styles.copy}>

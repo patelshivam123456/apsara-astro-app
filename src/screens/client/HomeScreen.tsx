@@ -20,7 +20,7 @@ const quickServices = [
   ["Horoscope Compatibility", "heart-multiple"],
   ["Kundali PDF", "file-document-outline"],
   ["Match Making PDF", "account-heart-outline"],
-  ["Apsara Astro Profile", "account-star-outline"],
+  ["Apsra Astro Profile", "account-star-outline"],
   ["Today's Muhurta", "calendar-star"],
   ["Panchang", "calendar-month"],
   ["Numeroscope", "numeric"],
@@ -81,7 +81,7 @@ export function HomeScreen() {
                 router.push("/match-making-pdf");
                 return;
               }
-              if (title === "Apsara Astro Profile") {
+              if (title === "Apsra Astro Profile") {
                 router.push("/apsara-astro-profile");
                 return;
               }
@@ -135,7 +135,7 @@ export function HomeScreen() {
       </View>
 
       <View style={styles.band}>
-        <Text variant="titleLarge" style={styles.blockTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Apsara Astro Blogs")}</Text>
+        <Text variant="titleLarge" style={styles.blockTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Apsra Astro Blogs")}</Text>
         <Text style={styles.muted}>{t("Daily guidance, rituals, compatibility, and numerology insights.")}</Text>
       </View>
 

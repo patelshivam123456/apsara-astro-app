@@ -3,7 +3,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { type LanguageCode } from "@/context/LanguageContext";
 import { SectorWiseEffectsResponse } from "@/services/numerology.service";
 
-export type Calculation = "lo-shu-grid" | "vedic-grid" | "pythagoras-grid" | "name-frequency" | "daily-numeroscope";
+export type Calculation = "lo-shu-grid" | "vedic-grid" | "pythagoras-grid" | "name-frequency" | "compatibility-relationship" | "daily-numeroscope";
 export type SectorEffectTab = "career" | "health" | "finance" | "relationship";
 
 export const months = [
@@ -66,5 +66,7 @@ export const localizedDigits: Record<LanguageCode, string[]> = {
   mr: ["०", "१", "२", "३", "४", "५", "६", "७", "८", "९"],
   bn: ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"],
   ta: ["௦", "௧", "௨", "௩", "௪", "௫", "௬", "௭", "௮", "௯"],
-  te: ["౦", "౧", "౨", "౩", "౪", "౫", "౬", "౭", "౮", "౯"]
+  te: ["౦", "౧", "౨", "౩", "౪", "౫", "౬", "౭", "౮", "౯"],
+  gu: ["૦", "૧", "૨", "૩", "૪", "૫", "૬", "૭", "૮", "૯"],
+  mwr: ["०", "१", "२", "३", "४", "५", "६", "७", "८", "९"]
 };
