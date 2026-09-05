@@ -1,8 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Text } from "react-native-paper";
+import { ActivityIndicator, Text } from "react-native-paper";
 
 import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
@@ -43,6 +43,7 @@ export function NumerologyCalculationTabs({
 }) {
   const { t } = useTranslation();
   const scrollRef = useRef<ScrollView>(null);
+  const [navigatingTab, setNavigatingTab] = useState<Calculation | null>(null);
   const { width } = useWindowDimensions();
   const activeIndex = calculationTabs.findIndex((tab) => tab.value === active);
 
@@ -59,6 +60,12 @@ export function NumerologyCalculationTabs({
 
   return (
     <View style={styles.stickyWrap}>
+      {navigatingTab ? (
+        <View style={styles.transitionOverlay}>
+          <ActivityIndicator size="small" />
+          <Text style={styles.transitionText}>{t(calculationTabs.find((tab) => tab.value === navigatingTab)?.label || "Loading")}</Text>
+        </View>
+      ) : null}
       <View style={styles.detailsRow}>
         <View style={styles.detailsCopy}>
           <Text style={styles.fullName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -93,11 +100,14 @@ export function NumerologyCalculationTabs({
               key={tab.value}
               style={[styles.tab, activeTab && styles.activeTab]}
               onPress={() => {
-                if (activeTab) return;
-                router.push({
-                  pathname: tab.pathname,
-                  params: { fullName, dob, gender, calculation: tab.value, personBFullName, personBDob, personBGender }
-                });
+                if (activeTab || navigatingTab) return;
+                setNavigatingTab(tab.value);
+                setTimeout(() => {
+                  router.push({
+                    pathname: tab.pathname,
+                    params: { fullName, dob, gender, calculation: tab.value, personBFullName, personBDob, personBGender }
+                  });
+                }, 180);
               }}
             >
               <Text
@@ -130,6 +140,22 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 5,
     zIndex: 20
+  },
+  transitionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 0,
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    zIndex: 30
+  },
+  transitionText: {
+    color: "#145c24",
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "900"
   },
   detailsRow: {
     minHeight: 42,

@@ -7,6 +7,7 @@ import { Button, Text } from "react-native-paper";
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { NumerologyCalculationTabs } from "@/components/Numerology/CalculationTabs";
+import { NumerologyExportButton, NumerologyExportSection } from "@/components/Numerology/NumerologyExport";
 import { GridIntro } from "@/components/Numerology/Lushu-grid/Common";
 import { LoShuGrid } from "@/components/Numerology/Lushu-grid/LoShuGrid";
 import { localizeDigitsInText } from "@/components/Numerology/Lushu-grid/utils";
@@ -20,9 +21,10 @@ import {
   LoShuGridResponse,
   NumerologyPayload
 } from "@/services/numerology.service";
+import { translateUniqueTexts } from "@/services/translation.service";
 
 export function CompatibilityRelationshipScreen() {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const params = useLocalSearchParams<{
     fullName?: string;
     dob?: string;
@@ -50,11 +52,28 @@ export function CompatibilityRelationshipScreen() {
   const [report, setReport] = useState<CompatibilityGridResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasPersonBData = personB.fullName.trim().length > 1 && /^\d{2}-\d{2}-\d{4}$/.test(personB.dob.trim()) && personB.gender;
 
   useEffect(() => {
     let mounted = true;
 
     async function loadCompatibility() {
+      if (!hasPersonBData) {
+        router.replace({
+          pathname: "/astrologer/numerology",
+          params: {
+            fullName: personA.fullName,
+            dob: personA.dob,
+            gender: personA.gender,
+            calculation: "compatibility-relationship",
+            personBFullName: personB.fullName,
+            personBDob: personB.dob,
+            personBGender: personB.gender
+          }
+        });
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
@@ -71,7 +90,7 @@ export function CompatibilityRelationshipScreen() {
     return () => {
       mounted = false;
     };
-  }, [personA, personB]);
+  }, [hasPersonBData, personA, personB]);
 
   if (loading) return <LoadingState label="Loading compatibility report" />;
   if (error && !report) return <ErrorState message={error} onRetry={() => router.replace("/astrologer/numerology")} />;
@@ -93,6 +112,11 @@ export function CompatibilityRelationshipScreen() {
           personBDob={personB.dob}
           personBGender={personB.gender}
         />
+        <NumerologyExportButton
+          title={`${t("Compatibility/Relationship")} - ${personA.fullName}`}
+          fileName={`compatibility-relationship-${personA.fullName}-${personB.fullName}`}
+          sections={() => buildCompatibilityExportSections({ language, personA, personB, report, t })}
+        />
         <GridIntro
           title={t("Compatibility/Relationship")}
           description={t("Relationship compatibility using both Lo Shu grids and combined numbers.")}
@@ -110,6 +134,183 @@ export function CompatibilityRelationshipScreen() {
       <AstrologerBottomNav active="home" respectSafeArea />
     </SafeAreaView>
   );
+}
+
+function buildCompatibilityExportSections({
+  language,
+  personA,
+  personB,
+  report,
+  t
+}: {
+  language: ReturnType<typeof useTranslation>["language"];
+  personA: NumerologyPayload;
+  personB: NumerologyPayload;
+  report: CompatibilityGridResponse | null;
+  t: ReturnType<typeof useTranslation>["t"];
+}): Promise<NumerologyExportSection[]> {
+  return translateUniqueTexts([
+    "Compatibility/Relationship",
+    "Relationship compatibility using both Lo Shu grids and combined numbers.",
+    "People Details",
+    "Person",
+    "Full Name",
+    "Date of Birth",
+    "Gender",
+    "Person A",
+    "Person B",
+    "Male",
+    "Female",
+    "Other",
+    "Person A Grid",
+    "Person A Numbers",
+    "Person A Meta",
+    "Person B Grid",
+    "Person B Numbers",
+    "Person B Meta",
+    "Top Row",
+    "Middle Row",
+    "Bottom Row",
+    "Name",
+    "Date / Zodiac",
+    "Compatibility",
+    "Particular",
+    "Relation",
+    "Personality",
+    "Destiny",
+    "Zodiac",
+    "Mixed Grid",
+    "Mixed Numbers",
+    "Missing Numbers",
+    "Repeated Numbers",
+    "Mixed Counts",
+    "Personality Number",
+    "Destiny Number",
+    "Kua Number",
+    "Name Number",
+    "Running Age",
+    "Zodiac Number",
+    ...[
+      report?.compatibility?.personalityStatus,
+      report?.compatibility?.destinyStatus,
+      report?.compatibility?.zodiacStatus,
+      report?.personA?.zodiacSign,
+      report?.personB?.zodiacSign
+    ].filter((value): value is string => Boolean(value?.trim()))
+  ], language).then((translationMap) => {
+    const tx = (text: string) => translationMap.get(text) || t(text);
+
+    return [
+    {
+      title: tx("Compatibility/Relationship"),
+      variant: "intro",
+      rows: [[tx("Relationship compatibility using both Lo Shu grids and combined numbers.")]]
+    },
+    {
+      title: tx("People Details"),
+      rows: [
+        [tx("Person"), tx("Full Name"), tx("Date of Birth"), tx("Gender")],
+        [tx("Person A"), personA.fullName, localizeDigitsInText(personA.dob, language), tx(personA.gender)],
+        [tx("Person B"), personB.fullName, localizeDigitsInText(personB.dob, language), tx(personB.gender)]
+      ]
+    },
+    {
+      title: tx("Person A Grid"),
+      variant: "loShuGrid",
+      rows: [
+        [tx("Top Row"), ...(report?.personA?.grid?.topRow || []).map((value) => localizeDigitsInText(value || "-", language))],
+        [tx("Middle Row"), ...(report?.personA?.grid?.middleRow || []).map((value) => localizeDigitsInText(value || "-", language))],
+        [tx("Bottom Row"), ...(report?.personA?.grid?.bottomRow || []).map((value) => localizeDigitsInText(value || "-", language))]
+      ]
+    },
+    {
+      title: tx("Person A Numbers"),
+      variant: "summary",
+      rows: buildPersonSummaryRows(report?.personA, language, tx)
+    },
+    {
+      title: tx("Person A Meta"),
+      variant: "soul",
+      rows: [
+        [tx("Name"), personA.fullName],
+        [tx("Date / Zodiac"), `${localizeDigitsInText(report?.personA?.dob || personA.dob || "-", language)}  |  ${report?.personA?.zodiacSign ? tx(report.personA.zodiacSign) : "-"}`]
+      ]
+    },
+    {
+      title: tx("Person B Grid"),
+      variant: "loShuGrid",
+      rows: [
+        [tx("Top Row"), ...(report?.personB?.grid?.topRow || []).map((value) => localizeDigitsInText(value || "-", language))],
+        [tx("Middle Row"), ...(report?.personB?.grid?.middleRow || []).map((value) => localizeDigitsInText(value || "-", language))],
+        [tx("Bottom Row"), ...(report?.personB?.grid?.bottomRow || []).map((value) => localizeDigitsInText(value || "-", language))]
+      ]
+    },
+    {
+      title: tx("Person B Numbers"),
+      variant: "summary",
+      rows: buildPersonSummaryRows(report?.personB, language, tx)
+    },
+    {
+      title: tx("Person B Meta"),
+      variant: "soul",
+      rows: [
+        [tx("Name"), personB.fullName],
+        [tx("Date / Zodiac"), `${localizeDigitsInText(report?.personB?.dob || personB.dob || "-", language)}  |  ${report?.personB?.zodiacSign ? tx(report.personB.zodiacSign) : "-"}`]
+      ]
+    },
+    {
+      title: tx("Compatibility"),
+      rows: [
+        [tx("Particular"), tx("Relation")],
+        [tx("Personality"), report?.compatibility?.personalityStatus ? tx(report.compatibility.personalityStatus) : "-"],
+        [tx("Destiny"), report?.compatibility?.destinyStatus ? tx(report.compatibility.destinyStatus) : "-"],
+        [tx("Zodiac"), report?.compatibility?.zodiacStatus ? tx(report.compatibility.zodiacStatus) : "-"]
+      ]
+    },
+    {
+      title: tx("Mixed Grid"),
+      variant: "loShuGrid",
+      rows: [
+        [tx("Top Row"), ...(report?.mixedGrid?.topRow || []).map((value) => localizeDigitsInText(value || "-", language))],
+        [tx("Middle Row"), ...(report?.mixedGrid?.middleRow || []).map((value) => localizeDigitsInText(value || "-", language))],
+        [tx("Bottom Row"), ...(report?.mixedGrid?.bottomRow || []).map((value) => localizeDigitsInText(value || "-", language))]
+      ]
+    },
+    {
+      title: tx("Mixed Numbers"),
+      variant: "splitPanel",
+      rows: [
+        [tx("Missing Numbers"), localizeDigitsInText((report?.mixedMissingNumbers || []).join(", ") || "-", language)],
+        [tx("Repeated Numbers"), localizeDigitsInText((report?.mixedRepeatedNumbers || []).join(", ") || "-", language)]
+      ]
+    },
+    {
+      title: tx("Mixed Counts"),
+      variant: "count",
+      rows: [
+        ...Array.from({ length: 9 }, (_, index) => {
+          const number = String(index + 1);
+          return [localizeDigitsInText(number, language), localizeDigitsInText(report?.mixedCounts?.[number] ?? "-", language)];
+        })
+      ]
+    }
+  ];
+  });
+}
+
+function buildPersonSummaryRows(
+  person: LoShuGridResponse | undefined,
+  language: ReturnType<typeof useTranslation>["language"],
+  tx: (text: string) => string
+) {
+  return [
+    [tx("Personality Number"), localizeDigitsInText(person?.driverNumber ?? "-", language), ""],
+    [tx("Destiny Number"), localizeDigitsInText(person?.destinyNumber ?? "-", language), ""],
+    [tx("Kua Number"), localizeDigitsInText(person?.kuaNumber ?? "-", language), ""],
+    [tx("Name Number"), localizeDigitsInText(person?.nameNumber ?? "-", language), ""],
+    [tx("Running Age"), localizeDigitsInText(person?.runningAge ?? "-", language), ""],
+    [tx("Zodiac Number"), localizeDigitsInText(person?.zodiacNumber ?? "-", language), ""]
+  ];
 }
 
 function PeopleGridRow({

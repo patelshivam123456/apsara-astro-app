@@ -7,6 +7,7 @@ import { Button, Text } from "react-native-paper";
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { NumerologyCalculationTabs } from "@/components/Numerology/CalculationTabs";
+import { NumerologyExportButton, NumerologyExportSection } from "@/components/Numerology/NumerologyExport";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { GridIntro } from "@/components/Numerology/Lushu-grid/Common";
 import { localizeDigitsInText } from "@/components/Numerology/Lushu-grid/utils";
@@ -20,9 +21,10 @@ import {
   PythagoreanNameTable,
   PythagoreanNameTableResponse
 } from "@/services/numerology.service";
+import { translateUniqueTexts } from "@/services/translation.service";
 
 export function PythagorasGridScreen() {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const params = useLocalSearchParams<{
     fullName?: string;
     dob?: string;
@@ -94,6 +96,11 @@ export function PythagorasGridScreen() {
           personBFullName={personBFullName}
           personBDob={personBDob}
           personBGender={personBGender}
+        />
+        <NumerologyExportButton
+          title={`${t("Pythagoras Grid")} - ${fullName}`}
+          fileName={`pythagoras-grid-${fullName}`}
+          sections={() => buildPythagorasExportSections({ dob, fullName, gender, language, nameTable, pythagorasGrid, t })}
         />
         <GridIntro
           title={t("Pythagoras Grid")}
@@ -396,6 +403,203 @@ function CountRow({ counts }: { counts?: Record<string, number> }) {
 
 function formatNumberList(values?: number[]) {
   return values?.length ? values.join(", ") : "-";
+}
+
+function buildPythagorasExportSections({
+  dob,
+  fullName,
+  gender,
+  language,
+  nameTable,
+  pythagorasGrid,
+  t
+}: {
+  dob: string;
+  fullName: string;
+  gender: string;
+  language: ReturnType<typeof useTranslation>["language"];
+  nameTable: PythagoreanNameTableResponse | null;
+  pythagorasGrid: PythagoreanGridResponse | null;
+  t: ReturnType<typeof useTranslation>["t"];
+}): Promise<NumerologyExportSection[]> {
+  const challengeRows = getChallengePinnacleRows(pythagorasGrid);
+  return translateUniqueTexts([
+    "Pythagoras Grid",
+    "Pythagorean number placement arranged as a Lu Shu style grid for repeated and missing number analysis.",
+    "Person Details",
+    "Full Name",
+    "Date of Birth",
+    "Gender",
+    "Male",
+    "Female",
+    "Other",
+    "Top Row",
+    "Middle Row",
+    "Bottom Row",
+    "Numbers",
+    "Personality Number",
+    "Destiny Number",
+    "Inner Nature",
+    "Life Path",
+    "Number Count",
+    "Missing and Repeated",
+    "Missing Numbers",
+    "Repeated Numbers",
+    "Soul Number",
+    "Name",
+    "Challenge and Pinnacle",
+    "Order",
+    "Pinnacle Number",
+    "Challenge Number",
+    "Period (Year)",
+    "Running Age",
+    "First Name",
+    "Last Name",
+    "Year Sequence & Series",
+    "Sequence",
+    "Series of 2",
+    "First",
+    "Second",
+    "Third",
+    "Forth"
+  ], language).then((translationMap) => {
+    const tx = (text: string) => translationMap.get(text) || t(text);
+
+    return [
+    {
+      title: tx("Pythagoras Grid"),
+      variant: "intro",
+      rows: [[tx("Pythagorean number placement arranged as a Lu Shu style grid for repeated and missing number analysis.")]]
+    },
+    {
+      title: tx("Person Details"),
+      rows: [
+        [tx("Full Name"), tx("Date of Birth"), tx("Gender")],
+        [fullName, localizeDigitsInText(dob, language), tx(gender)]
+      ]
+    },
+    {
+      title: tx("Pythagoras Grid"),
+      variant: "loShuGrid",
+      rows: [
+        [tx("Top Row"), ...(pythagorasGrid?.grid?.topRow || []).map((value) => localizeDigitsInText(value || "-", language))],
+        [tx("Middle Row"), ...(pythagorasGrid?.grid?.middleRow || []).map((value) => localizeDigitsInText(value || "-", language))],
+        [tx("Bottom Row"), ...(pythagorasGrid?.grid?.bottomRow || []).map((value) => localizeDigitsInText(value || "-", language))]
+      ]
+    },
+    {
+      title: tx("Numbers"),
+      variant: "summary",
+      rows: [
+        [tx("Personality Number"), localizeDigitsInText(pythagorasGrid?.driverNumber ?? "-", language), tx("Inner Nature")],
+        [tx("Destiny Number"), localizeDigitsInText(pythagorasGrid?.destinyNumber ?? "-", language), tx("Life Path")]
+      ]
+    },
+    {
+      title: tx("Number Count"),
+      variant: "count",
+      rows: [
+        ...Array.from({ length: 9 }, (_, index) => {
+          const key = String(index + 1);
+          return [localizeDigitsInText(key, language), localizeDigitsInText(pythagorasGrid?.counts?.[key] ?? 0, language)];
+        })
+      ]
+    },
+    {
+      title: tx("Missing and Repeated"),
+      variant: "splitPanel",
+      rows: [
+        [tx("Missing Numbers"), localizeDigitsInText(formatNumberList(pythagorasGrid?.missingNumbers), language)],
+        [tx("Repeated Numbers"), localizeDigitsInText(formatNumberList(pythagorasGrid?.repeatedNumbers), language)]
+      ]
+    },
+    {
+      title: tx("Soul Number"),
+      variant: "soul",
+      rows: [
+        [tx("Name"), fullName],
+        [tx("Soul Number"), localizeDigitsInText(pythagorasGrid?.soulNumber ?? "-", language)]
+      ]
+    },
+    {
+      title: tx("Challenge and Pinnacle"),
+      rows: [
+        [tx("Order"), tx("Pinnacle Number"), tx("Challenge Number"), tx("Period (Year)")],
+        ...challengeRows.map((row) => [
+          tx(row.order),
+          localizeDigitsInText(row.pinnacle ?? "-", language),
+          localizeDigitsInText(row.challenge ?? "-", language),
+          localizeDigitsInText(row.period || "-", language)
+        ]),
+        [tx("Running Age"), localizeDigitsInText(pythagorasGrid?.runningAge ?? "-", language), tx("Pinnacle Number"), localizeDigitsInText(getPinnacleSummaryValue(pythagorasGrid?.pinnacleNumber), language)]
+      ]
+    },
+    {
+      title: tx("First Name"),
+      layout: "wide",
+      rows: buildNameTableExportRows(nameTable?.firstNameTable, language)
+    },
+    {
+      title: tx("Last Name"),
+      layout: "wide",
+      rows: buildNameTableExportRows(nameTable?.lastNameTable, language)
+    },
+    {
+      title: tx("Year Sequence & Series"),
+      rows: [
+        [tx("Sequence"), tx("Series of 2")],
+        ...getSequenceRows(nameTable?.runningYearSequence).map((row) => [
+          localizeDigitsInText(row.sequence, language),
+          localizeDigitsInText(row.series, language)
+        ])
+      ]
+    }
+  ];
+  });
+}
+
+function getChallengePinnacleRows(pythagorasGrid: PythagoreanGridResponse | null) {
+  const challengeNumber = pythagorasGrid?.challengeNumber;
+  const pinnacleNumber = pythagorasGrid?.pinnacleNumber;
+  return [
+    {
+      order: "First",
+      pinnacle: pinnacleNumber?.firstPinnacleNumber,
+      challenge: challengeNumber?.firstChallengeNumber ?? challengeNumber?.challengeOne,
+      period: pinnacleNumber?.firstPinnacleTimePeriod ?? pinnacleNumber?.firstChallengeTimePeriod ?? challengeNumber?.firstChallengeTimePeriod
+    },
+    {
+      order: "Second",
+      pinnacle: pinnacleNumber?.secondPinnacleNumber,
+      challenge: challengeNumber?.secondChallengeNumber ?? challengeNumber?.challengeTwo,
+      period: pinnacleNumber?.secondPinnacleTimePeriod ?? pinnacleNumber?.secondChallengeTimePeriod ?? challengeNumber?.secondChallengeTimePeriod
+    },
+    {
+      order: "Third",
+      pinnacle: pinnacleNumber?.thirdPinnacleNumber,
+      challenge: challengeNumber?.thirdChallengeNumber ?? challengeNumber?.challengeThree,
+      period: pinnacleNumber?.thirdPinnacleTimePeriod ?? pinnacleNumber?.thirdChallengeTimePeriod ?? challengeNumber?.thirdChallengeTimePeriod
+    },
+    {
+      order: "Forth",
+      pinnacle: pinnacleNumber?.fourthPinnacleNumber,
+      challenge: challengeNumber?.fourthChallengeNumber ?? challengeNumber?.challengeFour,
+      period: pinnacleNumber?.fourthPinnacleTimePeriod ?? pinnacleNumber?.fourthChallengeTimePeriod ?? challengeNumber?.fourthChallengeTimePeriod
+    }
+  ];
+}
+
+function buildNameTableExportRows(table: PythagoreanNameTable | undefined, language: ReturnType<typeof useTranslation>["language"]) {
+  const columnCount = Math.max(table?.letters?.length || 0, table?.tableRows?.[0]?.length || 0);
+  if (!columnCount) return [["-"]];
+  const columns = Array.from({ length: columnCount });
+
+  return [
+    columns.map((_, index) => table?.letters?.[index] || ""),
+    ...(table?.tableRows?.length ? table.tableRows : [[]]).map((row) =>
+      columns.map((_, columnIndex) => localizeDigitsInText(row[columnIndex] ?? "", language))
+    )
+  ];
 }
 
 const styles = StyleSheet.create({

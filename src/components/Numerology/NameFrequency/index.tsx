@@ -7,6 +7,7 @@ import { Button, Text } from "react-native-paper";
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { NumerologyCalculationTabs } from "@/components/Numerology/CalculationTabs";
+import { NumerologyExportButton, NumerologyExportSection } from "@/components/Numerology/NumerologyExport";
 import { GridIntro } from "@/components/Numerology/Lushu-grid/Common";
 import { localizeDigitsInText } from "@/components/Numerology/Lushu-grid/utils";
 import { ErrorState, LoadingState } from "@/components/StateViews";
@@ -23,13 +24,14 @@ import {
   NameFrequencyNameChartResponse,
   PythagoreanRunningAgeAlphabetItem
 } from "@/services/numerology.service";
+import { translateUniqueTexts } from "@/services/translation.service";
 
 const EMPTY_NAME_LETTERS: NonNullable<ChaldeanNameLetterAnalysisChartResponse["nameLetters"]> = [];
 const EMPTY_NUMBER_FREQUENCY: NonNullable<ChaldeanNameLetterAnalysisChartResponse["numberFrequency"]> = [];
 const FREQUENCY_LABELS = ["Once", "Twice", "Thrice", "Four", "Five", "Six", "Seven", "Eight", "Ninth"];
 
 export function NameFrequencyScreen() {
-  const { t } = useTranslation();
+  const { language, t } = useTranslation();
   const params = useLocalSearchParams<{
     fullName?: string;
     dob?: string;
@@ -125,6 +127,21 @@ export function NameFrequencyScreen() {
           personBFullName={personBFullName}
           personBDob={personBDob}
           personBGender={personBGender}
+        />
+        <NumerologyExportButton
+          title={`${t("Name Frequency")} - ${fullName}`}
+          fileName={`name-frequency-${fullName}`}
+          sections={() => buildNameFrequencyExportSections({
+            dob,
+            fullName,
+            gender,
+            language,
+            letterAnalysis,
+            nameChart,
+            pairEvents,
+            runningAgeAlphabet,
+            t
+          })}
         />
         <GridIntro
           title={t("Name Frequency")}
@@ -375,6 +392,190 @@ function buildNumberFrequencyRows(rows: NonNullable<ChaldeanNameLetterAnalysisCh
 
     return { frequency, numbers };
   }).filter((row) => row.numbers.length > 0);
+}
+
+function buildNameFrequencyExportSections({
+  dob,
+  fullName,
+  gender,
+  language,
+  letterAnalysis,
+  nameChart,
+  pairEvents,
+  runningAgeAlphabet,
+  t
+}: {
+  dob: string;
+  fullName: string;
+  gender: string;
+  language: ReturnType<typeof useTranslation>["language"];
+  letterAnalysis: ChaldeanNameLetterAnalysisChartResponse | null;
+  nameChart: NameFrequencyNameChartResponse | null;
+  pairEvents: ChaldeanNamePairEventsResponse | null;
+  runningAgeAlphabet: PythagoreanRunningAgeAlphabetItem[];
+  t: ReturnType<typeof useTranslation>["t"];
+}): Promise<NumerologyExportSection[]> {
+  const frequencyRows = buildNumberFrequencyRows(letterAnalysis?.numberFrequency || EMPTY_NUMBER_FREQUENCY);
+  const nameLetterColumns = buildNameLetterChartColumns(letterAnalysis?.nameLetters || EMPTY_NAME_LETTERS);
+  return translateUniqueTexts([
+    "Name Frequency",
+    "Chaldean name pair events and letter frequency analysis.",
+    "Person Details",
+    "Full Name",
+    "Date of Birth",
+    "Gender",
+    "Male",
+    "Female",
+    "Other",
+    "Name Summary",
+    "Normalized Name",
+    "Total Letters",
+    "Compound Name Number",
+    "Total Name Number",
+    "Total Life Years",
+    "First Name",
+    "Last Name",
+    "Name Pair Events",
+    "Year",
+    "Pair",
+    "Event 1",
+    "Event 2",
+    "Vibration",
+    "No records found",
+    "Running Age Alphabet",
+    "Alphabet",
+    "Period (in year)",
+    "From",
+    "To",
+    "Name Letter Analysis",
+    "Letter",
+    "Chaldean Number",
+    "Placement",
+    "Number Frequencies",
+    "Frequency",
+    "Numbers",
+    "Name Chart",
+    "Particular",
+    "Relation",
+    "Name Age",
+    "Running Age",
+    "First Name Number",
+    "Name Number",
+    "Name Number with Personality",
+    "Name Number with Destiny",
+    "First Letter with Name Number",
+    "Second Letter with Name Number",
+    "First Letter with Zodiac Number",
+    "First and Second Letter Relation",
+    ...FREQUENCY_LABELS,
+    ...(pairEvents?.events || []).flatMap((row) => [row.vibration].filter((value): value is string => Boolean(value?.trim()))),
+    ...[
+      nameChart?.nameNumberPersonalityRelation,
+      nameChart?.nameNumberDestinyRelation,
+      nameChart?.firstNameLetterWithNameNumberRelation,
+      nameChart?.secondNameLetterWithNameNumberRelation,
+      nameChart?.firstLetterWithZodiacRelation,
+      nameChart?.firstAndSecondNameLetterRelation
+    ].filter((value): value is string => Boolean(value?.trim()))
+  ], language).then((translationMap) => {
+    const tx = (text: string) => translationMap.get(text) || t(text);
+
+    return [
+    {
+      title: tx("Name Frequency"),
+      variant: "intro",
+      rows: [[tx("Chaldean name pair events and letter frequency analysis.")]]
+    },
+    {
+      title: tx("Person Details"),
+      rows: [
+        [tx("Full Name"), tx("Date of Birth"), tx("Gender")],
+        [fullName, localizeDigitsInText(dob, language), tx(gender)]
+      ]
+    },
+    {
+      title: tx("Name Summary"),
+      variant: "soul",
+      rows: [
+        [tx("Full Name"), letterAnalysis?.fullName || pairEvents?.fullName || fullName],
+        [tx("Normalized Name"), letterAnalysis?.normalizedName || pairEvents?.normalizedName || "-"]
+      ]
+    },
+    {
+      title: tx("Name Summary"),
+      variant: "summary",
+      rows: [
+        [tx("Total Letters"), localizeDigitsInText(letterAnalysis?.totalLetters ?? "-", language), ""],
+        [tx("Compound Name Number"), localizeDigitsInText(letterAnalysis?.compoundNameNumber ?? "-", language), ""],
+        [tx("Total Name Number"), localizeDigitsInText(letterAnalysis?.totalNameNumber ?? "-", language), ""],
+        [tx("Total Life Years"), localizeDigitsInText(pairEvents?.totalLifeYears ?? "-", language), ""],
+        [tx("First Name"), letterAnalysis?.firstName || "-", ""],
+        [tx("Last Name"), letterAnalysis?.lastName || "-", ""]
+      ]
+    },
+    {
+      title: tx("Name Pair Events"),
+      layout: "wide",
+      rows: [
+        [tx("Year"), tx("Pair"), tx("Event 1"), tx("Event 2"), tx("Vibration")],
+        ...(pairEvents?.events || []).map((row) => [
+          localizeDigitsInText(row.lifeYear ?? "-", language),
+          row.letterPair,
+          localizeDigitsInText(row.eventOne ?? "-", language),
+          localizeDigitsInText(row.eventTwo ?? "-", language),
+          row.vibration ? tx(row.vibration) : "-"
+        ]),
+        ...(!(pairEvents?.events || []).length ? [[tx("No records found"), "", "", "", ""]] : [])
+      ]
+    },
+    {
+      title: tx("Running Age Alphabet"),
+      rows: [
+        [tx("Alphabet"), tx("Period (in year)"), tx("From"), tx("To")],
+        ...(runningAgeAlphabet.length ? runningAgeAlphabet : [{ letter: "-", periodInYear: undefined, fromYear: undefined, toYear: undefined }]).map((row) => [
+          row.letter,
+          localizeDigitsInText(row.periodInYear ?? "-", language),
+          localizeDigitsInText(row.fromYear ?? "-", language),
+          localizeDigitsInText(row.toYear ?? "-", language)
+        ])
+      ]
+    },
+    {
+      title: tx("Name Letter Analysis"),
+      layout: "wide",
+      rows: [
+        [tx("Letter"), ...nameLetterColumns.map((column) => column.letter)],
+        [tx("Chaldean Number"), ...nameLetterColumns.map((column) => localizeDigitsInText(column.chaldeanNumber ?? "-", language))],
+        [tx("Placement"), ...nameLetterColumns.map((column) => localizeDigitsInText(column.positionInFullName ?? "-", language))],
+        ...(!nameLetterColumns.length ? [[tx("No records found")]] : [])
+      ]
+    },
+    {
+      title: tx("Number Frequencies"),
+      rows: [
+        [tx("Frequency"), tx("Numbers")],
+        ...frequencyRows.map((row) => [tx(row.frequency), localizeDigitsInText(row.numbers, language)]),
+        ...(!frequencyRows.length ? [[tx("No records found"), ""]] : [])
+      ]
+    },
+    {
+      title: tx("Name Chart"),
+      rows: [
+        [tx("Particular"), tx("Numbers"), tx("Relation")],
+        [tx("Name Age"), localizeDigitsInText(nameChart?.nameAge || "-", language), "-"],
+        [tx("Running Age"), localizeDigitsInText(nameChart?.runningAge || "-", language), "-"],
+        [tx("First Name Number"), localizeDigitsInText(nameChart?.firstNameNumber || "-", language), "-"],
+        [tx("Name Number"), localizeDigitsInText(nameChart?.nameNumber || "-", language), "-"],
+        [tx("Name Number with Personality"), localizeDigitsInText(nameChart?.nameNumberWithPersonality || "-", language), nameChart?.nameNumberPersonalityRelation ? tx(nameChart.nameNumberPersonalityRelation) : "-"],
+        [tx("Name Number with Destiny"), localizeDigitsInText(nameChart?.nameNumberWithDestiny || "-", language), nameChart?.nameNumberDestinyRelation ? tx(nameChart.nameNumberDestinyRelation) : "-"],
+        [tx("First Letter with Name Number"), localizeDigitsInText(nameChart?.firstNameLetterWithNameNumber || "-", language), nameChart?.firstNameLetterWithNameNumberRelation ? tx(nameChart.firstNameLetterWithNameNumberRelation) : "-"],
+        [tx("Second Letter with Name Number"), localizeDigitsInText(nameChart?.secondNameLetterWithNameNumber || "-", language), nameChart?.secondNameLetterWithNameNumberRelation ? tx(nameChart.secondNameLetterWithNameNumberRelation) : "-"],
+        [tx("First Letter with Zodiac Number"), localizeDigitsInText(nameChart?.firstNameLetterWithZodicNumber || "-", language), nameChart?.firstLetterWithZodiacRelation ? tx(nameChart.firstLetterWithZodiacRelation) : "-"],
+        [tx("First and Second Letter Relation"), localizeDigitsInText(nameChart?.firstAndSecondNameLetterNumber || "-", language), nameChart?.firstAndSecondNameLetterRelation ? tx(nameChart.firstAndSecondNameLetterRelation) : "-"]
+      ]
+    }
+  ];
+  });
 }
 
 function LetterAnalysisRow({ label, values, header = false, last = false }: { label: string; values: (string | number)[]; header?: boolean; last?: boolean }) {

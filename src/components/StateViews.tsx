@@ -1,4 +1,5 @@
-import { Image, StyleSheet, View } from "react-native";
+import { Animated, Image, StyleSheet, View } from "react-native";
+import { useEffect, useRef } from "react";
 import { ActivityIndicator, Button, Text } from "react-native-paper";
 
 import { colors, spacing } from "@/constants/theme";
@@ -6,10 +7,25 @@ import { useTranslation } from "@/context/LanguageContext";
 
 export function LoadingState({ label = "Loading" }: { label?: string }) {
   const { t } = useTranslation();
+  const pulse = useRef(new Animated.Value(0.88)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 720, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.88, duration: 720, useNativeDriver: true })
+      ])
+    );
+    animation.start();
+
+    return () => animation.stop();
+  }, [pulse]);
 
   return (
     <View style={styles.center}>
-      <Image source={require("@/assets/new_logo_apsara.jpeg")} resizeMode="contain" style={styles.loadingLogo} />
+      <Animated.View style={[styles.loadingLogoWrap, { transform: [{ scale: pulse }] }]}>
+        <Image source={require("@/assets/new_logo_apsara.jpeg")} resizeMode="contain" style={styles.loadingLogo} />
+      </Animated.View>
       <ActivityIndicator />
       <Text variant="bodyMedium" style={styles.centerText}>{t(label)}</Text>
     </View>
@@ -53,9 +69,22 @@ export function SkeletonRow() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.md, padding: spacing.xl },
-  centerText: { textAlign: "center", lineHeight: 20 },
-  loadingLogo: { width: 150, height: 150, borderRadius: 20 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.md, padding: spacing.xl, backgroundColor: "#ffffc9" },
+  centerText: { textAlign: "center", lineHeight: 20, color: "#145c24", fontWeight: "800" },
+  loadingLogoWrap: {
+    width: 156,
+    height: 156,
+    borderRadius: 28,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#0d5a1d",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 5
+  },
+  loadingLogo: { width: 142, height: 142, borderRadius: 22 },
   stateBox: {
     borderWidth: 1,
     borderColor: colors.border,
