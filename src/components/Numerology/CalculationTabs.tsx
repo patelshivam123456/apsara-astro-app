@@ -21,6 +21,7 @@ const calculationTabs: NumerologyCalculationTab[] = [
   { label: "Pythagoras Grid", value: "pythagoras-grid", pathname: "/astrologer/pythagoras-grid" },
   { label: "Name Frequency", value: "name-frequency", pathname: "/astrologer/name-frequency" },
   { label: "Compatibility/Relationship", value: "compatibility-relationship", pathname: "/astrologer/compatibility-relationship" },
+  { label: "Mobile Numerology", value: "mobile-numerology", pathname: "/astrologer/mobile-numerology" },
   { label: "Daily Numeroscope", value: "daily-numeroscope", pathname: "/astrologer/numerology" }
 ];
 
@@ -29,6 +30,7 @@ export function NumerologyCalculationTabs({
   dob,
   fullName,
   gender,
+  mobileNumber = "",
   personBDob = "",
   personBFullName = "",
   personBGender = "Female"
@@ -37,6 +39,7 @@ export function NumerologyCalculationTabs({
   dob: string;
   fullName: string;
   gender: string;
+  mobileNumber?: string;
   personBDob?: string;
   personBFullName?: string;
   personBGender?: string;
@@ -46,6 +49,7 @@ export function NumerologyCalculationTabs({
   const [navigatingTab, setNavigatingTab] = useState<Calculation | null>(null);
   const { width } = useWindowDimensions();
   const activeIndex = calculationTabs.findIndex((tab) => tab.value === active);
+  const hasMobileNumber = /^\d{10}$/.test(mobileNumber.trim());
 
   useEffect(() => {
     const tabWidth = 112;
@@ -80,7 +84,7 @@ export function NumerologyCalculationTabs({
           onPress={() => {
             router.push({
               pathname: "/astrologer/numerology",
-              params: { fullName, dob, gender, calculation: active, personBFullName, personBDob, personBGender }
+              params: { fullName, dob, gender, calculation: active, mobileNumber, personBFullName, personBDob, personBGender }
             });
           }}
         >
@@ -103,9 +107,17 @@ export function NumerologyCalculationTabs({
                 if (activeTab || navigatingTab) return;
                 setNavigatingTab(tab.value);
                 setTimeout(() => {
+                  if (tab.value === "mobile-numerology" && !hasMobileNumber) {
+                    router.push({
+                      pathname: "/astrologer/numerology",
+                      params: { fullName, dob, gender, calculation: tab.value, mobileNumber, personBFullName, personBDob, personBGender }
+                    });
+                    return;
+                  }
+
                   router.push({
                     pathname: tab.pathname,
-                    params: { fullName, dob, gender, calculation: tab.value, personBFullName, personBDob, personBGender }
+                    params: { fullName, dob, gender, calculation: tab.value, mobileNumber, personBFullName, personBDob, personBGender }
                   });
                 }, 180);
               }}

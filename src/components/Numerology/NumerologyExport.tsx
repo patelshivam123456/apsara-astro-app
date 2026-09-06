@@ -15,7 +15,7 @@ export type NumerologyExportSection = {
   title: string;
   rows: NumerologyExportRow[];
   layout?: "normal" | "wide";
-  variant?: "normal" | "intro" | "loShuGrid" | "summary" | "detailButton" | "effects" | "reading" | "details" | "count" | "splitPanel" | "soul" | "repetitionEffects";
+  variant?: "normal" | "intro" | "loShuGrid" | "summary" | "detailButton" | "effects" | "reading" | "details" | "count" | "splitPanel" | "soul" | "repetitionEffects" | "compatibilityPage";
 };
 
 type NumerologyExportButtonProps = {
@@ -524,6 +524,143 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
           overflow-wrap: anywhere;
           word-break: break-word;
         }
+        .compat-page {
+          background: #ffffc9;
+          box-shadow: none;
+          padding: 0;
+        }
+        .compat-block {
+          border-radius: 8px;
+          background: #fff;
+          padding: 12px;
+          margin-top: 14px;
+          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.16);
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .compat-heading {
+          min-height: 40px;
+          border: 1px solid #39a853;
+          border-radius: 5px;
+          background: #bff2c6;
+          color: #145c24;
+          font-size: 18px;
+          line-height: 26px;
+          font-weight: 900;
+          padding: 7px 12px;
+          margin-bottom: 12px;
+        }
+        .compat-subtitle {
+          color: #111;
+          font-size: 16px;
+          line-height: 22px;
+          font-weight: 900;
+          text-align: center;
+          margin-bottom: 10px;
+        }
+        .compat-info td {
+          color: #111;
+          background: #fff;
+          font-size: 12px;
+          line-height: 16px;
+          font-weight: 900;
+        }
+        .compat-grid {
+          width: 204px;
+          height: 138px;
+          margin: 18px auto;
+          border: 1px solid #d7d7d7;
+          background: #fff;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          box-shadow: 0 2px 8px rgba(119, 119, 119, 0.18);
+        }
+        .compat-grid-cell {
+          border-right: 1px solid #d7d7d7;
+          border-bottom: 1px solid #d7d7d7;
+          color: #064b82;
+          font-size: 14px;
+          line-height: 45px;
+          font-weight: 900;
+          text-align: center;
+          overflow: hidden;
+        }
+        .compat-grid-cell:nth-child(3n) {
+          border-right: 0;
+        }
+        .compat-grid-cell:nth-child(n+7) {
+          border-bottom: 0;
+        }
+        .compat-grid-cell.red {
+          color: #d71920;
+        }
+        .compat-number-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+        }
+        .compat-number-card {
+          min-height: 76px;
+          border: 1.2px solid #39a853;
+          border-radius: 7px;
+          background: #fff;
+          padding: 8px;
+          text-align: center;
+        }
+        .compat-number-label {
+          color: #777;
+          font-size: 11px;
+          line-height: 14px;
+          font-weight: 900;
+        }
+        .compat-number-value {
+          color: #136a28;
+          font-size: 22px;
+          line-height: 28px;
+          font-weight: 900;
+        }
+        .compat-number-note {
+          color: #777;
+          font-size: 9px;
+          line-height: 12px;
+          font-weight: 700;
+        }
+        .compat-relation-title {
+          border-right: 1px solid #111;
+          border-bottom: 1px solid #111;
+          color: #111;
+          font-size: 11px;
+          line-height: 16px;
+          font-weight: 900;
+          text-align: center;
+          padding: 4px;
+        }
+        .compat-relation {
+          border-top: 1px solid #111;
+          border-left: 1px solid #111;
+        }
+        .compat-relation th,
+        .compat-relation td {
+          background: #fff;
+          color: #111;
+          font-size: 11px;
+          line-height: 15px;
+          font-weight: 900;
+          padding: 5px 4px;
+        }
+        .compat-relation td:last-child {
+          color: #d71920;
+        }
+        .compat-red-title {
+          border: 1px solid #f2b7b7;
+          color: #d71920;
+          background: #fff;
+          font-size: 14px;
+          line-height: 18px;
+          font-weight: 900;
+          padding: 6px;
+          margin: 10px 0 8px;
+        }
       </style>
     </head>
     <body>
@@ -559,6 +696,8 @@ function renderSection(section: NumerologyExportSection) {
       return renderSoulSection(section);
     case "repetitionEffects":
       return renderRepetitionEffectsSection(section);
+    case "compatibilityPage":
+      return renderCompatibilityPageSection(section);
     default:
       return renderTableSection(section);
   }
@@ -761,6 +900,101 @@ function renderTableSection(section: NumerologyExportSection) {
           .join("")}
       </table>
     </section>`;
+}
+
+function renderCompatibilityPageSection(section: NumerologyExportSection) {
+  return `
+    <section class="compat-page">
+      ${section.rows.map(renderCompatibilityRow).join("")}
+    </section>`;
+}
+
+function renderCompatibilityRow(row: NumerologyExportRow) {
+  const type = formatCell(row[0]);
+  if (type === "heading") {
+    return `<div class="compat-heading">${escapeHtml(formatCell(row[1]))}</div>`;
+  }
+  if (type === "person") {
+    const [title, nameLabel, name, dobLabel, dob, genderLabel, gender, personalityLabel, personalityValue, personalityNote, destinyLabel, destinyValue, destinyNote, runningLabel, runningValue, runningNote, zodiacLabel, zodiacValue, zodiacNote, ...cells] = row.slice(1);
+    return `
+      <section class="compat-block">
+        <div class="compat-subtitle">${escapeHtml(formatCell(title))}</div>
+        <table class="compat-info">
+          <tr><td>${escapeHtml(formatCell(nameLabel))}</td><td>${escapeHtml(formatCell(name))}</td></tr>
+          <tr><td>${escapeHtml(formatCell(dobLabel))}</td><td>${escapeHtml(formatCell(dob))}</td></tr>
+          <tr><td>${escapeHtml(formatCell(genderLabel))}</td><td>${escapeHtml(formatCell(gender))}</td></tr>
+        </table>
+        ${renderCompatibilityGrid(cells)}
+        <div class="compat-number-grid">
+          ${renderCompatibilityNumberCard(personalityLabel, personalityValue, personalityNote)}
+          ${renderCompatibilityNumberCard(destinyLabel, destinyValue, destinyNote)}
+          ${renderCompatibilityNumberCard(runningLabel, runningValue, runningNote)}
+          ${renderCompatibilityNumberCard(zodiacLabel, zodiacValue, zodiacNote)}
+        </div>
+      </section>`;
+  }
+  if (type === "relationship") {
+    const [, title, h1, h2, h3, h4, ...cells] = row;
+    const bodyRows = chunk(cells, 4);
+    return `
+      <section class="compat-block">
+        <table class="compat-relation">
+          <tr><td class="compat-relation-title" colspan="4">${escapeHtml(formatCell(title))}</td></tr>
+          <tr><th>${escapeHtml(formatCell(h1))}</th><th>${escapeHtml(formatCell(h2))}</th><th>${escapeHtml(formatCell(h3))}</th><th>${escapeHtml(formatCell(h4))}</th></tr>
+          ${bodyRows.map((cellsRow) => `<tr>${cellsRow.map((cell) => `<td>${escapeHtml(formatCell(cell))}</td>`).join("")}</tr>`).join("")}
+        </table>
+      </section>`;
+  }
+  if (type === "synergic") {
+    const [, title, arrowTitle, h1, h2, ...cells] = row;
+    const gridCells = cells.slice(0, 9);
+    const arrowCells = cells.slice(9);
+    return `
+      <section class="compat-block">
+        <div class="compat-heading">${escapeHtml(formatCell(title))}</div>
+        ${renderCompatibilityGrid(gridCells, true)}
+        <div class="compat-red-title">${escapeHtml(formatCell(arrowTitle))}</div>
+        <table>
+          <tr><th>${escapeHtml(formatCell(h1))}</th><th>${escapeHtml(formatCell(h2))}</th></tr>
+          ${chunk(arrowCells, 2).map((cellsRow) => `<tr>${cellsRow.map((cell) => `<td>${escapeHtml(formatCell(cell))}</td>`).join("")}</tr>`).join("")}
+        </table>
+      </section>`;
+  }
+  if (type === "analysis") {
+    const [, title, ...cells] = row;
+    return `
+      <section class="compat-block">
+        <div class="compat-heading">${escapeHtml(formatCell(title))}</div>
+        <table>
+          ${chunk(cells, 2).map((cellsRow) => `<tr>${cellsRow.map((cell) => `<td>${escapeHtml(formatCell(cell))}</td>`).join("")}</tr>`).join("")}
+        </table>
+      </section>`;
+  }
+  return "";
+}
+
+function renderCompatibilityGrid(cells: NumerologyExportRow, red = false) {
+  return `
+    <div class="compat-grid">
+      ${Array.from({ length: 9 }, (_, index) => `<div class="compat-grid-cell${red && formatCell(cells[index]) !== "-" ? " red" : ""}">${escapeHtml(formatCell(cells[index]))}</div>`).join("")}
+    </div>`;
+}
+
+function renderCompatibilityNumberCard(label: unknown, value: unknown, note: unknown) {
+  return `
+    <div class="compat-number-card">
+      <div class="compat-number-label">${escapeHtml(formatCell(label as string | number | undefined | null))}</div>
+      <div class="compat-number-value">${escapeHtml(formatCell(value as string | number | undefined | null))}</div>
+      <div class="compat-number-note">${escapeHtml(formatCell(note as string | number | undefined | null))}</div>
+    </div>`;
+}
+
+function chunk(values: NumerologyExportRow, size: number) {
+  const chunks: NumerologyExportRow[] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
 }
 
 function formatCell(value: string | number | undefined | null) {

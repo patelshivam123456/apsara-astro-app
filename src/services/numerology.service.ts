@@ -47,6 +47,50 @@ export type CompatibilityGridResponse = {
   };
 };
 
+export type MobileNumerologyPayload = {
+  fullName: string;
+  dateOfBirth: string;
+  mobileNumber: string;
+};
+
+export type MobileNumerologyPair = {
+  position?: number;
+  originalPair?: string;
+  calculatedPair?: string;
+  pairNumber?: number;
+  reducedPairNumber?: number;
+  vibration?: string;
+  coreTraits?: string;
+  vibrationFound?: boolean;
+};
+
+export type MobileNumerologyResponse = {
+  fullName?: string;
+  normalizedName?: string;
+  dateOfBirth?: string;
+  mobileNumber?: string;
+  mobileCompoundTotal?: number;
+  mobileTotal?: number;
+  personalityNumber?: number;
+  destinyNumber?: number;
+  compoundNameNumber?: number;
+  nameNumber?: number;
+  zodiacNumber?: number;
+  mobilePairs?: MobileNumerologyPair[];
+  mobileLastPairDigitsDto?: {
+    lastDigitFromPairList?: number;
+    secondLastDigitFromPairList?: number;
+    thirdLastDigitFromPairList?: number;
+    fourthLastDigitFromPairList?: number;
+  };
+  mobileRetaionship?: {
+    personalitytoMT?: string;
+    destinytoMT?: string;
+    nameNoToMT?: string;
+    zodiacToMT?: string;
+  };
+};
+
 export type VedicGridResponse = LoShuGridResponse & {
   driverAddedToGrid?: boolean;
   destinyAddedToGrid?: boolean;
@@ -411,6 +455,21 @@ export async function getCompatibilityGrid(payload: CompatibilityGridPayload) {
   );
 
   return ((response as unknown as ApiResponse<CompatibilityGridResponse>).data || response) as CompatibilityGridResponse;
+}
+
+export async function getMobileNumerology(payload: MobileNumerologyPayload) {
+  const response = await astroApi.post<ApiResponse<MobileNumerologyResponse>>(
+    ENDPOINTS.mobileNumerology,
+    payload,
+    {
+      headers: {
+        Accept: "*/*",
+        "Content-Type": "application/json"
+      }
+    }
+  );
+
+  return ((response as unknown as ApiResponse<MobileNumerologyResponse>).data || response) as MobileNumerologyResponse;
 }
 
 export async function getDashaCalculation(dateOfBirth: string, fromDate: string, toDate: string) {

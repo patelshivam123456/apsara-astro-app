@@ -1,7 +1,7 @@
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { translateText } from "@/services/translation.service";
+import { getAstroContextTranslation, translateText } from "@/services/translation.service";
 
 export type LanguageCode = "en" | "hi" | "mr" | "bn" | "ta" | "te" | "gu" | "mwr";
 
@@ -911,7 +911,10 @@ export function LanguageProvider({ children }: PropsWithChildren) {
     (text: string) => {
       if (!text || language === "en") return text;
 
-      const configuredTranslation = translations[language][text] || translateReportValue(language, text);
+      const configuredTranslation =
+        translations[language][text] ||
+        getAstroContextTranslation(text, language) ||
+        translateReportValue(language, text);
       if (configuredTranslation !== text) return configuredTranslation;
 
       const cachedTranslation = autoTranslationsRef.current[language]?.[text];

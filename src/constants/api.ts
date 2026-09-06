@@ -28,6 +28,7 @@ export const ENDPOINTS = {
   chaldeanNameLetterAnalysisChart: "/astrology-services/home-page/api/numerology/chaldean/name-letter-analysis-chart",
   nameFrequencyNameChart: "/astrology-services/home-page/api/numerology/name-frequency/name-chart",
   compatibilityGrid: "/astrology-services/numerology/match-making/compatibility-grid",
+  mobileNumerology: "https://staging.apsraastro.in/astrology-services/numerology/mobile/analysis-report",
   dashaCalculation: "/astrology-services/home-page/numerology/dasha-calculation",
   pratyantarDasha: "/astrology-services/home-page/numerology/pratyantar-dasha",
   personalityDestinyDetails: "/astrology-services/home-page/personality-destiny-details",

@@ -8,8 +8,7 @@ import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { NumerologyCalculationTabs } from "@/components/Numerology/CalculationTabs";
 import { NumerologyExportButton, NumerologyExportSection } from "@/components/Numerology/NumerologyExport";
-import { GridIntro } from "@/components/Numerology/Lushu-grid/Common";
-import { LoShuGrid } from "@/components/Numerology/Lushu-grid/LoShuGrid";
+import { defaultGrid } from "@/components/Numerology/Lushu-grid/constants";
 import { localizeDigitsInText } from "@/components/Numerology/Lushu-grid/utils";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { colors, spacing } from "@/constants/theme";
@@ -29,10 +28,12 @@ export function CompatibilityRelationshipScreen() {
     fullName?: string;
     dob?: string;
     gender?: string;
+    mobileNumber?: string;
     personBFullName?: string;
     personBDob?: string;
     personBGender?: string;
   }>();
+  const mobileNumber = String(params.mobileNumber || "");
   const personA = useMemo<NumerologyPayload>(
     () => ({
       fullName: String(params.fullName || ""),
@@ -66,6 +67,7 @@ export function CompatibilityRelationshipScreen() {
             dob: personA.dob,
             gender: personA.gender,
             calculation: "compatibility-relationship",
+            mobileNumber,
             personBFullName: personB.fullName,
             personBDob: personB.dob,
             personBGender: personB.gender
@@ -90,7 +92,7 @@ export function CompatibilityRelationshipScreen() {
     return () => {
       mounted = false;
     };
-  }, [hasPersonBData, personA, personB]);
+  }, [hasPersonBData, mobileNumber, personA, personB]);
 
   if (loading) return <LoadingState label="Loading compatibility report" />;
   if (error && !report) return <ErrorState message={error} onRetry={() => router.replace("/astrologer/numerology")} />;
@@ -108,6 +110,7 @@ export function CompatibilityRelationshipScreen() {
           fullName={personA.fullName}
           dob={personA.dob}
           gender={personA.gender}
+          mobileNumber={mobileNumber}
           personBFullName={personB.fullName}
           personBDob={personB.dob}
           personBGender={personB.gender}
@@ -117,18 +120,12 @@ export function CompatibilityRelationshipScreen() {
           fileName={`compatibility-relationship-${personA.fullName}-${personB.fullName}`}
           sections={() => buildCompatibilityExportSections({ language, personA, personB, report, t })}
         />
-        <GridIntro
-          title={t("Compatibility/Relationship")}
-          description={t("Relationship compatibility using both Lo Shu grids and combined numbers.")}
-        />
-        <PeopleGridRow
-          personA={report?.personA}
-          personB={report?.personB}
-          personAName={personA.fullName}
-          personBName={personB.fullName}
-        />
-        <CompatibilityTable data={report} />
-        <MixedGrid data={report} />
+        <SectionLabel title={t("Compatibility Analysis")} />
+        <PersonReportSection title={t("Lo Shu Grid-A")} name={personA.fullName} gender={personA.gender} fallbackDob={personA.dob} data={report?.personA} />
+        <PersonReportSection title={t("Lo Shu Grid-B")} name={personB.fullName} gender={personB.gender} fallbackDob={personB.dob} data={report?.personB} />
+        <RelationshipChart data={report} />
+        <SynergicGridSection data={report} />
+        <CompatibilityAnalysisTable data={report} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
       <AstrologerBottomNav active="home" respectSafeArea />
@@ -190,6 +187,30 @@ function buildCompatibilityExportSections({
     "Name Number",
     "Running Age",
     "Zodiac Number",
+    "Compatibility Analysis",
+    "Lo Shu Grid-A",
+    "Lo Shu Grid-B",
+    "Relationship Chart",
+    "Particular (Number)",
+    "Grid A",
+    "Grid B",
+    "Synergic Grid",
+    "Synergic Arrow Completion",
+    "S. No.",
+    "Synergic Arrow",
+    "Golden Arrow",
+    "Mental Arrow",
+    "Action Arrow",
+    "Compatibility Numerology Analysis",
+    "Complementary Number Shared By Grid (A+B)",
+    "Complementary Number Shared By Grid (A)",
+    "Complementary Number Shared By Grid (B)",
+    "Completionary Arrow Completion",
+    "Arrow",
+    "Inner Nature",
+    "Life Path",
+    "Years",
+    "Zodiac Sign",
     ...[
       report?.compatibility?.personalityStatus,
       report?.compatibility?.destinyStatus,
@@ -199,208 +220,251 @@ function buildCompatibilityExportSections({
     ].filter((value): value is string => Boolean(value?.trim()))
   ], language).then((translationMap) => {
     const tx = (text: string) => translationMap.get(text) || t(text);
+    const relationRows = [
+      [tx("Personality"), localizeDigitsInText(report?.personA?.driverNumber ?? "-", language), localizeDigitsInText(report?.personB?.driverNumber ?? "-", language), report?.compatibility?.personalityStatus ? tx(formatRelation(report.compatibility.personalityStatus)) : "-"],
+      [tx("Destiny"), localizeDigitsInText(report?.personA?.destinyNumber ?? "-", language), localizeDigitsInText(report?.personB?.destinyNumber ?? "-", language), report?.compatibility?.destinyStatus ? tx(formatRelation(report.compatibility.destinyStatus)) : "-"],
+      [tx("Zodiac"), localizeDigitsInText(report?.personA?.zodiacNumber ?? "-", language), localizeDigitsInText(report?.personB?.zodiacNumber ?? "-", language), report?.compatibility?.zodiacStatus ? tx(formatRelation(report.compatibility.zodiacStatus)) : "-"]
+    ].flat();
+    const synergicArrows = buildSynergicArrowChartRows().flatMap((row) => [
+      localizeDigitsInText(row.index, language),
+      tx(row.label)
+    ]);
 
     return [
     {
       title: tx("Compatibility/Relationship"),
-      variant: "intro",
-      rows: [[tx("Relationship compatibility using both Lo Shu grids and combined numbers.")]]
-    },
-    {
-      title: tx("People Details"),
+      variant: "compatibilityPage",
       rows: [
-        [tx("Person"), tx("Full Name"), tx("Date of Birth"), tx("Gender")],
-        [tx("Person A"), personA.fullName, localizeDigitsInText(personA.dob, language), tx(personA.gender)],
-        [tx("Person B"), personB.fullName, localizeDigitsInText(personB.dob, language), tx(personB.gender)]
-      ]
-    },
-    {
-      title: tx("Person A Grid"),
-      variant: "loShuGrid",
-      rows: [
-        [tx("Top Row"), ...(report?.personA?.grid?.topRow || []).map((value) => localizeDigitsInText(value || "-", language))],
-        [tx("Middle Row"), ...(report?.personA?.grid?.middleRow || []).map((value) => localizeDigitsInText(value || "-", language))],
-        [tx("Bottom Row"), ...(report?.personA?.grid?.bottomRow || []).map((value) => localizeDigitsInText(value || "-", language))]
-      ]
-    },
-    {
-      title: tx("Person A Numbers"),
-      variant: "summary",
-      rows: buildPersonSummaryRows(report?.personA, language, tx)
-    },
-    {
-      title: tx("Person A Meta"),
-      variant: "soul",
-      rows: [
-        [tx("Name"), personA.fullName],
-        [tx("Date / Zodiac"), `${localizeDigitsInText(report?.personA?.dob || personA.dob || "-", language)}  |  ${report?.personA?.zodiacSign ? tx(report.personA.zodiacSign) : "-"}`]
-      ]
-    },
-    {
-      title: tx("Person B Grid"),
-      variant: "loShuGrid",
-      rows: [
-        [tx("Top Row"), ...(report?.personB?.grid?.topRow || []).map((value) => localizeDigitsInText(value || "-", language))],
-        [tx("Middle Row"), ...(report?.personB?.grid?.middleRow || []).map((value) => localizeDigitsInText(value || "-", language))],
-        [tx("Bottom Row"), ...(report?.personB?.grid?.bottomRow || []).map((value) => localizeDigitsInText(value || "-", language))]
-      ]
-    },
-    {
-      title: tx("Person B Numbers"),
-      variant: "summary",
-      rows: buildPersonSummaryRows(report?.personB, language, tx)
-    },
-    {
-      title: tx("Person B Meta"),
-      variant: "soul",
-      rows: [
-        [tx("Name"), personB.fullName],
-        [tx("Date / Zodiac"), `${localizeDigitsInText(report?.personB?.dob || personB.dob || "-", language)}  |  ${report?.personB?.zodiacSign ? tx(report.personB.zodiacSign) : "-"}`]
-      ]
-    },
-    {
-      title: tx("Compatibility"),
-      rows: [
-        [tx("Particular"), tx("Relation")],
-        [tx("Personality"), report?.compatibility?.personalityStatus ? tx(report.compatibility.personalityStatus) : "-"],
-        [tx("Destiny"), report?.compatibility?.destinyStatus ? tx(report.compatibility.destinyStatus) : "-"],
-        [tx("Zodiac"), report?.compatibility?.zodiacStatus ? tx(report.compatibility.zodiacStatus) : "-"]
-      ]
-    },
-    {
-      title: tx("Mixed Grid"),
-      variant: "loShuGrid",
-      rows: [
-        [tx("Top Row"), ...(report?.mixedGrid?.topRow || []).map((value) => localizeDigitsInText(value || "-", language))],
-        [tx("Middle Row"), ...(report?.mixedGrid?.middleRow || []).map((value) => localizeDigitsInText(value || "-", language))],
-        [tx("Bottom Row"), ...(report?.mixedGrid?.bottomRow || []).map((value) => localizeDigitsInText(value || "-", language))]
-      ]
-    },
-    {
-      title: tx("Mixed Numbers"),
-      variant: "splitPanel",
-      rows: [
-        [tx("Missing Numbers"), localizeDigitsInText((report?.mixedMissingNumbers || []).join(", ") || "-", language)],
-        [tx("Repeated Numbers"), localizeDigitsInText((report?.mixedRepeatedNumbers || []).join(", ") || "-", language)]
-      ]
-    },
-    {
-      title: tx("Mixed Counts"),
-      variant: "count",
-      rows: [
-        ...Array.from({ length: 9 }, (_, index) => {
-          const number = String(index + 1);
-          return [localizeDigitsInText(number, language), localizeDigitsInText(report?.mixedCounts?.[number] ?? "-", language)];
-        })
+        ["heading", tx("Compatibility Analysis")],
+        buildCompatibilityPersonExportRow(tx("Lo Shu Grid-A"), personA.fullName, report?.personA?.dob || personA.dob, personA.gender, report?.personA, language, tx),
+        buildCompatibilityPersonExportRow(tx("Lo Shu Grid-B"), personB.fullName, report?.personB?.dob || personB.dob, personB.gender, report?.personB, language, tx),
+        [
+          "relationship",
+          tx("Relationship Chart"),
+          tx("Particular (Number)"),
+          tx("Grid A"),
+          tx("Grid B"),
+          tx("Relation"),
+          ...relationRows
+        ],
+        [
+          "synergic",
+          tx("Synergic Grid"),
+          tx("Synergic Arrow Completion"),
+          tx("S. No."),
+          tx("Synergic Arrow"),
+          ...buildGridRows(report?.mixedGrid, report?.mixedCounts).flat().map((value) => localizeDigitsInText(value || "-", language)),
+          ...synergicArrows
+        ],
+        [
+          "analysis",
+          tx("Compatibility Numerology Analysis"),
+          tx("Complementary Number Shared By Grid (A+B)"),
+          localizeDigitsInText((report?.mixedRepeatedNumbers || []).join(" ") || "-", language),
+          tx("Complementary Number Shared By Grid (A)"),
+          localizeDigitsInText((report?.personA?.repeatedNumbers || []).join(" ") || "-", language),
+          tx("Complementary Number Shared By Grid (B)"),
+          localizeDigitsInText((report?.personB?.repeatedNumbers || []).join(" ") || "-", language),
+          tx("Completionary Arrow Completion"),
+          localizeDigitsInText(`${countCompletedArrows(report?.mixedCounts || {})} ${tx("Arrow")}`, language)
+        ]
       ]
     }
   ];
   });
 }
 
-function buildPersonSummaryRows(
+function buildCompatibilityPersonExportRow(
+  title: string,
+  name: string,
+  dob: string,
+  gender: string,
   person: LoShuGridResponse | undefined,
   language: ReturnType<typeof useTranslation>["language"],
   tx: (text: string) => string
 ) {
   return [
-    [tx("Personality Number"), localizeDigitsInText(person?.driverNumber ?? "-", language), ""],
-    [tx("Destiny Number"), localizeDigitsInText(person?.destinyNumber ?? "-", language), ""],
-    [tx("Kua Number"), localizeDigitsInText(person?.kuaNumber ?? "-", language), ""],
-    [tx("Name Number"), localizeDigitsInText(person?.nameNumber ?? "-", language), ""],
-    [tx("Running Age"), localizeDigitsInText(person?.runningAge ?? "-", language), ""],
-    [tx("Zodiac Number"), localizeDigitsInText(person?.zodiacNumber ?? "-", language), ""]
+    "person",
+    title,
+    tx("Name"),
+    name,
+    tx("DOB"),
+    localizeDigitsInText(dob || "-", language),
+    tx("Gender"),
+    tx(gender || "-"),
+    tx("Personality Number"),
+    localizeDigitsInText(person?.driverNumber ?? "-", language),
+    tx("Inner Nature"),
+    tx("Destiny Number"),
+    localizeDigitsInText(person?.destinyNumber ?? "-", language),
+    tx("Life Path"),
+    tx("Running Age"),
+    localizeDigitsInText(person?.runningAge ?? "-", language),
+    tx("Years"),
+    tx("Zodiac"),
+    localizeDigitsInText(person?.zodiacNumber ?? "-", language),
+    person?.zodiacSign ? tx(person.zodiacSign) : tx("Zodiac Sign"),
+    ...buildGridRows(person?.grid, person?.counts).flat().map((value) => localizeDigitsInText(value || "-", language))
   ];
 }
 
-function PeopleGridRow({
-  personA,
-  personAName,
-  personB,
-  personBName
-}: {
-  personA?: LoShuGridResponse;
-  personAName: string;
-  personB?: LoShuGridResponse;
-  personBName: string;
-}) {
-  const { t } = useTranslation();
+function SectionLabel({ title }: { title: string }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleGridRow}>
-      <PersonGridCard title={t("Person A")} name={personAName} data={personA} />
-      <PersonGridCard title={t("Person B")} name={personBName} data={personB} />
-    </ScrollView>
+    <View style={styles.sectionLabel}>
+      <Text style={styles.sectionLabelText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.68}>{title}</Text>
+    </View>
   );
 }
 
-function PersonGridCard({ data, name, title }: { data?: LoShuGridResponse; name: string; title: string }) {
+function PersonReportSection({
+  data,
+  fallbackDob,
+  gender,
+  name,
+  title
+}: {
+  data?: LoShuGridResponse;
+  fallbackDob: string;
+  gender: string;
+  name: string;
+  title: string;
+}) {
   const { language, t } = useTranslation();
   return (
-    <View style={styles.gridCard}>
-      <Text style={styles.cardTitle}>{title}</Text>
-      <Text style={styles.cardName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{name || "-"}</Text>
-      <LoShuGrid grid={data?.grid} />
-      <View style={styles.miniSummary}>
-        <MiniCell label={t("Personality Number")} value={data?.driverNumber} />
-        <MiniCell label={t("Destiny Number")} value={data?.destinyNumber} />
-        <MiniCell label={t("Kua Number")} value={data?.kuaNumber} />
-        <MiniCell label={t("Name Number")} value={data?.nameNumber} />
-        <MiniCell label={t("Running Age")} value={data?.runningAge} />
-        <MiniCell label={t("Zodiac Number")} value={data?.zodiacNumber} />
+    <View style={styles.reportBlock}>
+      <Text style={styles.blockTitle}>{title}</Text>
+      <View style={styles.infoTable}>
+        <InfoRow label={t("Name")} value={name || "-"} />
+        <InfoRow label={t("DOB")} value={localizeDigitsInText(data?.dob || fallbackDob || "-", language)} />
+        <InfoRow label={t("Gender")} value={t(gender || "-")} last />
       </View>
-      <Text style={styles.metaLine} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-        {localizeDigitsInText(data?.dob || "-", language)}  |  {data?.zodiacSign || "-"}
-      </Text>
+      <GridTable counts={data?.counts} grid={data?.grid} />
+      <View style={styles.numberGrid}>
+        <NumberCard label={t("Personality Number")} value={data?.driverNumber} note={t("Inner Nature")} />
+        <NumberCard label={t("Destiny Number")} value={data?.destinyNumber} note={t("Life Path")} />
+        <NumberCard label={t("Running Age")} value={data?.runningAge} note={t("Years")} />
+        <NumberCard label={t("Zodiac")} value={data?.zodiacNumber} note={data?.zodiacSign || t("Zodiac Sign")} />
+      </View>
     </View>
   );
 }
 
-function MiniCell({ label, value }: { label: string; value?: number }) {
+function NumberCard({ label, note, value }: { label: string; note: string; value?: number }) {
   const { language } = useTranslation();
   return (
-    <View style={styles.miniCell}>
-      <Text style={styles.miniLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65}>{label}</Text>
-      <Text style={styles.miniValue}>{localizeDigitsInText(value ?? "-", language)}</Text>
+    <View style={styles.numberCard}>
+      <Text style={styles.numberLabel} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.65}>{label}</Text>
+      <Text style={styles.numberValue}>{localizeDigitsInText(value ?? "-", language)}</Text>
+      <Text style={styles.numberNote} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.62}>{note}</Text>
     </View>
   );
 }
 
-function CompatibilityTable({ data }: { data: CompatibilityGridResponse | null }) {
-  const { t } = useTranslation();
+function RelationshipChart({ data }: { data: CompatibilityGridResponse | null }) {
+  const { language, t } = useTranslation();
   const rows = [
-    [t("Personality"), data?.compatibility?.personalityStatus || "-"],
-    [t("Destiny"), data?.compatibility?.destinyStatus || "-"],
-    [t("Zodiac"), data?.compatibility?.zodiacStatus || "-"]
+    [t("Personality"), data?.personA?.driverNumber, data?.personB?.driverNumber, data?.compatibility?.personalityStatus],
+    [t("Destiny"), data?.personA?.destinyNumber, data?.personB?.destinyNumber, data?.compatibility?.destinyStatus],
+    [t("Zodiac"), data?.personA?.zodiacNumber, data?.personB?.zodiacNumber, data?.compatibility?.zodiacStatus]
   ];
 
   return (
     <View style={styles.tablePanel}>
-      <Text style={styles.tableTitle}>{t("Compatibility")}</Text>
-      <View style={styles.table}>
-        <TableRow cells={[t("Particular"), t("Relation")]} header />
+      <View style={styles.relationshipTable}>
+        <Text style={styles.relationshipTitle}>{t("Relationship Chart")}</Text>
+        <RelationshipRow cells={[t("Particular (Number)"), t("Grid A"), t("Grid B"), t("Relation")]} header />
         {rows.map((row) => (
-          <TableRow key={row[0]} cells={row} />
+          <RelationshipRow
+            key={String(row[0])}
+            cells={[
+              String(row[0]),
+              localizeDigitsInText(row[1] ?? "-", language),
+              localizeDigitsInText(row[2] ?? "-", language),
+              row[3] ? t(formatRelation(String(row[3]))) : "-"
+            ]}
+          />
         ))}
       </View>
     </View>
   );
 }
 
-function MixedGrid({ data }: { data: CompatibilityGridResponse | null }) {
+function SynergicGridSection({ data }: { data: CompatibilityGridResponse | null }) {
   const { language, t } = useTranslation();
+  const arrows = buildSynergicArrowChartRows();
+
   return (
     <View style={styles.tablePanel}>
-      <Text style={styles.tableTitle}>{t("Mixed Grid")}</Text>
-      <LoShuGrid grid={data?.mixedGrid} />
-      <View style={styles.infoTable}>
-        <InfoRow label={t("Missing Numbers")} value={(data?.mixedMissingNumbers || []).join(", ") || "-"} />
-        <InfoRow label={t("Repeated Numbers")} value={(data?.mixedRepeatedNumbers || []).join(", ") || "-"} last />
+      <SectionLabel title={t("Synergic Grid")} />
+      <GridTable counts={data?.mixedCounts} grid={data?.mixedGrid} emphasized />
+      <Text style={styles.redTableTitle}>{t("Synergic Arrow Completion")}</Text>
+      <View style={styles.table}>
+        <TableRow cells={[t("S. No."), t("Synergic Arrow")]} header />
+        {arrows.map((row) => (
+          <TableRow
+            key={row.label}
+            cells={[localizeDigitsInText(row.index, language), t(row.label)]}
+          />
+        ))}
       </View>
+    </View>
+  );
+}
+
+function CompatibilityAnalysisTable({ data }: { data: CompatibilityGridResponse | null }) {
+  const { language, t } = useTranslation();
+
+  return (
+    <View style={styles.tablePanel}>
+      <SectionLabel title={t("Compatibility Numerology Analysis")} />
       <View style={styles.countGrid}>
-        {Array.from({ length: 9 }, (_, index) => String(index + 1)).map((number) => (
-          <View key={number} style={styles.countCell}>
-            <Text style={styles.countLabel}>{localizeDigitsInText(number, language)}</Text>
-            <Text style={styles.countValue}>{localizeDigitsInText(data?.mixedCounts?.[number] ?? "-", language)}</Text>
+        <InfoRow label={t("Complementary Number Shared By Grid (A+B)")} value={localizeDigitsInText((data?.mixedRepeatedNumbers || []).join(" ") || "-", language)} />
+        <InfoRow label={t("Complementary Number Shared By Grid (A)")} value={localizeDigitsInText((data?.personA?.repeatedNumbers || []).join(" ") || "-", language)} />
+        <InfoRow label={t("Complementary Number Shared By Grid (B)")} value={localizeDigitsInText((data?.personB?.repeatedNumbers || []).join(" ") || "-", language)} />
+        <InfoRow label={t("Completionary Arrow Completion")} value={localizeDigitsInText(`${countCompletedArrows(data?.mixedCounts || {})} ${t("Arrow")}`, language)} last />
+      </View>
+    </View>
+  );
+}
+
+function GridTable({
+  counts,
+  emphasized = false,
+  grid
+}: {
+  counts?: Record<string, number>;
+  emphasized?: boolean;
+  grid?: LoShuGridResponse["grid"];
+}) {
+  const { language } = useTranslation();
+  const rows = buildGridRows(grid, counts);
+  return (
+    <View style={[styles.gridShadowWrap, emphasized && styles.gridTableEmphasized]}>
+      <View style={styles.gridTable}>
+        {rows.map((row, rowIndex) => (
+          <View key={`grid-row-${rowIndex}`} style={styles.gridRow}>
+            {Array.from({ length: 3 }, (_, colIndex) => {
+          const value = row[colIndex] || "";
+          return (
+            <View
+              key={`${rowIndex}-${colIndex}`}
+              style={[
+                styles.gridCell,
+                colIndex === 2 && styles.gridLastColumn,
+                rowIndex === 2 && styles.gridLastRow
+              ]}
+            >
+              <Text
+                style={[styles.gridCellText, emphasized && value ? styles.gridCellEmphasizedText : null]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.62}
+              >
+                {localizeDigitsInText(value, language)}
+              </Text>
+            </View>
+          );
+            })}
           </View>
         ))}
       </View>
@@ -422,11 +486,89 @@ function TableRow({ cells, header = false }: { cells: string[]; header?: boolean
   return (
     <View style={[styles.tableRow, header && styles.tableHeader]}>
       {cells.map((cell, index) => (
-        <Text key={`${cell}-${index}`} style={[styles.tableCell, header && styles.tableHeadCell]}>
+        <Text
+          key={`${cell}-${index}`}
+          style={[styles.tableCell, header && styles.tableHeadCell, index === cells.length - 1 && styles.lastCell]}
+          numberOfLines={3}
+          adjustsFontSizeToFit
+          minimumFontScale={0.58}
+        >
           {cell}
         </Text>
       ))}
     </View>
+  );
+}
+
+function RelationshipRow({ cells, header = false }: { cells: string[]; header?: boolean }) {
+  return (
+    <View style={styles.relationshipRow}>
+      {cells.map((cell, index) => (
+        <Text
+          key={`${cell}-${index}`}
+          style={[
+            styles.relationshipCell,
+            index === 0 && styles.relationshipParticularCell,
+            (index === 1 || index === 2) && styles.relationshipGridCell,
+            index === 3 && styles.relationshipRelationCell,
+            header && styles.relationshipHeadCell,
+            !header && index === 3 && styles.relationshipRelationText
+          ]}
+          numberOfLines={index === 0 ? 3 : 2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.58}
+        >
+          {cell}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+function formatRelation(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+}
+
+function buildSynergicArrowRows() {
+  return [
+    { index: "1.", label: "Golden Arrow (4-9-2)", numbers: ["4", "9", "2"] },
+    { index: "2.", label: "Mental Arrow (3-5-7)", numbers: ["3", "5", "7"] },
+    { index: "3.", label: "Action Arrow (8-1-6)", numbers: ["8", "1", "6"] },
+    { index: "4.", label: "Top to Bottom Arrow (4-3-8)", numbers: ["4", "3", "8"] },
+    { index: "5.", label: "Top to Bottom Arrow (9-5-1)", numbers: ["9", "5", "1"] },
+    { index: "6.", label: "Top to Bottom Arrow (2-7-6)", numbers: ["2", "7", "6"] },
+    { index: "7.", label: "Left to Right Corner Arrow (4-5-6)", numbers: ["4", "5", "6"] },
+    { index: "8.", label: "Right to Left Corner Arrow (2-5-8)", numbers: ["2", "5", "8"] }
+  ];
+}
+
+function buildSynergicArrowChartRows() {
+  return [
+    { index: "1.", label: "Golden Arrow" },
+    { index: "2.", label: "Mental Arrow" },
+    { index: "3.", label: "Action Arrow" }
+  ];
+}
+
+function countCompletedArrows(counts: Record<string, number>) {
+  return buildSynergicArrowRows().reduce((total, arrow) => total + getArrowCount(arrow.numbers, counts), 0);
+}
+
+function getArrowCount(numbers: string[], counts: Record<string, number>) {
+  return Math.min(...numbers.map((number) => Number(counts[number] || 0)));
+}
+
+function buildGridRows(grid?: LoShuGridResponse["grid"], counts?: Record<string, number>) {
+  const sourceRows = [grid?.topRow, grid?.middleRow, grid?.bottomRow];
+  const positionRows = [defaultGrid.topRow, defaultGrid.middleRow, defaultGrid.bottomRow];
+
+  return positionRows.map((positions, rowIndex) =>
+    positions.map((position, colIndex) => {
+      const apiValue = sourceRows[rowIndex]?.[colIndex];
+      if (apiValue) return apiValue;
+      const count = Number(counts?.[position] || 0);
+      return count > 0 ? position.repeat(count) : "";
+    })
   );
 }
 
@@ -445,30 +587,73 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, minWidth: 0, color: colors.ink, fontWeight: "700", fontSize: 15, lineHeight: 19, textAlign: "center" },
   scroll: { flex: 1 },
   content: { alignSelf: "center", width: "100%", maxWidth: 420, backgroundColor: "#ffffc9", padding: spacing.lg, paddingBottom: 104, gap: spacing.lg },
-  peopleGridRow: { gap: spacing.md, paddingRight: spacing.lg },
-  gridCard: { width: 254, borderRadius: 8, backgroundColor: "#fff", padding: spacing.md, gap: spacing.sm, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 4, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
-  cardTitle: { color: "#145c24", fontSize: 18, lineHeight: 22, fontWeight: "900" },
-  cardName: { color: "#111", fontSize: 14, lineHeight: 18, fontWeight: "900" },
-  miniSummary: { flexDirection: "row", flexWrap: "wrap", borderRadius: 6, backgroundColor: "#f8fff6", overflow: "hidden", borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#d6dfc9" },
-  miniCell: { width: "33.333%", minHeight: 56, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6dfc9" },
-  miniLabel: { width: "100%", color: "#777", fontSize: 10, lineHeight: 14, fontWeight: "900", textAlign: "center" },
-  miniValue: { color: "#136a28", fontSize: 18, lineHeight: 22, fontWeight: "900" },
-  metaLine: { color: "#5f665d", fontSize: 12, lineHeight: 16, fontWeight: "800" },
-  tablePanel: { borderRadius: 8, backgroundColor: "#fff", padding: spacing.md, gap: spacing.md, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 4, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
-  tableTitle: { color: "#145c24", fontSize: 18, lineHeight: 22, fontWeight: "900" },
+  sectionLabel: { alignSelf: "center", width: "100%", minHeight: 40, borderRadius: 5, borderWidth: 1, borderColor: "#39a853", backgroundColor: "#bff2c6", alignItems: "flex-start", justifyContent: "center", paddingHorizontal: spacing.md, paddingVertical: 6 },
+  sectionLabelText: { width: "100%", color: "#145c24", fontSize: 18, lineHeight: 28, fontWeight: "900", textAlign: "left", writingDirection: "ltr", includeFontPadding: true },
+  reportBlock: { borderRadius: 8, backgroundColor: "#fff", padding: spacing.md, gap: spacing.md, shadowColor: "#000", shadowOpacity: 0.16, shadowRadius: 5, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
+  blockTitle: { color: "#111", fontSize: 14, lineHeight: 18, fontWeight: "900", textAlign: "center" },
+  numberGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  numberCard: { width: "48.5%", minHeight: 72, borderWidth: 1.2, borderColor: "#39a853", borderRadius: 7, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", paddingHorizontal: 5, paddingVertical: 6 },
+  numberLabel: { color: "#777", fontSize: 10, lineHeight: 13, fontWeight: "900", textAlign: "center" },
+  numberValue: { color: "#136a28", fontSize: 20, lineHeight: 24, fontWeight: "900", textAlign: "center" },
+  numberNote: { color: "#777", fontSize: 8, lineHeight: 11, fontWeight: "700", textAlign: "center" },
+  tablePanel: { borderRadius: 8, backgroundColor: "#fff", padding: spacing.md, gap: spacing.sm, shadowColor: "#000", shadowOpacity: 0.16, shadowRadius: 5, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
+  tableTitle: { color: "#111", fontSize: 14, lineHeight: 18, fontWeight: "900", textAlign: "center" },
+  relationshipTable: { alignSelf: "center", width: "100%", borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#111", backgroundColor: "#fff" },
+  relationshipTitle: { minHeight: 22, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", color: "#111", fontSize: 13, lineHeight: 14, fontWeight: "900", paddingHorizontal: 4, paddingVertical: 3 },
+  relationshipRow: { flexDirection: "row", minHeight: 34 },
+  relationshipCell: { textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", color: "#111", fontSize: 11, lineHeight: 14, fontWeight: "900", paddingHorizontal: 3, paddingVertical: 4 },
+  relationshipHeadCell: { color: "#111", fontSize: 10, lineHeight: 13, fontWeight: "900" },
+  relationshipParticularCell: { flex: 1.35 },
+  relationshipGridCell: { flex: 0.62 },
+  relationshipRelationCell: { flex: 1 },
+  relationshipRelationText: { color: "#d71920" },
+  redTableTitle: { borderWidth: 1, borderColor: "#f2b7b7", backgroundColor: "#fff", color: "#d71920", fontSize: 14, lineHeight: 18, fontWeight: "900", textAlign: "left", paddingHorizontal: 6, paddingVertical: 5 },
   table: { borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#111", backgroundColor: "#fff" },
-  tableRow: { flexDirection: "row", minHeight: 42 },
-  tableHeader: { backgroundColor: "#bff2c6" },
-  tableCell: { flex: 1, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", color: "#111", fontSize: 13, lineHeight: 18, fontWeight: "800", padding: 6 },
-  tableHeadCell: { color: "#145c24", fontWeight: "900" },
+  tableRow: { flexDirection: "row", minHeight: 34 },
+  tableHeader: { backgroundColor: "#fff" },
+  tableCell: { flex: 1, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", color: "#111", fontSize: 12, lineHeight: 15, fontWeight: "800", paddingHorizontal: 4, paddingVertical: 5 },
+  tableHeadCell: { color: "#111", fontSize: 11, lineHeight: 14, fontWeight: "900" },
+  lastCell: { borderRightWidth: 1 },
   infoTable: { borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#111", backgroundColor: "#fff" },
-  infoRow: { minHeight: 42, flexDirection: "row" },
+  infoRow: { minHeight: 32, flexDirection: "row" },
   lastRow: {},
-  infoLabel: { flex: 1, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", backgroundColor: "#bff2c6", color: "#145c24", fontSize: 12, lineHeight: 17, fontWeight: "900", padding: 5 },
-  infoValue: { flex: 1, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", color: "#111", fontSize: 13, lineHeight: 18, fontWeight: "800", padding: 5 },
-  countGrid: { flexDirection: "row", flexWrap: "wrap", borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#111" },
-  countCell: { width: "33.333%", minHeight: 48, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
-  countLabel: { color: "#777", fontSize: 11, lineHeight: 14, fontWeight: "900" },
-  countValue: { color: "#111", fontSize: 16, lineHeight: 20, fontWeight: "900" },
+  infoLabel: { flex: 0.75, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", backgroundColor: "#fff", color: "#111", fontSize: 11, lineHeight: 14, fontWeight: "900", paddingHorizontal: 4, paddingVertical: 5 },
+  infoValue: { flex: 1.25, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", color: "#111", fontSize: 12, lineHeight: 15, fontWeight: "800", paddingHorizontal: 4, paddingVertical: 5 },
+  countGrid: { borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#111", backgroundColor: "#fff" },
+  gridShadowWrap: {
+    alignSelf: "center",
+    width: 204,
+    height: 138,
+    shadowColor: "#777",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 5,
+    elevation: 3
+  },
+  gridTableEmphasized: { marginVertical: spacing.sm },
+  gridTable: {
+    width: 204,
+    height: 138,
+    borderWidth: 1,
+    borderColor: "#d7d7d7",
+    backgroundColor: "#fff",
+    overflow: "hidden"
+  },
+  gridRow: { height: 45.33, flexDirection: "row" },
+  gridCell: {
+    width: 67.33,
+    height: 45.33,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#d7d7d7",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+    paddingHorizontal: 3
+  },
+  gridLastColumn: { borderRightWidth: 0 },
+  gridLastRow: { borderBottomWidth: 0 },
+  gridCellText: { width: "100%", color: "#064b82", fontSize: 13, lineHeight: 17, fontWeight: "900", textAlign: "center" },
+  gridCellEmphasizedText: { color: "#d71920" },
   validation: { color: colors.danger, fontSize: 12, fontWeight: "800", lineHeight: 17 }
 });

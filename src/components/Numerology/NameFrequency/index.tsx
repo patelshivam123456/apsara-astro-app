@@ -36,6 +36,7 @@ export function NameFrequencyScreen() {
     fullName?: string;
     dob?: string;
     gender?: string;
+    mobileNumber?: string;
     personBFullName?: string;
     personBDob?: string;
     personBGender?: string;
@@ -43,6 +44,7 @@ export function NameFrequencyScreen() {
   const fullName = String(params.fullName || "");
   const dob = String(params.dob || "");
   const gender = String(params.gender || "Male");
+  const mobileNumber = String(params.mobileNumber || "");
   const personBFullName = String(params.personBFullName || "");
   const personBDob = String(params.personBDob || "");
   const personBGender = String(params.personBGender || "Female");
@@ -124,6 +126,7 @@ export function NameFrequencyScreen() {
           fullName={fullName}
           dob={dob}
           gender={gender}
+          mobileNumber={mobileNumber}
           personBFullName={personBFullName}
           personBDob={personBDob}
           personBGender={personBGender}

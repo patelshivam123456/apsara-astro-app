@@ -3,7 +3,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { type LanguageCode } from "@/context/LanguageContext";
 import { SectorWiseEffectsResponse } from "@/services/numerology.service";
 
-export type Calculation = "lo-shu-grid" | "vedic-grid" | "pythagoras-grid" | "name-frequency" | "compatibility-relationship" | "daily-numeroscope";
+export type Calculation = "lo-shu-grid" | "vedic-grid" | "pythagoras-grid" | "name-frequency" | "compatibility-relationship" | "mobile-numerology" | "daily-numeroscope";
 export type SectorEffectTab = "career" | "health" | "finance" | "relationship";
 
 export const months = [

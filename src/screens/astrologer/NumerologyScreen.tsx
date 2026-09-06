@@ -25,6 +25,7 @@ const calculationOptions: { label: string; value: Calculation }[] = [
   { label: "Pythagoras Grid", value: "pythagoras-grid" },
   { label: "Name Frequency", value: "name-frequency" },
   { label: "Compatibility/Relationship", value: "compatibility-relationship" },
+  { label: "Mobile Numerology", value: "mobile-numerology" },
   { label: "Daily Numeroscope", value: "daily-numeroscope" }
 ];
 const minimumDobDate = new Date(1900, 0, 1);
@@ -36,6 +37,7 @@ export function NumerologyScreen() {
     dob?: string;
     gender?: Gender;
     calculation?: Calculation;
+    mobileNumber?: string;
     personBFullName?: string;
     personBDob?: string;
     personBGender?: Gender;
@@ -46,6 +48,7 @@ export function NumerologyScreen() {
   const [personBFullName, setPersonBFullName] = useState(String(formParams.personBFullName || ""));
   const [personBDob, setPersonBDob] = useState(String(formParams.personBDob || ""));
   const [personBGender, setPersonBGender] = useState<Gender>(formParams.personBGender || "Female");
+  const [mobileNumber, setMobileNumber] = useState(String(formParams.mobileNumber || ""));
   const [calculation, setCalculation] = useState<Calculation>(formParams.calculation || "lo-shu-grid");
   const [calculationOpen, setCalculationOpen] = useState(false);
   const [showDobPicker, setShowDobPicker] = useState(false);
@@ -66,6 +69,7 @@ export function NumerologyScreen() {
     if (formParams.dob !== undefined) setDob(String(formParams.dob));
     if (formParams.gender) setGender(formParams.gender);
     if (formParams.calculation) setCalculation(formParams.calculation);
+    if (formParams.mobileNumber !== undefined) setMobileNumber(String(formParams.mobileNumber));
     if (formParams.personBFullName !== undefined) setPersonBFullName(String(formParams.personBFullName));
     if (formParams.personBDob !== undefined) setPersonBDob(String(formParams.personBDob));
     if (formParams.personBGender) setPersonBGender(formParams.personBGender);
@@ -74,21 +78,26 @@ export function NumerologyScreen() {
     formParams.dob,
     formParams.fullName,
     formParams.gender,
+    formParams.mobileNumber,
     formParams.personBDob,
     formParams.personBFullName,
     formParams.personBGender
   ]);
 
   const isCompatibility = calculation === "compatibility-relationship";
+  const isMobileNumerology = calculation === "mobile-numerology";
   const hasPersonAData = fullName.trim().length > 1 && /^\d{2}-\d{2}-\d{4}$/.test(dob.trim()) && gender;
   const hasPersonBData = personBFullName.trim().length > 1 && /^\d{2}-\d{2}-\d{4}$/.test(personBDob.trim()) && personBGender;
+  const hasMobileData = /^\d{10}$/.test(mobileNumber.trim());
   const canSubmit =
     fullName.trim().length > 1 &&
     /^\d{2}-\d{2}-\d{4}$/.test(dob.trim()) &&
     gender &&
     (isCompatibility
       ? hasPersonBData
-      : calculation === "lo-shu-grid" || calculation === "vedic-grid" || calculation === "pythagoras-grid" || calculation === "name-frequency");
+      : isMobileNumerology
+        ? hasMobileData
+        : calculation === "lo-shu-grid" || calculation === "vedic-grid" || calculation === "pythagoras-grid" || calculation === "name-frequency");
 
   const submit = () => {
     setSubmitted(true);
@@ -103,7 +112,9 @@ export function NumerologyScreen() {
             ? "/astrologer/name-frequency"
             : calculation === "compatibility-relationship"
               ? "/astrologer/compatibility-relationship"
-              : "/astrologer/numerology-result";
+              : calculation === "mobile-numerology"
+                ? "/astrologer/mobile-numerology"
+                : "/astrologer/numerology-result";
 
     router.push({
       pathname,
@@ -112,6 +123,7 @@ export function NumerologyScreen() {
         dob: dob.trim(),
         gender,
         calculation,
+        mobileNumber: mobileNumber.trim(),
         personBFullName: personBFullName.trim(),
         personBDob: personBDob.trim(),
         personBGender
@@ -125,13 +137,14 @@ export function NumerologyScreen() {
     setPersonBFullName("");
     setPersonBDob("");
     setPersonBGender("Female");
+    setMobileNumber("");
     setSubmitted(false);
     setCalculationOpen(false);
     setShowDobPicker(false);
     setShowPersonBDobPicker(false);
   };
 
-  const hasFormData = Boolean(fullName.trim() || dob.trim() || personBFullName.trim() || personBDob.trim());
+  const hasFormData = Boolean(fullName.trim() || dob.trim() || mobileNumber.trim() || personBFullName.trim() || personBDob.trim());
   const calculationField = (
     <View style={styles.formStack}>
       <FieldIcon icon="arrow-down-circle" />
@@ -210,6 +223,20 @@ export function NumerologyScreen() {
             ))}
           </View>
           {!isCompatibility ? calculationField : null}
+          {isMobileNumerology ? (
+            <View style={styles.formStack}>
+              <FieldIcon icon="cellphone" />
+              <TextInput
+                value={mobileNumber}
+                onChangeText={(value) => setMobileNumber(value.replace(/\D/g, "").slice(0, 10))}
+                placeholder={t("Mobile Number")}
+                placeholderTextColor="#9c9c9c"
+                keyboardType="phone-pad"
+                maxLength={10}
+                style={styles.input}
+              />
+            </View>
+          ) : null}
           {isCompatibility ? (
             <View style={styles.personBPanel}>
               <Text style={styles.personBTitle}>{t("Person B")}</Text>
@@ -257,8 +284,10 @@ export function NumerologyScreen() {
             <Text style={styles.validation}>
               {isCompatibility && hasPersonAData
                 ? t("Enter Person B full name, DOB, and gender.")
-                : calculation !== "lo-shu-grid" && calculation !== "vedic-grid" && calculation !== "pythagoras-grid" && calculation !== "name-frequency" && !isCompatibility
-                  ? t("Please select Lo Shu Grid, Vedic Grid, Pythagoras Grid, Name Frequency, or Compatibility/Relationship calculation.")
+                : isMobileNumerology && !hasMobileData
+                  ? t("Enter a valid 10 digit mobile number.")
+                  : calculation !== "lo-shu-grid" && calculation !== "vedic-grid" && calculation !== "pythagoras-grid" && calculation !== "name-frequency" && !isCompatibility
+                    ? t("Please select Lo Shu Grid, Vedic Grid, Pythagoras Grid, Name Frequency, Compatibility/Relationship, or Mobile Numerology calculation.")
                   : t("Enter full name, DOB, and gender.")}
             </Text>
           ) : null}
