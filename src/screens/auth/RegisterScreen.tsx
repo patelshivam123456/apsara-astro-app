@@ -581,13 +581,12 @@ contentStyle={{
               value={dateOfBirth ? new Date(dateOfBirth) : new Date()}
               mode="date"
               maximumDate={new Date()}
-              onChange={(_, selectedDate) => {
+              onValueChange={(_, selectedDate) => {
                 setShowDobPicker(false);
-
-                if (selectedDate) {
-                  setDateOfBirth(selectedDate.toISOString().slice(0, 10));
-                }
+                setDateOfBirth(selectedDate.toISOString().slice(0, 10));
               }}
+              onDismiss={() => setShowDobPicker(false)}
+              onNeutralButtonPress={() => setShowDobPicker(false)}
             />
           )}
 
@@ -856,13 +855,12 @@ contentStyle={{
             value={declarationDate ? new Date(declarationDate) : new Date()}
             mode="date"
             maximumDate={new Date()}
-            onChange={(_, selectedDate) => {
+            onValueChange={(_, selectedDate) => {
               setShowDeclarationDate(false);
-
-              if (selectedDate) {
-                setDeclarationDate(selectedDate.toISOString().slice(0, 10));
-              }
+              setDeclarationDate(selectedDate.toISOString().slice(0, 10));
             }}
+            onDismiss={() => setShowDeclarationDate(false)}
+            onNeutralButtonPress={() => setShowDeclarationDate(false)}
           />
         )}
 

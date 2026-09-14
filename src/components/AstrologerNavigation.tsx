@@ -135,7 +135,7 @@ function NavItem({ icon, label, active, onPress }: { icon: IconName; label: stri
 }
 
 const styles = StyleSheet.create({
-  drawerLayer: { ...StyleSheet.absoluteFillObject, flexDirection: "row", zIndex: 60 },
+  drawerLayer: { ...StyleSheet.absoluteFill, flexDirection: "row", zIndex: 60 },
   drawerDim: { flex: 1, backgroundColor: "rgba(0,0,0,0.18)" },
   drawerPanel: { position: "absolute", left: 0, top: 0, bottom: 0, width: "82%", maxWidth: 330, backgroundColor: "#fff" },
   drawerContent: { paddingTop: 14, paddingHorizontal: 14, paddingBottom: 100 },

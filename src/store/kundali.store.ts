@@ -1,11 +1,11 @@
 import { create } from "zustand";
 
-import { KundaliPdfPayload, KundaliPdfResponse } from "@/services/kundali.service";
+import { KundaliBasicPayload, KundaliBasicResponse } from "@/services/kundali.service";
 
 type KundaliState = {
-  result: KundaliPdfResponse | null;
-  request: KundaliPdfPayload | null;
-  setResult: (result: KundaliPdfResponse, request?: KundaliPdfPayload) => void;
+  result: KundaliBasicResponse | null;
+  request: KundaliBasicPayload | null;
+  setResult: (result: KundaliBasicResponse, request?: KundaliBasicPayload) => void;
   clearResult: () => void;
 };
 

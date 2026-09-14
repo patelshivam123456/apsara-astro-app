@@ -42,7 +42,7 @@ export const ENDPOINTS = {
   monthlyHoroscope: "/astrology-services/third-party/monthly-horoscope",
   yearlyHoroscope: "/astrology-services/third-party/yearly-horoscope",
   geolocation: "/astrology-services/home-page/get-geolocation",
-  kundaliPdf: "/astrology-services/third-party/kundali-pdf",
+  kundaliBasic: "/astrology-services/kundali/v1/basic",
   matchMakingPdf: "/astrology-services/third-party/match-making-pdf",
   basicAstroDetails: "/astrology-services/third-party/basic-astro-details"
 } as const;

@@ -207,12 +207,12 @@ export function NumerologyScreen() {
               mode="date"
               minimumDate={minimumDobDate}
               maximumDate={new Date()}
-              onChange={(_, selectedDate) => {
+              onValueChange={(_, selectedDate) => {
                 setShowDobPicker(false);
-                if (selectedDate) {
-                  setDob(formatDob(selectedDate));
-                }
+                setDob(formatDob(selectedDate));
               }}
+              onDismiss={() => setShowDobPicker(false)}
+              onNeutralButtonPress={() => setShowDobPicker(false)}
             />
           ) : null}
           <View style={styles.genderRow}>
@@ -269,12 +269,12 @@ export function NumerologyScreen() {
                   mode="date"
                   minimumDate={minimumDobDate}
                   maximumDate={new Date()}
-                  onChange={(_, selectedDate) => {
+                  onValueChange={(_, selectedDate) => {
                     setShowPersonBDobPicker(false);
-                    if (selectedDate) {
-                      setPersonBDob(formatDob(selectedDate));
-                    }
+                    setPersonBDob(formatDob(selectedDate));
                   }}
+                  onDismiss={() => setShowPersonBDobPicker(false)}
+                  onNeutralButtonPress={() => setShowPersonBDobPicker(false)}
                 />
               ) : null}
             </View>

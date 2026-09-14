@@ -18,7 +18,7 @@ const quickServices = [
   ["Horoscope", "zodiac-aries"],
   ["Daily Predictions", "weather-sunset"],
   ["Horoscope Compatibility", "heart-multiple"],
-  ["Kundali PDF", "file-document-outline"],
+  ["Kundali", "file-document-outline"],
   ["Match Making PDF", "account-heart-outline"],
   ["Apsra Astro Profile", "account-star-outline"],
   ["Today's Muhurta", "calendar-star"],
@@ -73,7 +73,7 @@ export function HomeScreen() {
                 router.push("/my-horoscope");
                 return;
               }
-              if (title === "Kundali PDF") {
+              if (title === "Kundali") {
                 router.push("/kundali-pdf");
                 return;
               }
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   services: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "space-between" },
   banner: { minHeight: 178, overflow: "hidden", borderRadius: 8, justifyContent: "flex-end" },
   bannerImage: { borderRadius: 8 },
-  bannerOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(33,23,4,0.42)" },
+  bannerOverlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(33,23,4,0.42)" },
   bannerCopy: { padding: spacing.lg, gap: spacing.sm, alignItems: "flex-start" },
   bannerTitle: { color: colors.surface, fontWeight: "800", lineHeight: 30 },
   bannerText: { color: colors.cream, lineHeight: 21 },

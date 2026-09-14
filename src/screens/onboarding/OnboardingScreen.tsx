@@ -70,7 +70,7 @@ export function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   bg: { flex: 1 },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(33, 23, 4, 0.56)" },
+  overlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(33, 23, 4, 0.56)" },
   content: { flex: 1, padding: spacing.xl, justifyContent: "space-between" },
   brand: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   brandText: { color: colors.lime, fontWeight: "800" },

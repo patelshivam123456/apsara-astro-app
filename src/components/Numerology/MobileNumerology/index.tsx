@@ -225,10 +225,10 @@ function RelationshipTable({ report, tx }: { report: MobileNumerologyResponse | 
   const { language } = useTranslation();
   const mt = report?.mobileTotal ?? "-";
   const rows = [
-    { label: "P to MT", source: report?.personalityNumber, relation: report?.mobileRetaionship?.personalitytoMT },
-    { label: "D to MT", source: report?.destinyNumber, relation: report?.mobileRetaionship?.destinytoMT },
-    { label: "NN to MT", source: report?.nameNumber, relation: report?.mobileRetaionship?.nameNoToMT },
-    { label: "Z to MT", source: report?.zodiacNumber, relation: report?.mobileRetaionship?.zodiacToMT }
+    { label: "Personality to MT", source: report?.personalityNumber, relation: report?.mobileRetaionship?.personalitytoMT },
+    { label: "Destiny to MT", source: report?.destinyNumber, relation: report?.mobileRetaionship?.destinytoMT },
+    { label: "Name Number to MT", source: report?.nameNumber, relation: report?.mobileRetaionship?.nameNoToMT },
+    { label: "Zodiac to MT", source: report?.zodiacNumber, relation: report?.mobileRetaionship?.zodiacToMT }
   ];
 
   return (
@@ -356,10 +356,10 @@ function buildTranslationTexts(report: MobileNumerologyResponse | null) {
     "Particular",
     "Number",
     "Relation",
-    "P to MT",
-    "D to MT",
-    "NN to MT",
-    "Z to MT",
+    "Personality to MT",
+    "Destiny to MT",
+    "Name Number to MT",
+    "Zodiac to MT",
     "Pair Analysis in Mobile Number",
     "Pair",
     "Vibration",
@@ -406,10 +406,10 @@ async function buildMobileNumerologyExportSections({
   const translationMap = await translateUniqueTexts(buildTranslationTexts(report), language);
   const tx = (text: string) => translationMap.get(text) || t(text);
   const relationRows = [
-    { label: "P to MT", source: report?.personalityNumber, relation: report?.mobileRetaionship?.personalitytoMT },
-    { label: "D to MT", source: report?.destinyNumber, relation: report?.mobileRetaionship?.destinytoMT },
-    { label: "NN to MT", source: report?.nameNumber, relation: report?.mobileRetaionship?.nameNoToMT },
-    { label: "Z to MT", source: report?.zodiacNumber, relation: report?.mobileRetaionship?.zodiacToMT }
+    { label: "Personality to MT", source: report?.personalityNumber, relation: report?.mobileRetaionship?.personalitytoMT },
+    { label: "Destiny to MT", source: report?.destinyNumber, relation: report?.mobileRetaionship?.destinytoMT },
+    { label: "Name Number to MT", source: report?.nameNumber, relation: report?.mobileRetaionship?.nameNoToMT },
+    { label: "Zodiac to MT", source: report?.zodiacNumber, relation: report?.mobileRetaionship?.zodiacToMT }
   ];
   const digits = report?.mobileLastPairDigitsDto;
   const lastDigitRows = [
