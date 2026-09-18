@@ -31,8 +31,6 @@ export type KundaliBasicPayload = {
 };
 
 export type MatchMakingPersonPayload = {
-  firstName: string;
-  lastName: string;
   fullName: string;
   day: string;
   month: string;
@@ -40,25 +38,47 @@ export type MatchMakingPersonPayload = {
   hour: string;
   min: string;
   sec: string;
-  lat: string;
-  lon: string;
+  latitude: string;
+  longitude: string;
+  timeZone: string;
   gender: string;
   place: string;
 };
 
 export type MatchMakingPdfPayload = {
-  p1: MatchMakingPersonPayload;
-  p2: MatchMakingPersonPayload;
-  options: {
-    ashtakoot: "true" | "false";
-    dashakoot: "true" | "false";
-    papasamyam: "true" | "false";
-  };
-  branding: {
-    chartStyle: ChartStyle;
-  };
+  p1FullName: string;
+  p1Day: string;
+  p1Month: string;
+  p1Year: string;
+  p1Hour: string;
+  p1Min: string;
+  p1Sec: string;
+  p1Gender: string;
+  p1Place: string;
+  p1Latitude: string;
+  p1Longitude: string;
+  p1TimeZone: string;
+  p2FullName: string;
+  p2Day: string;
+  p2Month: string;
+  p2Year: string;
+  p2Hour: string;
+  p2Min: string;
+  p2Sec: string;
+  p2Gender: string;
+  p2Place: string;
+  p2Latitude: string;
+  p2Longitude: string;
+  p2TimeZone: string;
   language?: string;
   languageCode?: LanguageCode;
+};
+
+export type MatchMakingReportResponse = Record<string, unknown>;
+
+export type MatchMakingCombinedResponse = {
+  others?: MatchMakingReportResponse;
+  horoscopeCharts?: MatchMakingReportResponse;
 };
 
 export type KundaliPdfResponse = {
@@ -172,6 +192,28 @@ export async function getKundaliBasicDetails(payload: KundaliBasicPayload) {
 }
 
 export async function generateMatchMakingPdf(payload: MatchMakingPdfPayload) {
+  const [othersResponse, horoscopeChartsResponse] = await Promise.all([
+    astroApi.post<ApiResponse<MatchMakingReportResponse>>(ENDPOINTS.matchMakingOthers, payload, {
+      headers: {
+        Accept: "*/*",
+        "Content-Type": "application/json"
+      }
+    }),
+    astroApi.post<ApiResponse<MatchMakingReportResponse>>(ENDPOINTS.matchMakingHoroscopeCharts, payload, {
+      headers: {
+        Accept: "*/*",
+        "Content-Type": "application/json"
+      }
+    })
+  ]);
+
+  return {
+    others: ((othersResponse as unknown as ApiResponse<MatchMakingReportResponse>).data || othersResponse) as MatchMakingReportResponse,
+    horoscopeCharts: ((horoscopeChartsResponse as unknown as ApiResponse<MatchMakingReportResponse>).data || horoscopeChartsResponse) as MatchMakingReportResponse
+  };
+}
+
+export async function generateLegacyMatchMakingPdf(payload: unknown) {
   const response = await astroApi.post<ApiResponse<KundaliPdfResponse>>(ENDPOINTS.matchMakingPdf, payload, {
     headers: {
       Accept: "*/*",

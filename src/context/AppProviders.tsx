@@ -5,6 +5,7 @@ import { PaperProvider } from "react-native-paper";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { darkTheme, lightTheme } from "@/constants/theme";
+import { SubscriptionGate } from "@/components/SubscriptionGate";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { useAuthStore } from "@/store/auth.store";
 
@@ -32,7 +33,9 @@ export function AppProviders({ children }: PropsWithChildren) {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <PaperProvider theme={scheme === "dark" ? darkTheme : lightTheme}>
-          <LanguageProvider>{children}</LanguageProvider>
+          <LanguageProvider>
+            <SubscriptionGate>{children}</SubscriptionGate>
+          </LanguageProvider>
         </PaperProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

@@ -1,11 +1,11 @@
 import { create } from "zustand";
 
-import { KundaliPdfResponse, MatchMakingPdfPayload } from "@/services/kundali.service";
+import { MatchMakingCombinedResponse, MatchMakingPdfPayload } from "@/services/kundali.service";
 
 type MatchMakingState = {
-  result: KundaliPdfResponse | null;
+  result: MatchMakingCombinedResponse | null;
   request: MatchMakingPdfPayload | null;
-  setResult: (result: KundaliPdfResponse, request?: MatchMakingPdfPayload) => void;
+  setResult: (result: MatchMakingCombinedResponse, request?: MatchMakingPdfPayload) => void;
   clearResult: () => void;
 };
 

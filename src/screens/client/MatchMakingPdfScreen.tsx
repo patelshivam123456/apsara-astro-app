@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Button, Checkbox, Menu, Text, TextInput } from "react-native-paper";
+import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
@@ -11,26 +12,24 @@ import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
 import {
-  ChartStyle,
+  generateMatchMakingPdf,
   GeoLocationPlace,
   getGeolocationPlaces,
-  generateMatchMakingPdf,
   MatchMakingPdfPayload,
   MatchMakingPersonPayload
 } from "@/services/kundali.service";
 import { useMatchMakingStore } from "@/store/matchMaking.store";
-import { getApiLanguageName } from "@/utils/language";
 
-const chartStyles: ChartStyle[] = ["NORTH_INDIAN", "SOUTH_INDIAN", "EAST_INDIAN", "WEST_INDIAN"];
-const genders = ["male", "female", "other"] as const;
+const genders = ["male", "female"] as const;
 const personKeys = ["p1", "p2"] as const;
+const indiaTimeZone = "GMT +05:30";
+const indiaTimeZoneOffset = "5.5";
+const minimumBirthDate = new Date(1900, 0, 1);
 
 type PersonKey = (typeof personKeys)[number];
-type OptionKey = keyof MatchMakingPdfPayload["options"];
 
 type PersonForm = {
-  firstName: string;
-  lastName: string;
+  fullName: string;
   day: string;
   month: string;
   year: string;
@@ -41,35 +40,23 @@ type PersonForm = {
   place: string;
 };
 
-type FormState = {
-  p1: PersonForm;
-  p2: PersonForm;
-  options: Record<OptionKey, boolean>;
-  chartStyle: ChartStyle;
-};
+type FormState = Record<PersonKey, PersonForm>;
 
 const initialPerson: PersonForm = {
-  firstName: "",
-  lastName: "",
+  fullName: "",
   day: "",
   month: "",
   year: "",
   hour: "",
   min: "",
-  sec: "0",
+  sec: "00",
   gender: "male",
   place: ""
 };
 
 const initialForm: FormState = {
   p1: initialPerson,
-  p2: { ...initialPerson, gender: "female" },
-  options: {
-    ashtakoot: false,
-    dashakoot: false,
-    papasamyam: false
-  },
-  chartStyle: "NORTH_INDIAN"
+  p2: { ...initialPerson, gender: "female" }
 };
 
 export function MatchMakingPdfScreen() {
@@ -80,8 +67,8 @@ export function MatchMakingPdfScreen() {
   const [places, setPlaces] = useState<Record<PersonKey, GeoLocationPlace[]>>({ p1: [], p2: [] });
   const [placeLoading, setPlaceLoading] = useState<Record<PersonKey, boolean>>({ p1: false, p2: false });
   const [placeErrors, setPlaceErrors] = useState<Record<PersonKey, string>>({ p1: "", p2: "" });
-  const [chartMenuOpen, setChartMenuOpen] = useState(false);
-  const [genderMenuOpen, setGenderMenuOpen] = useState<PersonKey | null>(null);
+  const [datePickerKey, setDatePickerKey] = useState<PersonKey | null>(null);
+  const [timePickerKey, setTimePickerKey] = useState<PersonKey | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -89,13 +76,8 @@ export function MatchMakingPdfScreen() {
   const errors = useMemo(() => validate(form, selectedPlaces), [form, selectedPlaces]);
   const canSubmit = Object.keys(errors).length === 0 && !submitting;
 
-  useEffect(() => {
-    return loadPlaceSuggestions("p1", form.p1.place, selectedPlaces.p1);
-  }, [form.p1.place, selectedPlaces.p1?.placeName]);
-
-  useEffect(() => {
-    return loadPlaceSuggestions("p2", form.p2.place, selectedPlaces.p2);
-  }, [form.p2.place, selectedPlaces.p2?.placeName]);
+  useEffect(() => loadPlaceSuggestions("p1", form.p1.place, selectedPlaces.p1), [form.p1.place, selectedPlaces.p1?.placeName]);
+  useEffect(() => loadPlaceSuggestions("p2", form.p2.place, selectedPlaces.p2), [form.p2.place, selectedPlaces.p2?.placeName]);
 
   const loadPlaceSuggestions = (personKey: PersonKey, placeValue: string, selectedPlace: GeoLocationPlace | null) => {
     const query = placeValue.trim();
@@ -139,20 +121,17 @@ export function MatchMakingPdfScreen() {
     }));
   };
 
+  const updatePlace = (personKey: PersonKey, value: string) => {
+    setSelectedPlaces((current) => ({ ...current, [personKey]: null }));
+    setPlaces((current) => ({ ...current, [personKey]: [] }));
+    setPlaceErrors((current) => ({ ...current, [personKey]: "" }));
+    updatePerson(personKey, "place", value);
+  };
+
   const selectPlace = (personKey: PersonKey, place: GeoLocationPlace) => {
     setSelectedPlaces((current) => ({ ...current, [personKey]: place }));
     updatePerson(personKey, "place", place.placeName);
     setPlaces((current) => ({ ...current, [personKey]: [] }));
-  };
-
-  const toggleOption = (key: OptionKey) => {
-    setForm((current) => ({
-      ...current,
-      options: {
-        ...current.options,
-        [key]: !current.options[key]
-      }
-    }));
   };
 
   const submit = async () => {
@@ -161,18 +140,34 @@ export function MatchMakingPdfScreen() {
 
     if (!canSubmit || !selectedPlaces.p1 || !selectedPlaces.p2) return;
 
+    const p1 = toPersonPayload(form.p1, selectedPlaces.p1);
+    const p2 = toPersonPayload(form.p2, selectedPlaces.p2);
     const payload: MatchMakingPdfPayload = {
-      p1: toPersonPayload(form.p1, selectedPlaces.p1),
-      p2: toPersonPayload(form.p2, selectedPlaces.p2),
-      options: {
-        ashtakoot: boolString(form.options.ashtakoot),
-        dashakoot: boolString(form.options.dashakoot),
-        papasamyam: boolString(form.options.papasamyam)
-      },
-      branding: {
-        chartStyle: form.chartStyle
-      },
-      language: getApiLanguageName(language),
+      p1FullName: p1.fullName,
+      p1Day: p1.day,
+      p1Month: p1.month,
+      p1Year: p1.year,
+      p1Hour: p1.hour,
+      p1Min: p1.min,
+      p1Sec: p1.sec,
+      p1Gender: p1.gender,
+      p1Place: p1.place,
+      p1Latitude: p1.latitude,
+      p1Longitude: p1.longitude,
+      p1TimeZone: p1.timeZone,
+      p2FullName: p2.fullName,
+      p2Day: p2.day,
+      p2Month: p2.month,
+      p2Year: p2.year,
+      p2Hour: p2.hour,
+      p2Min: p2.min,
+      p2Sec: p2.sec,
+      p2Gender: p2.gender,
+      p2Place: p2.place,
+      p2Latitude: p2.latitude,
+      p2Longitude: p2.longitude,
+      p2TimeZone: p2.timeZone,
+      language,
       languageCode: language
     };
 
@@ -182,7 +177,7 @@ export function MatchMakingPdfScreen() {
       setResult(response, payload);
       router.push("/match-making-pdf-result");
     } catch (error) {
-      setSubmitError(getApiErrorMessage(error, "Unable to generate Match Making PDF"));
+      setSubmitError(getApiErrorMessage(error, "Unable to load match making report"));
     } finally {
       setSubmitting(false);
     }
@@ -209,179 +204,172 @@ export function MatchMakingPdfScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.intro}>
-          <Text variant="headlineSmall" style={styles.introTitle} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Create Match Making PDF")}</Text>
-          <Text style={styles.muted}>{t("Enter both birth details and select places from suggestions.")}</Text>
+        <View style={styles.hero}>
+          <Text variant="headlineSmall" style={styles.heroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
+            {t("New Match")}
+          </Text>
+          <Text style={styles.heroSubtitle}>{t("Enter accurate birth details for both people.")}</Text>
         </View>
 
-        <PersonSection
-          title="Person 1"
-          personKey="p1"
-          form={form.p1}
-          errors={errors}
-          submitted={submitted}
-          genderMenuOpen={genderMenuOpen === "p1"}
-          placeLoading={placeLoading.p1}
-          placeError={placeErrors.p1}
-          places={places.p1}
-          onOpenGender={() => setGenderMenuOpen("p1")}
-          onCloseGender={() => setGenderMenuOpen(null)}
-          onUpdate={updatePerson}
-          onSelectPlace={selectPlace}
-        />
-
-        <PersonSection
-          title="Person 2"
-          personKey="p2"
-          form={form.p2}
-          errors={errors}
-          submitted={submitted}
-          genderMenuOpen={genderMenuOpen === "p2"}
-          placeLoading={placeLoading.p2}
-          placeError={placeErrors.p2}
-          places={places.p2}
-          onOpenGender={() => setGenderMenuOpen("p2")}
-          onCloseGender={() => setGenderMenuOpen(null)}
-          onUpdate={updatePerson}
-          onSelectPlace={selectPlace}
-        />
-
-        <View style={styles.section}>
-          <Text variant="titleMedium" style={styles.sectionTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Report Options")}</Text>
-          {(["ashtakoot", "dashakoot", "papasamyam"] as OptionKey[]).map((key) => (
-            <Checkbox.Item
-              key={key}
-              label={t(optionLabel(key))}
-              status={form.options[key] ? "checked" : "unchecked"}
-              onPress={() => toggleOption(key)}
-              style={styles.checkboxItem}
-              labelStyle={styles.checkboxLabel}
+        <View style={styles.matchGrid}>
+          {personKeys.map((personKey, index) => (
+            <PersonCard
+              key={personKey}
+              title={index === 0 ? "Your Details" : "Partner's Details"}
+              personKey={personKey}
+              form={form[personKey]}
+              errors={errors}
+              submitted={submitted}
+              placeLoading={placeLoading[personKey]}
+              placeError={placeErrors[personKey]}
+              places={places[personKey]}
+              onOpenDate={() => setDatePickerKey(personKey)}
+              onOpenTime={() => setTimePickerKey(personKey)}
+              onSelectPlace={selectPlace}
+              onUpdate={updatePerson}
+              onUpdatePlace={updatePlace}
             />
           ))}
         </View>
 
-        <Menu
-          visible={chartMenuOpen}
-          onDismiss={() => setChartMenuOpen(false)}
-          anchor={
-            <Pressable style={styles.selectBox} onPress={() => setChartMenuOpen(true)}>
-              <Text style={styles.selectLabel}>{t("Chart Style")}</Text>
-              <Text style={styles.selectValue}>{form.chartStyle}</Text>
-              <MaterialCommunityIcons name="chevron-down" size={22} color={colors.cocoa} />
-            </Pressable>
-          }
-        >
-          {chartStyles.map((style) => (
-            <Menu.Item key={style} title={style} onPress={() => {
-              setForm((current) => ({ ...current, chartStyle: style }));
-              setChartMenuOpen(false);
-            }} />
-          ))}
-        </Menu>
+        {datePickerKey ? (
+          <DateTimePicker
+            value={parseFormDate(form[datePickerKey]) || new Date(1990, 0, 1)}
+            mode="date"
+            minimumDate={minimumBirthDate}
+            maximumDate={new Date()}
+            onValueChange={(_, selectedDate) => {
+              const key = datePickerKey;
+              setDatePickerKey(null);
+              if (selectedDate) setDateParts(key, selectedDate, setForm);
+            }}
+            onDismiss={() => setDatePickerKey(null)}
+            onNeutralButtonPress={() => setDatePickerKey(null)}
+          />
+        ) : null}
+
+        {timePickerKey ? (
+          <DateTimePicker
+            value={parseFormTime(form[timePickerKey])}
+            mode="time"
+            is24Hour={false}
+            onValueChange={(_, selectedDate) => {
+              const key = timePickerKey;
+              setTimePickerKey(null);
+              if (selectedDate) setTimeParts(key, selectedDate, setForm);
+            }}
+            onDismiss={() => setTimePickerKey(null)}
+            onNeutralButtonPress={() => setTimePickerKey(null)}
+          />
+        ) : null}
 
         {submitError ? <Text style={styles.errorText}>{t(submitError)}</Text> : null}
-        <Button mode="contained" loading={submitting} disabled={!canSubmit && submitted} onPress={submit}>
-          {t("Generate Match Making PDF")}
+        <Button mode="contained" icon="arrow-right" loading={submitting} disabled={!canSubmit && submitted} onPress={submit} style={styles.submitButton} contentStyle={styles.submitContent}>
+          {t("Match Horoscope")}
         </Button>
       </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
 
-function PersonSection({
-  title,
-  personKey,
-  form,
+function PersonCard({
   errors,
-  submitted,
-  genderMenuOpen,
-  placeLoading,
-  placeError,
-  places,
-  onOpenGender,
-  onCloseGender,
+  form,
+  onOpenDate,
+  onOpenTime,
+  onSelectPlace,
   onUpdate,
-  onSelectPlace
+  onUpdatePlace,
+  personKey,
+  placeError,
+  placeLoading,
+  places,
+  submitted,
+  title
 }: {
-  title: string;
-  personKey: PersonKey;
-  form: PersonForm;
   errors: Partial<Record<string, string>>;
-  submitted: boolean;
-  genderMenuOpen: boolean;
-  placeLoading: boolean;
-  placeError: string;
-  places: GeoLocationPlace[];
-  onOpenGender: () => void;
-  onCloseGender: () => void;
-  onUpdate: (personKey: PersonKey, key: keyof PersonForm, value: string) => void;
+  form: PersonForm;
+  onOpenDate: () => void;
+  onOpenTime: () => void;
   onSelectPlace: (personKey: PersonKey, place: GeoLocationPlace) => void;
+  onUpdate: (personKey: PersonKey, key: keyof PersonForm, value: string) => void;
+  onUpdatePlace: (personKey: PersonKey, value: string) => void;
+  personKey: PersonKey;
+  placeError: string;
+  placeLoading: boolean;
+  places: GeoLocationPlace[];
+  submitted: boolean;
+  title: string;
 }) {
   const { t } = useTranslation();
   const errorKey = (key: keyof PersonForm) => `${personKey}.${key}`;
 
   return (
-    <View style={styles.section}>
-      <Text variant="titleMedium" style={styles.sectionTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t(title)}</Text>
+    <View style={styles.formCard}>
+      <Text style={styles.cardTitle}>{t(title)}</Text>
 
-      <View style={styles.row}>
-        <TextInput
-          style={styles.smallInput}
-          label={t("First Name")}
-          value={form.firstName}
-          onChangeText={(value) => onUpdate(personKey, "firstName", value)}
-          mode="outlined"
-          error={submitted && Boolean(errors[errorKey("firstName")])}
-        />
-        <TextInput
-          style={styles.smallInput}
-          label={t("Last Name")}
-          value={form.lastName}
-          onChangeText={(value) => onUpdate(personKey, "lastName", value)}
-          mode="outlined"
-          error={submitted && Boolean(errors[errorKey("lastName")])}
-        />
+      <View style={styles.twoColumnRow}>
+        <View style={styles.column}>
+          <LabeledInput
+            label="Name"
+            required
+            value={form.fullName}
+            onChangeText={(value) => onUpdate(personKey, "fullName", value)}
+            error={submitted && Boolean(errors[errorKey("fullName")])}
+          />
+          <FieldError visible={submitted} message={errors[errorKey("fullName")]} />
+        </View>
+
+        <View style={styles.column}>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>{t("Gender")} <Text style={styles.required}>*</Text></Text>
+            <View style={styles.genderRow}>
+              {genders.map((gender) => (
+                <Pressable
+                  key={gender}
+                  style={[styles.genderButton, form.gender === gender && styles.genderButtonActive]}
+                  onPress={() => onUpdate(personKey, "gender", gender)}
+                >
+                  <Text style={[styles.genderText, form.gender === gender && styles.genderTextActive]}>{t(titleCase(gender))}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
       </View>
-      <FieldError visible={submitted} message={errors[errorKey("firstName")] || errors[errorKey("lastName")]} />
 
-      <View style={styles.row}>
-        <SmallInput label="Day" value={form.day} onChangeText={(value) => onUpdate(personKey, "day", digits(value, 2))} error={submitted && Boolean(errors[errorKey("day")])} />
-        <SmallInput label="Month" value={form.month} onChangeText={(value) => onUpdate(personKey, "month", digits(value, 2))} error={submitted && Boolean(errors[errorKey("month")])} />
-        <SmallInput label="Year" value={form.year} onChangeText={(value) => onUpdate(personKey, "year", digits(value, 4))} error={submitted && Boolean(errors[errorKey("year")])} />
+      <View style={styles.twoColumnRow}>
+        <View style={styles.column}>
+          <PickerField
+            icon="calendar-month-outline"
+            label="Birth Date"
+            required
+            value={formatDisplayDate(form)}
+            placeholder="Select birth date"
+            error={submitted && Boolean(errors[errorKey("day")] || errors[errorKey("month")] || errors[errorKey("year")])}
+            onPress={onOpenDate}
+          />
+          <FieldError visible={submitted} message={errors[errorKey("day")] || errors[errorKey("month")] || errors[errorKey("year")]} />
+        </View>
+
+        <View style={styles.column}>
+          <PickerField
+            icon="clock-outline"
+            label="Birth Time"
+            value={formatDisplayTime(form)}
+            placeholder="Select time, e.g. 10:30 AM"
+            error={submitted && Boolean(errors[errorKey("hour")] || errors[errorKey("min")] || errors[errorKey("sec")])}
+            onPress={onOpenTime}
+          />
+          <FieldError visible={submitted} message={errors[errorKey("hour")] || errors[errorKey("min")] || errors[errorKey("sec")]} />
+        </View>
       </View>
-      <FieldError visible={submitted} message={errors[errorKey("day")] || errors[errorKey("month")] || errors[errorKey("year")]} />
 
-      <View style={styles.row}>
-        <SmallInput label="Hour" value={form.hour} onChangeText={(value) => onUpdate(personKey, "hour", digits(value, 2))} error={submitted && Boolean(errors[errorKey("hour")])} />
-        <SmallInput label="Min" value={form.min} onChangeText={(value) => onUpdate(personKey, "min", digits(value, 2))} error={submitted && Boolean(errors[errorKey("min")])} />
-        <SmallInput label="Sec" value={form.sec} onChangeText={(value) => onUpdate(personKey, "sec", digits(value, 2))} error={submitted && Boolean(errors[errorKey("sec")])} />
-      </View>
-      <FieldError visible={submitted} message={errors[errorKey("hour")] || errors[errorKey("min")] || errors[errorKey("sec")]} />
-
-      <Menu
-        visible={genderMenuOpen}
-        onDismiss={onCloseGender}
-        anchor={
-          <Pressable style={styles.selectBox} onPress={onOpenGender}>
-            <Text style={styles.selectLabel}>{t("Gender")}</Text>
-            <Text style={styles.selectValue}>{t(form.gender)}</Text>
-            <MaterialCommunityIcons name="chevron-down" size={22} color={colors.cocoa} />
-          </Pressable>
-        }
-      >
-        {genders.map((gender) => (
-          <Menu.Item key={gender} title={t(gender)} onPress={() => {
-            onUpdate(personKey, "gender", gender);
-            onCloseGender();
-          }} />
-        ))}
-      </Menu>
-
-      <TextInput
-        label={t("Birth Place")}
+      <LabeledInput
+        label="Birth Place"
+        required
         value={form.place}
-        onChangeText={(value) => onUpdate(personKey, "place", value)}
-        mode="outlined"
+        onChangeText={(value) => onUpdatePlace(personKey, value)}
         error={submitted && Boolean(errors[errorKey("place")])}
         right={placeLoading ? <TextInput.Icon icon="loading" /> : undefined}
       />
@@ -392,7 +380,7 @@ function PersonSection({
           {places.map((place) => (
             <Pressable key={`${personKey}-${place.placeName}-${place.latitude}-${place.longitude}`} style={styles.suggestionItem} onPress={() => onSelectPlace(personKey, place)}>
               <Text style={styles.suggestionTitle}>{place.placeName}</Text>
-              <Text style={styles.muted}>{place.timezoneId || place.countryName}</Text>
+              <Text style={styles.muted}>{place.timezoneId || place.countryName || indiaTimeZone}</Text>
             </Pressable>
           ))}
         </View>
@@ -401,18 +389,66 @@ function PersonSection({
   );
 }
 
-function SmallInput({ label, value, onChangeText, error }: { label: string; value: string; onChangeText: (value: string) => void; error?: boolean }) {
+function LabeledInput({
+  error,
+  label,
+  onChangeText,
+  required = false,
+  right,
+  value
+}: {
+  error?: boolean;
+  label: string;
+  onChangeText: (value: string) => void;
+  required?: boolean;
+  right?: React.ReactNode;
+  value: string;
+}) {
   const { t } = useTranslation();
   return (
-    <TextInput
-      style={styles.smallInput}
-      label={t(label)}
-      value={value}
-      onChangeText={onChangeText}
-      mode="outlined"
-      keyboardType="number-pad"
-      error={error}
-    />
+    <View style={styles.fieldBlock}>
+      <Text style={styles.fieldLabel}>{t(label)} {required ? <Text style={styles.required}>*</Text> : null}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        mode="outlined"
+        error={error}
+        right={right}
+        outlineStyle={styles.inputOutline}
+        style={styles.input}
+      />
+    </View>
+  );
+}
+
+function PickerField({
+  error,
+  icon,
+  label,
+  onPress,
+  placeholder,
+  required = false,
+  value
+}: {
+  error?: boolean;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  onPress: () => void;
+  placeholder: string;
+  required?: boolean;
+  value: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.fieldBlock}>
+      <Text style={styles.fieldLabel}>{t(label)} {required ? <Text style={styles.required}>*</Text> : null}</Text>
+      <Pressable style={[styles.pickerField, error && styles.pickerFieldError]} onPress={onPress}>
+        <MaterialCommunityIcons name={icon} size={18} color={colors.cocoa} style={styles.pickerIcon} />
+        <Text style={[styles.pickerText, !value && styles.placeholderText]} numberOfLines={1}>
+          {value || t(placeholder)}
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -423,21 +459,17 @@ function FieldError({ visible, message }: { visible: boolean; message?: string }
 }
 
 function toPersonPayload(form: PersonForm, place: GeoLocationPlace): MatchMakingPersonPayload {
-  const firstName = form.firstName.trim();
-  const lastName = form.lastName.trim();
-
   return {
-    firstName,
-    lastName,
-    fullName: [firstName, lastName].filter(Boolean).join(" "),
-    day: form.day.trim(),
-    month: form.month.trim(),
+    fullName: form.fullName.trim(),
+    day: normalizeNumberField(form.day),
+    month: normalizeNumberField(form.month),
     year: form.year.trim(),
-    hour: form.hour.trim(),
-    min: form.min.trim(),
-    sec: form.sec.trim() || "0",
-    lat: place.latitude,
-    lon: place.longitude,
+    hour: normalizeNumberField(form.hour),
+    min: normalizeNumberField(form.min),
+    sec: normalizeNumberField(form.sec || "00"),
+    latitude: place.latitude,
+    longitude: place.longitude,
+    timeZone: indiaTimeZoneOffset,
     gender: form.gender,
     place: place.placeName
   };
@@ -450,8 +482,7 @@ function validate(form: FormState, selectedPlaces: Record<PersonKey, GeoLocation
     const person = form[personKey];
     const prefix = `${personKey}.`;
 
-    if (!person.firstName.trim()) errors[`${prefix}firstName`] = "First name is required";
-    if (!person.lastName.trim()) errors[`${prefix}lastName`] = "Last name is required";
+    if (!person.fullName.trim()) errors[`${prefix}fullName`] = "Name is required";
     if (!inRange(person.day, 1, 31)) errors[`${prefix}day`] = "Enter a valid day";
     if (!inRange(person.month, 1, 12)) errors[`${prefix}month`] = "Enter a valid month";
     if (!inRange(person.year, 1900, new Date().getFullYear())) errors[`${prefix}year`] = "Enter a valid year";
@@ -464,8 +495,63 @@ function validate(form: FormState, selectedPlaces: Record<PersonKey, GeoLocation
   return errors;
 }
 
-function digits(value: string, maxLength: number) {
-  return value.replace(/\D/g, "").slice(0, maxLength);
+function parseFormDate(form: PersonForm) {
+  if (!inRange(form.day, 1, 31) || !inRange(form.month, 1, 12) || !inRange(form.year, 1900, new Date().getFullYear())) return null;
+  return new Date(Number(form.year), Number(form.month) - 1, Number(form.day));
+}
+
+function parseFormTime(form: PersonForm) {
+  const date = new Date();
+  date.setHours(Number(form.hour || 0), Number(form.min || 0), Number(form.sec || 0), 0);
+  return date;
+}
+
+function setDateParts(personKey: PersonKey, date: Date, setForm: Dispatch<SetStateAction<FormState>>) {
+  setForm((current) => ({
+    ...current,
+    [personKey]: {
+      ...current[personKey],
+      day: pad2(date.getDate()),
+      month: pad2(date.getMonth() + 1),
+      year: String(date.getFullYear())
+    }
+  }));
+}
+
+function setTimeParts(personKey: PersonKey, date: Date, setForm: Dispatch<SetStateAction<FormState>>) {
+  setForm((current) => ({
+    ...current,
+    [personKey]: {
+      ...current[personKey],
+      hour: pad2(date.getHours()),
+      min: pad2(date.getMinutes()),
+      sec: pad2(date.getSeconds())
+    }
+  }));
+}
+
+function formatDisplayDate(form: PersonForm) {
+  const date = parseFormDate(form);
+  if (!date) return "";
+  return `${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function formatDisplayTime(form: PersonForm) {
+  if (!inRange(form.hour, 0, 23) || !inRange(form.min, 0, 59)) return "";
+  const hour = Number(form.hour);
+  const minute = Number(form.min);
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${pad2(minute)} ${period}`;
+}
+
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function normalizeNumberField(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? String(parsed) : value.trim();
 }
 
 function inRange(value: string, min: number, max: number) {
@@ -474,38 +560,48 @@ function inRange(value: string, min: number, max: number) {
   return Number.isInteger(parsed) && parsed >= min && parsed <= max;
 }
 
-function boolString(value: boolean): "true" | "false" {
-  return value ? "true" : "false";
+function titleCase(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function optionLabel(key: OptionKey) {
-  if (key === "ashtakoot") return "Ashtakoot";
-  if (key === "dashakoot") return "Dashakoot";
-  return "Papasamyam";
-}
+const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
-  header: { minHeight: 56, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  root: { flex: 1, backgroundColor: "#fff8df" },
+  header: { minHeight: 58, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
   headerAction: { width: 86, marginLeft: -8 },
   headerTitle: { flex: 1, color: colors.ink, fontWeight: "800", textAlign: "center" },
   formScroller: { flex: 1 },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.md },
-  intro: { borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.xs },
-  introTitle: { color: colors.ink, fontWeight: "900", lineHeight: 30 },
-  section: { borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: spacing.md, gap: spacing.md },
-  sectionTitle: { color: colors.ink, fontWeight: "900", lineHeight: 22 },
-  muted: { color: colors.cocoa },
-  row: { flexDirection: "row", gap: spacing.sm },
-  smallInput: { flex: 1 },
-  selectBox: { minHeight: 58, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  selectLabel: { color: colors.cocoa, fontSize: 12, fontWeight: "800" },
-  selectValue: { flex: 1, color: colors.ink, fontSize: 15, fontWeight: "900", textTransform: "capitalize" },
-  checkboxItem: { borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff7df", paddingVertical: 2 },
-  checkboxLabel: { color: colors.ink, fontWeight: "800" },
+  content: { alignSelf: "center", width: "100%", maxWidth: 1160, padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg },
+  hero: { borderRadius: 8, borderWidth: 1, borderColor: "#f3d789", backgroundColor: "#fff4c7", alignItems: "center", gap: spacing.xs, padding: spacing.lg },
+  heroTitle: { color: "#5f3b00", fontWeight: "900", lineHeight: 31, textAlign: "center" },
+  heroSubtitle: { color: colors.cocoa, fontSize: 12, lineHeight: 17, textAlign: "center" },
+  matchGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.lg, alignItems: "stretch" },
+  formCard: { flex: 1, minWidth: 310, borderRadius: 8, borderWidth: 1, borderColor: "#f0dca2", backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.sm, shadowColor: "#6b4a00", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 7, elevation: 3 },
+  cardTitle: { color: colors.ink, fontSize: 16, lineHeight: 22, fontWeight: "900", marginBottom: spacing.xs },
+  twoColumnRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
+  column: { flex: 1, minWidth: 210, gap: spacing.xs },
+  fieldBlock: { gap: spacing.xs },
+  fieldLabel: { color: colors.cocoa, fontSize: 11, lineHeight: 15, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase" },
+  required: { color: colors.danger },
+  input: { backgroundColor: colors.surface },
+  inputOutline: { borderRadius: 8, borderColor: colors.border },
+  pickerField: { minHeight: 48, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md },
+  pickerIcon: { width: 20, textAlign: "center" },
+  pickerFieldError: { borderColor: colors.danger },
+  pickerText: { flex: 1, color: colors.ink, fontSize: 14, lineHeight: 18, fontWeight: "700" },
+  placeholderText: { color: colors.cocoa, fontSize: 12, fontWeight: "600" },
+  genderRow: { flexDirection: "row", gap: spacing.sm },
+  genderButton: { flex: 1, minHeight: 43, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.sm },
+  genderButtonActive: { borderColor: colors.lime, backgroundColor: colors.lime },
+  genderText: { color: colors.ink, fontWeight: "800" },
+  genderTextActive: { color: colors.ink },
   suggestions: { borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: "hidden" },
   suggestionItem: { padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 2 },
   suggestionTitle: { color: colors.ink, fontWeight: "800" },
-  fieldError: { marginTop: -spacing.sm, color: colors.danger, fontSize: 12, fontWeight: "700" },
-  errorText: { color: colors.danger, fontWeight: "700" }
+  muted: { color: colors.cocoa },
+  fieldError: { color: colors.danger, fontSize: 12, fontWeight: "700" },
+  errorText: { color: colors.danger, fontWeight: "700" },
+  submitButton: { alignSelf: "center", minWidth: 220, borderRadius: 24, marginTop: spacing.sm },
+  submitContent: { minHeight: 48, flexDirection: "row-reverse" }
 });

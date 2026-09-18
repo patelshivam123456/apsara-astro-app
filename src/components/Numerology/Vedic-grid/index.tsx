@@ -135,6 +135,7 @@ export function VedicGridScreen() {
           ]}
         />
         <RelationTable relationships={relationships} personalityNo={vedicGrid?.driverNumber} destinyNo={vedicGrid?.destinyNumber} />
+        <VedicYogTable data={vedicGrid} />
         <DashaChart dateOfBirth={vedicGrid?.dob || dob} />
         <PratyantarDashaChart dateOfBirth={vedicGrid?.dob || dob} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
@@ -146,8 +147,192 @@ export function VedicGridScreen() {
 
 const vedicStyles = StyleSheet.create({
   screenBackground: { backgroundColor: "#ffffc9" },
-  contentBackground: { backgroundColor: "#ffffc9" }
+  contentBackground: { backgroundColor: "#ffffc9" },
+  yogPanel: { borderWidth: 1, borderColor: "#222", borderRadius: 3, backgroundColor: "#f5ff45", overflow: "hidden" },
+  yogTitle: { backgroundColor: "#d6ff45", borderBottomWidth: 1, borderBottomColor: "#222", color: "#0a4b00", fontSize: 13, lineHeight: 17, fontWeight: "900", textAlign: "center", paddingHorizontal: 8, paddingVertical: 6 },
+  yogRow: { minHeight: 34, flexDirection: "row", backgroundColor: "#fbff63" },
+  yogHeadCell: { borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#222", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
+  yogCell: { borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#222", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "800", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 6 },
+  yogImpactCell: { flex: 2.6, backgroundColor: "#fffff6", fontSize: 10, lineHeight: 13, fontWeight: "600", textAlign: "left" },
+  yogNumberCell: { flex: 0.85 },
+  yogLastCell: { borderRightWidth: 0 }
 });
+
+type VedicYogRow = {
+  yog: string | number;
+  impact: string;
+};
+
+function VedicYogTable({ data }: { data: VedicGridResponse | null }) {
+  const { language, t } = useTranslation();
+  const rows = useMemo(() => getVedicYogRows(data), [data]);
+  const [translationMap, setTranslationMap] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function translateRows() {
+      const texts = [
+        "Yog Present in Current Vedic Grid",
+        "Yog",
+        "Probable Impact",
+        ...rows.map((row) => row.impact)
+      ].filter(Boolean);
+      const translations = await translateUniqueTexts(texts, language);
+      if (mounted) setTranslationMap(translations);
+    }
+
+    translateRows();
+    return () => {
+      mounted = false;
+    };
+  }, [language, rows]);
+
+  if (!rows.length) return null;
+  const tx = (text: string) => translationMap.get(text) || t(text);
+
+  return (
+    <View style={vedicStyles.yogPanel}>
+      <Text style={vedicStyles.yogTitle}>{tx("Yog Present in Current Vedic Grid")}</Text>
+      <View style={vedicStyles.yogRow}>
+        <Text style={[vedicStyles.yogHeadCell, vedicStyles.yogNumberCell]}>{tx("Yog")}</Text>
+        <Text style={[vedicStyles.yogHeadCell, vedicStyles.yogImpactCell, vedicStyles.yogLastCell]}>{tx("Probable Impact")}</Text>
+      </View>
+      {rows.map((row, index) => (
+        <View key={`${row.yog}-${index}`} style={vedicStyles.yogRow}>
+          <Text style={[vedicStyles.yogCell, vedicStyles.yogNumberCell]}>
+            {localizeDigitsInText(row.yog || "-", language)}
+          </Text>
+          <Text style={[vedicStyles.yogCell, vedicStyles.yogImpactCell, vedicStyles.yogLastCell]}>
+            {row.impact ? tx(row.impact) : "-"}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function getVedicYogRows(data: VedicGridResponse | null): VedicYogRow[] {
+  const source =
+    data?.yogPresentInCurrentVedicGrid ||
+    data?.yogPresentInCurrentGrid ||
+    data?.yogPredictions ||
+    getPredictionLikeValue(data, ["grid", "counts", "missingNumbers", "repeatedNumbers", "challengePinnacleSoulNameNoPredictions"]);
+
+  return normalizeRecordRows(source)
+    .map((item) => ({
+      yog: getVedicYogNumber(item) ?? "-",
+      impact: String(
+        item.probableImpact ??
+          item.impact ??
+          item.prediction ??
+          item.predictionText ??
+          item.properties ??
+          item.description ??
+          item.meaning ??
+          item.interpretation ??
+          item.result ??
+          item.effect ??
+          item.effects ??
+          item.text ??
+          ""
+      )
+    }))
+    .filter((row) => row.impact.trim() || String(row.yog).trim() !== "-");
+}
+
+function normalizeRecordRows(value: unknown): Record<string, unknown>[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => normalizeRecordRows(item));
+  }
+  if (!value || typeof value !== "object") return [];
+
+  const record = value as Record<string, unknown>;
+  if (hasPredictionText(record)) return [record];
+
+  return Object.entries(record).flatMap<Record<string, unknown>>(([key, nested]) => {
+    if (Array.isArray(nested) || (nested && typeof nested === "object")) {
+      return normalizeRecordRows(nested).map((item) => ({ ...item, name: getTextValue(item.name) ?? key }));
+    }
+    return [{ yog: key, probableImpact: nested }];
+  });
+}
+
+function getVedicYogNumber(item: Record<string, unknown>) {
+  return (
+    getTextValue(
+      item.yog ??
+        item.yoga ??
+        item.numberPresent ??
+        item.yogNumber ??
+        item.yogaNumber ??
+        item.yogNo ??
+        item.yogaNo ??
+        item.yogValue ??
+        item.yogaValue ??
+        item.yogPresent ??
+        item.yogaPresent ??
+        item.presentYog ??
+        item.presentYoga ??
+        item.yogCombination ??
+        item.yogaCombination ??
+        item.yogNumberCombination ??
+        item.yogaNumberCombination ??
+        item.yogCode ??
+        item.yogaCode ??
+        item.yogDigits ??
+        item.yogaDigits ??
+        item.digits ??
+        item.digit ??
+        item.combination ??
+        item.combinationKey ??
+        item.combinationNumber ??
+        item.combinationNo ??
+        item.numberCombination ??
+        item.gridCombination ??
+        item.numbers ??
+        item.number ??
+        item.numberValue ??
+        item.no ??
+        item.value ??
+        item.name ??
+        item.title
+    ) ?? getTrailingNumber(item.name ?? item.title ?? item.label)
+  );
+}
+
+function getPredictionLikeValue(value: unknown, ignoredKeys: string[]) {
+  if (!value || typeof value !== "object") return undefined;
+  return Object.entries(value as Record<string, unknown>).find(([key, nested]) => {
+    if (ignoredKeys.includes(key)) return false;
+    return normalizeRecordRows(nested).some(hasPredictionText);
+  })?.[1];
+}
+
+function hasPredictionText(record: Record<string, unknown>) {
+  return [
+    "probableImpact",
+    "impact",
+    "prediction",
+    "predictionText",
+    "properties",
+    "description",
+    "meaning",
+    "interpretation",
+    "result",
+    "effect",
+    "effects",
+    "text"
+  ].some((key) => String(record[key] || "").trim());
+}
+
+function getTextValue(value: unknown): string | number | undefined {
+  return typeof value === "string" || typeof value === "number" ? value : undefined;
+}
+
+function getTrailingNumber(value: unknown): string | undefined {
+  return String(value || "").match(/\d+/g)?.at(-1);
+}
 
 async function buildVedicExportSections({
   dob,
@@ -170,6 +355,7 @@ async function buildVedicExportSections({
   const personalityNumber = Number(vedicGrid?.driverNumber);
   const destinyNumber = Number(vedicGrid?.destinyNumber);
   const relationStatus = getRelationStatus(relationships, personalityNumber, destinyNumber);
+  const yogRows = getVedicYogRows(vedicGrid);
   const relationRows = [
     { label: "Personality", number: personalityNumber, relationship: findRelationship(relationships, personalityNumber) },
     { label: "Destiny", number: destinyNumber, relationship: findRelationship(relationships, destinyNumber) }
@@ -220,7 +406,11 @@ async function buildVedicExportSections({
     "Antar Dasha",
     "Pratyantar Dasha Chart",
     "Pratyantar Dasha",
+    "Yog Present in Current Vedic Grid",
+    "Yog",
+    "Probable Impact",
     relationStatus,
+    ...yogRows.map((row) => row.impact),
     ...(vedicGrid?.zodiacSign ? [vedicGrid.zodiacSign] : [])
   ], language);
   const tx = (text: string) => translationMap.get(text) || t(text);
@@ -277,6 +467,18 @@ async function buildVedicExportSections({
         ]
       ]
     },
+    ...(yogRows.length
+      ? [{
+          title: tx("Yog Present in Current Vedic Grid"),
+          rows: [
+            [tx("Yog"), tx("Probable Impact")],
+            ...yogRows.map((row) => [
+              localizeDigitsInText(row.yog, language),
+              tx(row.impact)
+            ])
+          ]
+        }]
+      : []),
     {
       title: tx("Mahadasha & Antardasha Chart"),
       rows: [

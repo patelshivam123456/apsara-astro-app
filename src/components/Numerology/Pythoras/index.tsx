@@ -17,6 +17,7 @@ import { getApiErrorMessage } from "@/services/apiClient";
 import {
   getPythagoreanGrid,
   getPythagoreanNameTable,
+  NumerologyPredictionItem,
   PythagoreanGridResponse,
   PythagoreanNameTable,
   PythagoreanNameTableResponse
@@ -128,6 +129,7 @@ export function PythagorasGridScreen() {
           pinnacleNumber={pinnacleNumber}
           runningAge={pythagorasGrid?.runningAge}
         />
+        <PythagorasPredictionCards name={fullName} data={pythagorasGrid?.challengePinnacleSoulNameNoPredictions} />
         <NameValueTable title={t("First Name")} table={nameTable?.firstNameTable} />
         <NameValueTable title={t("Last Name")} table={nameTable?.lastNameTable} />
         <YearSequenceSeries sequence={nameTable?.runningYearSequence} />
@@ -316,6 +318,151 @@ function getPinnacleSummaryValue(pinnacleNumber?: PythagoreanGridResponse["pinna
   );
 }
 
+function PythagorasPredictionCards({
+  data,
+  name
+}: {
+  data?: PythagoreanGridResponse["challengePinnacleSoulNameNoPredictions"];
+  name: string;
+}) {
+  const { language, t } = useTranslation();
+  const rows = useMemo(() => normalizePredictionItems(data), [data]);
+  const [translationMap, setTranslationMap] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function translateRows() {
+      const texts = rows.flatMap((row, index) => {
+        const title = formatPredictionTitle(row, index);
+        const numberLabel = title.toLowerCase().includes("number") ? title : `${title} Number`;
+        return ["Properties", title, numberLabel, getPredictionProperties(row)].filter(Boolean);
+      });
+      const translations = await translateUniqueTexts(texts, language);
+      if (mounted) setTranslationMap(translations);
+    }
+
+    translateRows();
+    return () => {
+      mounted = false;
+    };
+  }, [language, rows]);
+
+  if (!rows.length) return null;
+  const tx = (text: string) => translationMap.get(text) || t(text);
+
+  return (
+    <>
+      {rows.map((row, index) => {
+        const title = formatPredictionTitle(row, index);
+        const number = getPredictionNumber(row);
+        const properties = getPredictionProperties(row);
+        const numberLabel = title.toLowerCase().includes("number") ? title : `${title} Number`;
+
+        return (
+          <View key={`${title}-${index}`} style={styles.predictionCard}>
+            <View style={styles.predictionRow}>
+              <Text style={styles.predictionLabel}>{t("Name")}</Text>
+              <Text style={styles.predictionValue} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.68}>
+                {name || "-"}
+              </Text>
+            </View>
+            <View style={styles.predictionRow}>
+              <Text style={styles.predictionLabel}>{tx(numberLabel)}</Text>
+              <Text style={styles.predictionValue}>{localizeDigitsInText(number ?? "-", language)}</Text>
+            </View>
+            <View style={styles.predictionBodyRow}>
+              <Text style={styles.predictionLabel}>{tx("Properties")} :</Text>
+              <Text style={styles.predictionBody}>{properties ? tx(properties) : "-"}</Text>
+            </View>
+          </View>
+        );
+      })}
+    </>
+  );
+}
+
+function normalizePredictionItems(value: unknown): NumerologyPredictionItem[] {
+  if (Array.isArray(value)) return value.flatMap((item) => normalizePredictionItems(item));
+  if (!value || typeof value !== "object") return [];
+
+  const record = value as NumerologyPredictionItem;
+  if (getPredictionProperties(record) || getPredictionNumber(record) !== undefined) return [record];
+
+  return Object.entries(record).flatMap(([key, nested]) => {
+    if (Array.isArray(nested) || (nested && typeof nested === "object")) {
+      return normalizePredictionItems(nested).map((item) => ({ ...item, title: String(getTextValue(item.title) ?? key) }));
+    }
+    return [{ title: key, properties: String(nested ?? "") }];
+  });
+}
+
+function formatPredictionTitle(item: NumerologyPredictionItem, index: number) {
+  const inferred = getInferredPredictionTitle(item, index);
+  return String(inferred)
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
+}
+
+function getInferredPredictionTitle(item: NumerologyPredictionItem, index: number) {
+  const explicitTitle = getTextValue(item.title) || getTextValue(item.name) || getTextValue(item.type) || getTextValue(item.label);
+  const explicitTitleText = String(explicitTitle || "").trim();
+  if (explicitTitleText && !/^prediction\s*\d+$/i.test(explicitTitleText)) return explicitTitleText;
+
+  const record = item as Record<string, unknown>;
+  const text = Object.keys(record).join(" ").toLowerCase();
+  if (text.includes("challenge")) return "Challenge Number";
+  if (text.includes("pinnacle")) return "Pinnacle Number";
+  if (text.includes("soul")) return "Soul Number";
+  if (text.includes("expression")) return "Expression Number";
+  if (text.includes("compound")) return "Compound Name Number";
+  if (text.includes("name")) return "Name Number";
+
+  return ["Challenge Number", "Pinnacle Number", "Soul Number", "Name Number"][index] || `Prediction ${index + 1}`;
+}
+
+function getPredictionNumber(item: NumerologyPredictionItem) {
+  const record = item as Record<string, unknown>;
+  return (
+    getTextValue(
+      item.number ??
+        item.value ??
+        record.predictionNumber ??
+        record.predictionNo ??
+        record.numberValue ??
+        record.numberNo ??
+        record.no ??
+        record.challengePinnacleSoulNameNo ??
+        record.challengePinnacleSoulNameNumber ??
+        record.soulNumber ??
+        record.soulNo ??
+        record.soulNameNumber ??
+        record.soulNameNo ??
+        record.expressionNumber ??
+        record.expressionNo ??
+        record.nameNumber ??
+        record.nameNo ??
+        record.challengeNumber ??
+        record.challengeNo ??
+        record.pinnacleNumber ??
+        record.pinnacleNo
+    ) ?? getTrailingNumber(item.title ?? item.name ?? item.type ?? item.label)
+  );
+}
+
+function getPredictionProperties(item: NumerologyPredictionItem) {
+  return String(item.properties ?? item.prediction ?? item.description ?? item.meaning ?? item.impact ?? item.probableImpact ?? item.text ?? "").trim();
+}
+
+function getTextValue(value: unknown): string | number | undefined {
+  return typeof value === "string" || typeof value === "number" ? value : undefined;
+}
+
+function getTrailingNumber(value: unknown): string | undefined {
+  return String(value || "").match(/\d+/g)?.at(-1);
+}
+
 function NameValueTable({ title, table }: { title: string; table?: PythagoreanNameTable }) {
   const { language } = useTranslation();
   const columnCount = Math.max(table?.letters?.length || 0, table?.tableRows?.[0]?.length || 0);
@@ -426,6 +573,7 @@ function buildPythagorasExportSections({
   t: ReturnType<typeof useTranslation>["t"];
 }): Promise<NumerologyExportSection[]> {
   const challengeRows = getChallengePinnacleRows(pythagorasGrid);
+  const predictionRows = normalizePredictionItems(pythagorasGrid?.challengePinnacleSoulNameNoPredictions);
   return translateUniqueTexts([
     "Pythagoras Grid",
     "Pythagorean number placement arranged as a Lu Shu style grid for repeated and missing number analysis.",
@@ -464,7 +612,13 @@ function buildPythagorasExportSections({
     "First",
     "Second",
     "Third",
-    "Forth"
+    "Forth",
+    "Properties",
+    ...predictionRows.flatMap((row, index) => {
+      const title = formatPredictionTitle(row, index);
+      const numberLabel = title.toLowerCase().includes("number") ? title : `${title} Number`;
+      return [title, numberLabel, getPredictionProperties(row)].filter(Boolean);
+    })
   ], language).then((translationMap) => {
     const tx = (text: string) => translationMap.get(text) || t(text);
 
@@ -537,6 +691,20 @@ function buildPythagorasExportSections({
         [tx("Running Age"), localizeDigitsInText(pythagorasGrid?.runningAge ?? "-", language), tx("Pinnacle Number"), localizeDigitsInText(getPinnacleSummaryValue(pythagorasGrid?.pinnacleNumber), language)]
       ]
     },
+    ...predictionRows.map((row, index) => {
+      const title = formatPredictionTitle(row, index);
+      const number = getPredictionNumber(row);
+      const numberLabel = title.toLowerCase().includes("number") ? title : `${title} Number`;
+      return {
+        title: tx(title),
+        variant: "soul" as const,
+        rows: [
+          [tx("Name"), fullName],
+          [tx(numberLabel), localizeDigitsInText(number ?? "-", language)],
+          [tx("Properties"), tx(getPredictionProperties(row) || "-")]
+        ]
+      };
+    }),
     {
       title: tx("First Name"),
       layout: "wide",
@@ -745,6 +913,12 @@ const styles = StyleSheet.create({
   soulLabel: { flex: 1, borderRightWidth: 1, borderRightColor: "#d6d6d6", color: "#000", fontSize: 14, lineHeight: 17, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 6, paddingVertical: 6 },
   soulName: { flex: 1.35, color: "#000", fontSize: 14, lineHeight: 17, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 6, paddingVertical: 6 },
   soulValue: { flex: 1.35, color: "#000", fontSize: 13, lineHeight: 17, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 6, paddingVertical: 6 },
+  predictionCard: { borderWidth: 1, borderColor: "#8f8f78", borderRadius: 3, backgroundColor: "#fffff8", overflow: "hidden" },
+  predictionRow: { minHeight: 34, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#8f8f78" },
+  predictionBodyRow: { minHeight: 58, flexDirection: "row" },
+  predictionLabel: { flex: 1, borderRightWidth: 1, borderRightColor: "#8f8f78", color: "#000", fontSize: 11, lineHeight: 14, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
+  predictionValue: { flex: 1.35, color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
+  predictionBody: { flex: 1.35, color: "#000", fontSize: 10, lineHeight: 13, fontWeight: "600", textAlign: "left", textAlignVertical: "top", paddingHorizontal: 5, paddingVertical: 6 },
   challengeBlock: {
     borderRadius: 8,
     backgroundColor: "#fff",

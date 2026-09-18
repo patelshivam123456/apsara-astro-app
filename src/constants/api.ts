@@ -1,8 +1,11 @@
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || "https://apsraastro.com";
+  process.env.EXPO_PUBLIC_API_URL || "https://staging.apsraastro.in";
 
 export const ASTRO_API_BASE_URL =
-  process.env.EXPO_PUBLIC_ASTRO_API_URL || "https://apsraastro.com";
+  process.env.EXPO_PUBLIC_ASTRO_API_URL || "https://staging.apsraastro.in";
+
+export const TRANSACTION_API_BASE_URL =
+  process.env.EXPO_PUBLIC_TRANSACTION_API_URL || "https://staging.apsraastro.com";
 
 export const ENDPOINTS = {
   login: "/authorization/auth/login",
@@ -43,6 +46,10 @@ export const ENDPOINTS = {
   yearlyHoroscope: "/astrology-services/third-party/yearly-horoscope",
   geolocation: "/astrology-services/home-page/get-geolocation",
   kundaliBasic: "/astrology-services/kundali/v1/basic",
+  paymentInitiate: "/transactions/payment/v1/initiate",
+  paymentAcknowledge: "/transactions/payment/v1/payment-acknowledge",
   matchMakingPdf: "/astrology-services/third-party/match-making-pdf",
+  matchMakingOthers: "/api/astro-proxy/astrology-services/match-making/v1/others",
+  matchMakingHoroscopeCharts: "/api/astro-proxy/astrology-services/match-making/v1/horoscope-charts",
   basicAstroDetails: "/astrology-services/third-party/basic-astro-details"
 } as const;

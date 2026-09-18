@@ -23,6 +23,7 @@ import {
   getNumberRelationships,
   getPythagoreanRunningAgeAlphabet,
   NameFrequencyNameChartResponse,
+  NumerologyPredictionItem,
   NumberRelationshipItem,
   PythagoreanRunningAgeAlphabetItem
 } from "@/services/numerology.service";
@@ -164,6 +165,7 @@ export function NameFrequencyScreen() {
         <RunningAgeAlphabetTable rows={runningAgeAlphabet} />
         <NameLettersTable data={letterAnalysis} />
         <NumberFrequencyTable data={letterAnalysis} />
+        <NameFrequencyPredictionCards name={fullName} data={letterAnalysis} />
         <NameChartTable data={nameChart} relationships={nameLetterRelationships} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
@@ -305,6 +307,64 @@ function NumberFrequencyTable({ data }: { data: ChaldeanNameLetterAnalysisChartR
   );
 }
 
+function NameFrequencyPredictionCards({ data, name }: { data: ChaldeanNameLetterAnalysisChartResponse | null; name: string }) {
+  const { language, t } = useTranslation();
+  const rows = useMemo(() => getNameFrequencyPredictionItems(data), [data]);
+  const [translationMap, setTranslationMap] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function translateRows() {
+      const texts = rows.flatMap((row, index) => {
+        const title = formatPredictionTitle(row, index);
+        const numberLabel = title.toLowerCase().includes("number") ? title : `${title} Number`;
+        return ["Properties", title, numberLabel, getPredictionProperties(row)].filter(Boolean);
+      });
+      const translations = await translateUniqueTexts(texts, language);
+      if (mounted) setTranslationMap(translations);
+    }
+
+    translateRows();
+    return () => {
+      mounted = false;
+    };
+  }, [language, rows]);
+
+  if (!rows.length) return null;
+  const tx = (text: string) => translationMap.get(text) || t(text);
+
+  return (
+    <>
+      {rows.map((row, index) => {
+        const title = formatPredictionTitle(row, index);
+        const number = getPredictionNumber(row);
+        const properties = getPredictionProperties(row);
+        const numberLabel = title.toLowerCase().includes("number") ? title : `${title} Number`;
+
+        return (
+          <View key={`${title}-${index}`} style={styles.predictionCard}>
+            <View style={styles.predictionRow}>
+              <Text style={styles.predictionLabel}>{t("Name")}</Text>
+              <Text style={styles.predictionValue} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.68}>
+                {data?.fullName || name || "-"}
+              </Text>
+            </View>
+            <View style={styles.predictionRow}>
+              <Text style={styles.predictionLabel}>{tx(numberLabel)}</Text>
+              <Text style={styles.predictionValue}>{localizeDigitsInText(number ?? "-", language)}</Text>
+            </View>
+            <View style={styles.predictionBodyRow}>
+              <Text style={styles.predictionLabel}>{tx("Properties")} :</Text>
+              <Text style={styles.predictionBody}>{properties ? tx(properties) : "-"}</Text>
+            </View>
+          </View>
+        );
+      })}
+    </>
+  );
+}
+
 function RunningAgeAlphabetTable({ rows }: { rows: PythagoreanRunningAgeAlphabetItem[] }) {
   const { language, t } = useTranslation();
   const tableRows = rows.length ? rows : [{ letter: "-", periodInYear: undefined, fromYear: undefined, toYear: undefined }];
@@ -403,6 +463,110 @@ function buildNumberFrequencyRows(rows: NonNullable<ChaldeanNameLetterAnalysisCh
   }).filter((row) => row.numbers.length > 0);
 }
 
+function getNameFrequencyPredictionItems(data: ChaldeanNameLetterAnalysisChartResponse | null) {
+  if (!data) return [];
+
+  const known =
+    data.predictions ||
+    data.nameNoPredictions ||
+    data.nameNumberPredictions ||
+    data.chaldeanNameNoPredictions ||
+    data.nameLetterAnalysisPredictions;
+
+  if (known) return applyNameFrequencyNumberFallbacks(normalizePredictionItems(known), data);
+
+  const ignored = new Set([
+    "fullName",
+    "normalizedName",
+    "firstName",
+    "middleName",
+    "lastName",
+    "totalLetters",
+    "compoundNameNumber",
+    "totalNameNumber",
+    "numberFrequency",
+    "nameLetters",
+    "numberFrequencyCount"
+  ]);
+
+  return Object.entries(data)
+    .filter(([key]) => !ignored.has(key))
+    .flatMap(([key, value]) => normalizePredictionItems(value).map((item) => ({ ...item, title: String(getTextValue(item.title) ?? key) })))
+    .map((item) => applyNameFrequencyNumberFallback(item, data));
+}
+
+function normalizePredictionItems(value: unknown): NumerologyPredictionItem[] {
+  if (Array.isArray(value)) return value.flatMap((item) => normalizePredictionItems(item));
+  if (!value || typeof value !== "object") return [];
+
+  const record = value as NumerologyPredictionItem;
+  if (getPredictionProperties(record) || getPredictionNumber(record) !== undefined) return [record];
+
+  return Object.entries(record).flatMap(([key, nested]) => {
+    if (Array.isArray(nested) || (nested && typeof nested === "object")) {
+      return normalizePredictionItems(nested).map((item) => ({ ...item, title: String(getTextValue(item.title) ?? key) }));
+    }
+    return [{ title: key, properties: String(nested ?? "") }];
+  });
+}
+
+function formatPredictionTitle(item: NumerologyPredictionItem, index: number) {
+  return String(getTextValue(item.title) || getTextValue(item.name) || getTextValue(item.type) || getTextValue(item.label) || `Prediction ${index + 1}`)
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
+}
+
+function getPredictionNumber(item: NumerologyPredictionItem) {
+  const record = item as Record<string, unknown>;
+  return (
+    getTextValue(
+      item.number ??
+        item.value ??
+        record.predictionNumber ??
+        record.numberValue ??
+        record.numberNo ??
+        record.no ??
+        record.compoundNameNumber ??
+        record.compoundNameNo ??
+        record.nameNumber ??
+        record.nameNo ??
+        record.totalNameNumber ??
+        record.totalNameNo ??
+        record.expressionNumber ??
+        record.expressionNo ??
+        record.soulNumber ??
+        record.soulNo
+    ) ?? getTrailingNumber(item.title ?? item.name ?? item.type ?? item.label)
+  );
+}
+
+function getPredictionProperties(item: NumerologyPredictionItem) {
+  return String(item.properties ?? item.prediction ?? item.description ?? item.meaning ?? item.impact ?? item.probableImpact ?? item.text ?? "").trim();
+}
+
+function getTextValue(value: unknown): string | number | undefined {
+  return typeof value === "string" || typeof value === "number" ? value : undefined;
+}
+
+function applyNameFrequencyNumberFallbacks(items: NumerologyPredictionItem[], data: ChaldeanNameLetterAnalysisChartResponse) {
+  return items.map((item) => applyNameFrequencyNumberFallback(item, data));
+}
+
+function applyNameFrequencyNumberFallback(item: NumerologyPredictionItem, data: ChaldeanNameLetterAnalysisChartResponse) {
+  if (getPredictionNumber(item) !== undefined) return item;
+
+  const title = formatPredictionTitle(item, 0).toLowerCase();
+  if (title.includes("compound")) return { ...item, number: data.compoundNameNumber };
+  if (title.includes("total")) return { ...item, number: data.totalNameNumber };
+  if (title.includes("name")) return { ...item, number: data.totalNameNumber ?? data.compoundNameNumber };
+  return item;
+}
+
+function getTrailingNumber(value: unknown): string | undefined {
+  return String(value || "").match(/\d+/g)?.at(-1);
+}
+
 function buildNameFrequencyExportSections({
   dob,
   fullName,
@@ -428,6 +592,7 @@ function buildNameFrequencyExportSections({
 }): Promise<NumerologyExportSection[]> {
   const frequencyRows = buildNumberFrequencyRows(letterAnalysis?.numberFrequency || EMPTY_NUMBER_FREQUENCY);
   const nameLetterColumns = buildNameLetterChartColumns(letterAnalysis?.nameLetters || EMPTY_NAME_LETTERS);
+  const predictionRows = getNameFrequencyPredictionItems(letterAnalysis);
   return translateUniqueTexts([
     "Name Frequency",
     "Chaldean name pair events and letter frequency analysis.",
@@ -468,6 +633,7 @@ function buildNameFrequencyExportSections({
     "Name Chart",
     "Particular",
     "Relation",
+    "Properties",
     "Name Age",
     "Running Age",
     "First Name Number",
@@ -479,6 +645,11 @@ function buildNameFrequencyExportSections({
     "First Letter with Zodiac Number",
     "First and Second Letter Relation",
     ...FREQUENCY_LABELS,
+    ...predictionRows.flatMap((row, index) => {
+      const title = formatPredictionTitle(row, index);
+      const numberLabel = title.toLowerCase().includes("number") ? title : `${title} Number`;
+      return [title, numberLabel, getPredictionProperties(row)].filter(Boolean);
+    }),
     ...(pairEvents?.events || []).flatMap((row) => [row.vibration].filter((value): value is string => Boolean(value?.trim()))),
     ...[
       nameChart?.nameNumberPersonalityRelation,
@@ -569,6 +740,20 @@ function buildNameFrequencyExportSections({
         ...(!frequencyRows.length ? [[tx("No records found"), ""]] : [])
       ]
     },
+    ...predictionRows.map((row, index) => {
+      const title = formatPredictionTitle(row, index);
+      const number = getPredictionNumber(row);
+      const numberLabel = title.toLowerCase().includes("number") ? title : `${title} Number`;
+      return {
+        title: tx(title),
+        variant: "soul" as const,
+        rows: [
+          [tx("Name"), letterAnalysis?.fullName || fullName],
+          [tx(numberLabel), localizeDigitsInText(number ?? "-", language)],
+          [tx("Properties"), tx(getPredictionProperties(row) || "-")]
+        ]
+      };
+    }),
     {
       title: tx("Name Chart"),
       rows: [
@@ -775,5 +960,11 @@ const styles = StyleSheet.create({
   runningAgeRow: { minHeight: 32, flexDirection: "row" },
   runningAgeHeadCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#fff", fontSize: 13, lineHeight: 15, fontWeight: "800", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 3, paddingVertical: 5 },
   runningAgeCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 13, lineHeight: 16, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
+  predictionCard: { borderWidth: 1, borderColor: "#8f8f78", borderRadius: 3, backgroundColor: "#fffff8", overflow: "hidden" },
+  predictionRow: { minHeight: 34, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#8f8f78" },
+  predictionBodyRow: { minHeight: 58, flexDirection: "row" },
+  predictionLabel: { flex: 1, borderRightWidth: 1, borderRightColor: "#8f8f78", color: "#000", fontSize: 11, lineHeight: 14, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
+  predictionValue: { flex: 1.35, color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
+  predictionBody: { flex: 1.35, color: "#000", fontSize: 10, lineHeight: 13, fontWeight: "600", textAlign: "left", textAlignVertical: "top", paddingHorizontal: 5, paddingVertical: 6 },
   validation: { color: colors.danger, fontSize: 12, fontWeight: "800", lineHeight: 17 }
 });

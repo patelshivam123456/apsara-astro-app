@@ -8,11 +8,13 @@ import { AstrologerCard } from "@/components/AstrologerCard";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { EmptyState, ErrorState, SkeletonRow } from "@/components/StateViews";
 import { ServiceTile } from "@/components/ServiceTile";
+import { SubscriptionStatusCard } from "@/components/SubscriptionStatusCard";
 import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 import { useAstrologers } from "@/hooks/useAstrologers";
 import { useAuthStore } from "@/store/auth.store";
 import { useWalletStore } from "@/store/wallet.store";
+import { getUserPublicId } from "@/utils/user";
 
 const quickServices = [
   ["Horoscope", "zodiac-aries"],
@@ -30,6 +32,8 @@ const quickServices = [
 export function HomeScreen() {
   const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const userPublicId = getUserPublicId(user, accessToken);
   const balance = useWalletStore((state) => state.balance);
   const astrologers = useAstrologers();
   const [refreshing, setRefreshing] = useState(false);
@@ -90,6 +94,8 @@ export function HomeScreen() {
           />
         ))}
       </View>
+
+      {userPublicId ? <SubscriptionStatusCard userPublicId={userPublicId} /> : null}
 
       <ImageBackground source={require("@/assets/Astro_Banner.jpg")} style={styles.banner} imageStyle={styles.bannerImage}>
         <View style={styles.bannerOverlay} />

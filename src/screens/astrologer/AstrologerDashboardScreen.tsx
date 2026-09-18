@@ -8,11 +8,13 @@ import { Text } from "react-native-paper";
 import { AstrologerBottomNav, AstrologerSideDrawer } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { LoadingState } from "@/components/StateViews";
+import { SubscriptionStatusCard } from "@/components/SubscriptionStatusCard";
 import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 import { useAstrologers } from "@/hooks/useAstrologers";
 import { useAuthStore } from "@/store/auth.store";
 import { Astrologer } from "@/types/api";
+import { getUserPublicId } from "@/utils/user";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -47,6 +49,8 @@ export function AstrologerDashboardScreen() {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const roles = useAuthStore((state) => state.roles);
   const user = useAuthStore((state) => state.user);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const userPublicId = getUserPublicId(user, accessToken);
   const signOut = useAuthStore((state) => state.signOut);
   const name = useMemo(() => {
     const profile = user as { firstName?: string; displayName?: string; fullName?: string } | null;
@@ -114,6 +118,8 @@ export function AstrologerDashboardScreen() {
               <StatPill label={t("Rating")} value="4.8" />
             </View>
           </View>
+
+          {userPublicId ? <SubscriptionStatusCard userPublicId={userPublicId} compact /> : null}
 
           <View style={styles.search}>
             <MaterialCommunityIcons name="magnify" size={18} color="#111" />

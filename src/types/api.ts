@@ -11,6 +11,8 @@ export type UserRole = "ROLE_CLIENT" | "ROLE_ASTROLOGER" | "ROLE_ADMIN";
 
 export type TokenClaims = {
   uid?: string;
+  publicId?: string;
+  userPublicId?: string;
   sub?: string;
   roles?: string[] | string;
   authorities?: string[] | string;

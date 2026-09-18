@@ -94,11 +94,35 @@ export type MobileNumerologyResponse = {
 export type VedicGridResponse = LoShuGridResponse & {
   driverAddedToGrid?: boolean;
   destinyAddedToGrid?: boolean;
+  yogPresentInCurrentVedicGrid?: NumerologyPredictionItem[] | Record<string, unknown>;
+  yogPresentInCurrentGrid?: NumerologyPredictionItem[] | Record<string, unknown>;
+  yogPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
+};
+
+export type NumerologyPredictionItem = {
+  name?: string;
+  title?: string;
+  type?: string;
+  label?: string;
+  number?: string | number;
+  numberPresent?: string | number;
+  value?: string | number;
+  yog?: string | number;
+  yoga?: string | number;
+  probableImpact?: string;
+  impact?: string;
+  prediction?: string;
+  properties?: string;
+  description?: string;
+  meaning?: string;
+  text?: string;
+  [key: string]: unknown;
 };
 
 export type PythagoreanGridResponse = LoShuGridResponse & {
   driverAddedToGrid?: boolean;
   destinyAddedToGrid?: boolean;
+  challengePinnacleSoulNameNoPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
   challengeNumber?: {
     challengeOne?: string | number;
     challengeTwo?: string | number;
@@ -205,6 +229,11 @@ export type ChaldeanNameLetterAnalysisChartResponse = {
   numberFrequency?: ChaldeanNumberFrequencyItem[];
   nameLetters?: ChaldeanNameLetterItem[];
   numberFrequencyCount?: Record<string, number>;
+  predictions?: NumerologyPredictionItem[] | Record<string, unknown>;
+  nameNoPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
+  nameNumberPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
+  chaldeanNameNoPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
+  nameLetterAnalysisPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
 };
 
 export type NameFrequencyNameChartResponse = {

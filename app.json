@@ -5,7 +5,7 @@
     "scheme": "apsaraastro",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/new_logo_apsara.jpeg",
+    "icon": "./src/assets/logo_apsara.png",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "**/*"
@@ -15,7 +15,10 @@
       "expo-secure-store",
       "@react-native-community/datetimepicker",
       "expo-font",
-      "./plugins/withCleartextTraffic"
+      "./plugins/withCleartextTraffic",
+      "expo-image",
+      "expo-sharing",
+      "expo-splash-screen"
     ],
     "ios": {
       "supportsTablet": true,
@@ -27,7 +30,7 @@
         "INTERNET"
       ],
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/new_logo_apsara.jpeg",
+        "foregroundImage": "./src/assets/logo_apsara.png",
         "backgroundColor": "#fff7e8"
       }
     },
@@ -35,8 +38,8 @@
       "router": {
         "origin": false
       },
-      "apiUrl": "https://apsraastro.com",
-      "astroApiUrl": "https://apsraastro.com",
+      "apiUrl": "https://staging.apsraastro.in",
+      "astroApiUrl": "https://staging.apsraastro.in",
       "eas": {
         "projectId": "82173d52-de95-4a59-b830-b36228361940"
       }
