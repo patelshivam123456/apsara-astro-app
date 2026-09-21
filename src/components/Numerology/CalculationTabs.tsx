@@ -22,7 +22,7 @@ const calculationTabs: NumerologyCalculationTab[] = [
   { label: "Name Frequency", value: "name-frequency", pathname: "/astrologer/name-frequency" },
   { label: "Compatibility/Relationship", value: "compatibility-relationship", pathname: "/astrologer/compatibility-relationship" },
   { label: "Mobile Numerology", value: "mobile-numerology", pathname: "/astrologer/mobile-numerology" },
-  { label: "Daily Numeroscope", value: "daily-numeroscope", pathname: "/astrologer/numerology" }
+  // { label: "Daily Numeroscope", value: "daily-numeroscope", pathname: "/astrologer/numerology" }
 ];
 
 export function NumerologyCalculationTabs({

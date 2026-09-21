@@ -76,8 +76,8 @@ export function MatchMakingPdfScreen() {
   const errors = useMemo(() => validate(form, selectedPlaces), [form, selectedPlaces]);
   const canSubmit = Object.keys(errors).length === 0 && !submitting;
 
-  useEffect(() => loadPlaceSuggestions("p1", form.p1.place, selectedPlaces.p1), [form.p1.place, selectedPlaces.p1?.placeName]);
-  useEffect(() => loadPlaceSuggestions("p2", form.p2.place, selectedPlaces.p2), [form.p2.place, selectedPlaces.p2?.placeName]);
+  useEffect(() => loadPlaceSuggestions("p1", form.p1.place, selectedPlaces.p1), [form.p1.place, selectedPlaces.p1]);
+  useEffect(() => loadPlaceSuggestions("p2", form.p2.place, selectedPlaces.p2), [form.p2.place, selectedPlaces.p2]);
 
   const loadPlaceSuggestions = (personKey: PersonKey, placeValue: string, selectedPlace: GeoLocationPlace | null) => {
     const query = placeValue.trim();
@@ -206,12 +206,13 @@ export function MatchMakingPdfScreen() {
       >
         <View style={styles.hero}>
           <Text variant="headlineSmall" style={styles.heroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
-            {t("New Match")}
+            {t("Match Making PDF")}
           </Text>
-          <Text style={styles.heroSubtitle}>{t("Enter accurate birth details for both people.")}</Text>
+          <Text style={styles.heroSubtitle}>{t("Enter birth details to generate match making report")}</Text>
         </View>
 
-        <View style={styles.matchGrid}>
+        <View style={styles.formCard}>
+          <Text style={styles.cardTitle}>{t("New Match")}</Text>
           {personKeys.map((personKey, index) => (
             <PersonCard
               key={personKey}
@@ -305,8 +306,8 @@ function PersonCard({
   const errorKey = (key: keyof PersonForm) => `${personKey}.${key}`;
 
   return (
-    <View style={styles.formCard}>
-      <Text style={styles.cardTitle}>{t(title)}</Text>
+    <View style={styles.personSection}>
+      <Text style={styles.personTitle}>{t(title)}</Text>
 
       <View style={styles.twoColumnRow}>
         <View style={styles.column}>
@@ -567,18 +568,19 @@ function titleCase(value: string) {
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#fff8df" },
+  root: { flex: 1, backgroundColor: "#fbfbef" },
   header: { minHeight: 58, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
   headerAction: { width: 86, marginLeft: -8 },
   headerTitle: { flex: 1, color: colors.ink, fontWeight: "800", textAlign: "center" },
   formScroller: { flex: 1 },
   content: { alignSelf: "center", width: "100%", maxWidth: 1160, padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg },
-  hero: { borderRadius: 8, borderWidth: 1, borderColor: "#f3d789", backgroundColor: "#fff4c7", alignItems: "center", gap: spacing.xs, padding: spacing.lg },
-  heroTitle: { color: "#5f3b00", fontWeight: "900", lineHeight: 31, textAlign: "center" },
+  hero: { alignItems: "center", gap: spacing.xs },
+  heroTitle: { color: colors.amber, fontWeight: "900", lineHeight: 31, textAlign: "center" },
   heroSubtitle: { color: colors.cocoa, fontSize: 12, lineHeight: 17, textAlign: "center" },
-  matchGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.lg, alignItems: "stretch" },
-  formCard: { flex: 1, minWidth: 310, borderRadius: 8, borderWidth: 1, borderColor: "#f0dca2", backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.sm, shadowColor: "#6b4a00", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 7, elevation: 3 },
+  formCard: { width: "100%", borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.lg },
   cardTitle: { color: colors.ink, fontSize: 16, lineHeight: 22, fontWeight: "900", marginBottom: spacing.xs },
+  personSection: { gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
+  personTitle: { color: colors.ink, fontSize: 14, lineHeight: 20, fontWeight: "900" },
   twoColumnRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
   column: { flex: 1, minWidth: 210, gap: spacing.xs },
   fieldBlock: { gap: spacing.xs },
@@ -602,6 +604,6 @@ const styles = StyleSheet.create({
   muted: { color: colors.cocoa },
   fieldError: { color: colors.danger, fontSize: 12, fontWeight: "700" },
   errorText: { color: colors.danger, fontWeight: "700" },
-  submitButton: { alignSelf: "center", minWidth: 220, borderRadius: 24, marginTop: spacing.sm },
+  submitButton: { alignSelf: "center", minWidth: 190, borderRadius: 24, marginTop: spacing.sm },
   submitContent: { minHeight: 48, flexDirection: "row-reverse" }
 });

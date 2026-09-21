@@ -14,11 +14,14 @@ export function LoShuGrid({ grid }: { grid?: LoShuGridResponse["grid"] }) {
   return (
     <View style={styles.loShuGrid}>
       {rows.flatMap((row, rowIndex) =>
-        row.map((value, colIndex) => (
-          <View key={`${rowIndex}-${colIndex}`} style={styles.loShuCell}>
-            <Text style={styles.loShuText}>{localizeDigitsInText(value || "-", language)}</Text>
+        row.map((value, colIndex) => {
+          const empty = !String(value || "").trim();
+          return (
+          <View key={`${rowIndex}-${colIndex}`} style={[styles.loShuCell, empty && styles.loShuCellEmpty]}>
+            <Text style={[styles.loShuText, empty && styles.loShuTextEmpty]}>{localizeDigitsInText(value || "-", language)}</Text>
           </View>
-        ))
+          );
+        })
       )}
     </View>
   );

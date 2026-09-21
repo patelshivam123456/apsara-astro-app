@@ -53,8 +53,8 @@ export function AstrologerCard({ astrologer, onChat, onCall, onView }: Props) {
         </View>
       </View>
       <View style={styles.actions}>
-        <Button mode="outlined" icon="chat" compact onPress={onChat}>{t("Chat")}</Button>
-        <Button mode="contained-tonal" icon="phone" compact onPress={onCall}>{t("Call")}</Button>
+        <Button mode="outlined" icon="chat" compact disabled onPress={onChat}>{t("Chat")}</Button>
+        <Button mode="contained-tonal" icon="phone" compact disabled onPress={onCall}>{t("Call")}</Button>
         <Button mode="text" compact onPress={onView}>
           <MaterialCommunityIcons name="chevron-right" size={18} color={colors.amber} />
         </Button>

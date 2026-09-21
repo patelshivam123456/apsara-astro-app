@@ -7,6 +7,7 @@ import { Button, Text } from "react-native-paper";
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { NumerologyCalculationTabs } from "@/components/Numerology/CalculationTabs";
+import { buildFullNumerologyExportSections } from "@/components/Numerology/FullNumerologyExport";
 import { NumerologyExportButton, NumerologyExportSection } from "@/components/Numerology/NumerologyExport";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { GridIntro } from "@/components/Numerology/Lushu-grid/Common";
@@ -101,14 +102,9 @@ export function PythagorasGridScreen() {
           personBDob={personBDob}
           personBGender={personBGender}
         />
-        <NumerologyExportButton
-          title={`${t("Pythagoras Grid")} - ${fullName}`}
-          fileName={`pythagoras-grid-${fullName}`}
-          sections={() => buildPythagorasExportSections({ dob, fullName, gender, language, nameTable, pythagorasGrid, t })}
-        />
         <GridIntro
           title={t("Pythagoras Grid")}
-          description={t("Pythagorean number placement arranged as a Lu Shu style grid for repeated and missing number analysis.")}
+          // description={t("Pythagorean number placement arranged as a Lu Shu style grid for repeated and missing number analysis.")}
         />
         <PythagorasGrid grid={pythagorasGrid?.grid} />
         <StatRow
@@ -123,18 +119,26 @@ export function PythagorasGridScreen() {
           missingNumbers={pythagorasGrid?.missingNumbers}
           repeatedNumbers={pythagorasGrid?.repeatedNumbers}
         />
-        <SoulNumberCard name={fullName} soulNumber={soulNumber} />
+        {/* <SoulNumberCard name={fullName} soulNumber={soulNumber} /> */}
         <ChallengePinnacleTable
           challengeNumber={challengeNumber}
           pinnacleNumber={pinnacleNumber}
           runningAge={pythagorasGrid?.runningAge}
         />
-        <PythagorasPredictionCards name={fullName} data={pythagorasGrid?.challengePinnacleSoulNameNoPredictions} />
-        <NameValueTable title={t("First Name")} table={nameTable?.firstNameTable} />
-        <NameValueTable title={t("Last Name")} table={nameTable?.lastNameTable} />
+        <PythagorasPredictionCards name={fullName} pythagorasGrid={pythagorasGrid} soulNumber={soulNumber} />
+        <Text style={styles.nameTableSectionHeading}>{t("Name Table")}</Text>
+        <NameValueTable table={nameTable?.firstNameTable} />
+        <NameValueTable table={nameTable?.lastNameTable} />
         <YearSequenceSeries sequence={nameTable?.runningYearSequence} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
+      <NumerologyExportButton
+        blink
+        fixed
+        title={`${t("Numerology Report")} - ${fullName}`}
+        fileName={`numerology-report-${fullName}`}
+        sections={() => buildFullNumerologyExportSections({ dob, fullName, gender, language, t })}
+      />
       <AstrologerBottomNav active="home" respectSafeArea />
     </SafeAreaView>
   );
@@ -147,13 +151,16 @@ function PythagorasGrid({ grid }: { grid?: PythagoreanGridResponse["grid"] }) {
   return (
     <View style={styles.pythagorasGrid}>
       {rows.flatMap((row, rowIndex) =>
-        row.map((value, columnIndex) => (
-          <View key={`${rowIndex}-${columnIndex}`} style={styles.gridCell}>
-            <Text style={styles.gridText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.58}>
+        row.map((value, columnIndex) => {
+          const empty = !String(value || "").trim();
+          return (
+          <View key={`${rowIndex}-${columnIndex}`} style={[styles.gridCell, empty && styles.gridCellEmpty]}>
+            <Text style={[styles.gridText, empty && styles.gridTextEmpty]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.58}>
               {localizeDigitsInText(value || "-", language)}
             </Text>
           </View>
-        ))
+          );
+        })
       )}
     </View>
   );
@@ -319,14 +326,16 @@ function getPinnacleSummaryValue(pinnacleNumber?: PythagoreanGridResponse["pinna
 }
 
 function PythagorasPredictionCards({
-  data,
-  name
+  name,
+  pythagorasGrid,
+  soulNumber
 }: {
-  data?: PythagoreanGridResponse["challengePinnacleSoulNameNoPredictions"];
   name: string;
+  pythagorasGrid: PythagoreanGridResponse | null;
+  soulNumber?: number;
 }) {
   const { language, t } = useTranslation();
-  const rows = useMemo(() => normalizePredictionItems(data), [data]);
+  const rows = useMemo(() => getPythagorasPredictionItems(pythagorasGrid), [pythagorasGrid]);
   const [translationMap, setTranslationMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
@@ -355,30 +364,152 @@ function PythagorasPredictionCards({
     <>
       {rows.map((row, index) => {
         const title = formatPredictionTitle(row, index);
-        const number = getPredictionNumber(row);
+        const number = getDisplayPredictionNumber(row, title, pythagorasGrid);
         const properties = getPredictionProperties(row);
         const numberLabel = title.toLowerCase().includes("number") ? title : `${title} Number`;
+        const showNameNumberHeading = title.toLowerCase().includes("name number");
 
         return (
-          <View key={`${title}-${index}`} style={styles.predictionCard}>
-            <View style={styles.predictionRow}>
-              <Text style={styles.predictionLabel}>{t("Name")}</Text>
-              <Text style={styles.predictionValue} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.68}>
-                {name || "-"}
-              </Text>
+          <Fragment key={`${title}-${index}`}>
+            {showNameNumberHeading ? <Text style={styles.nameNumberSectionHeading}>{tx("Name Number")}</Text> : null}
+            <View style={styles.predictionCard}>
+              <View style={styles.predictionRow}>
+                <Text style={styles.predictionLabel}>{t("Name")}</Text>
+                <Text style={styles.predictionValue} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.68}>
+                  {name || "-"}
+                </Text>
+              </View>
+              <View style={styles.predictionRow}>
+                <Text style={styles.predictionLabel}>{tx(numberLabel)}</Text>
+                <Text style={styles.predictionValue}>{localizeDigitsInText(number ?? "-", language)}</Text>
+              </View>
+              <View style={styles.predictionBodyRow}>
+                <Text style={styles.predictionLabel}>{tx("Properties")} :</Text>
+                <Text style={styles.predictionBody}>{properties ? tx(properties) : "-"}</Text>
+              </View>
             </View>
-            <View style={styles.predictionRow}>
-              <Text style={styles.predictionLabel}>{tx(numberLabel)}</Text>
-              <Text style={styles.predictionValue}>{localizeDigitsInText(number ?? "-", language)}</Text>
-            </View>
-            <View style={styles.predictionBodyRow}>
-              <Text style={styles.predictionLabel}>{tx("Properties")} :</Text>
-              <Text style={styles.predictionBody}>{properties ? tx(properties) : "-"}</Text>
-            </View>
-          </View>
+          </Fragment>
         );
       })}
     </>
+  );
+}
+
+function getDisplayPredictionNumber(item: NumerologyPredictionItem, title: string, pythagorasGrid?: PythagoreanGridResponse | null) {
+  const normalizedTitle = title.toLowerCase();
+  if (normalizedTitle.includes("soul")) return getSoulPredictionNumber(item, pythagorasGrid?.soulNumber);
+  if (normalizedTitle.includes("expression") || normalizedTitle.includes("name number")) {
+    return getExpressionPredictionNumber(item, pythagorasGrid);
+  }
+  return getPredictionNumber(item);
+}
+
+function getSoulPredictionNumber(item: NumerologyPredictionItem, fallback?: string | number) {
+  const record = item as Record<string, unknown>;
+  return (
+    getAliasedTextValue(record, ["soulNumber", "soulNo", "soulNameNumber", "soulNameNo", "SOUL_NUMBER"]) ??
+    getAliasedTextValue(record, ["number", "value", "numberValue"]) ??
+    fallback
+  );
+}
+
+function getExpressionPredictionNumber(item: NumerologyPredictionItem, pythagorasGrid?: PythagoreanGridResponse | null) {
+  const record = item as Record<string, unknown>;
+  return (
+    getAliasedTextValue(record, ["NAME_NUMBER", "nameNumber", "nameNo"]) ??
+    getAliasedTextValue(record, ["number", "value", "numberValue"]) ??
+    pythagorasGrid?.nameNumber ??
+    pythagorasGrid?.nameNo ??
+    getAliasedTextValue(record, ["expressionNumber", "expressionNo"]) ??
+    pythagorasGrid?.expressionNumber ??
+    pythagorasGrid?.expressionNo
+  );
+}
+
+function getPythagorasPredictionItems(pythagorasGrid: PythagoreanGridResponse | null) {
+  if (!pythagorasGrid) return [];
+
+  const baseRows = normalizePredictionItems(pythagorasGrid.challengePinnacleSoulNameNoPredictions);
+  const soulRow = getSoulPredictionItem(pythagorasGrid, baseRows);
+  const expressionRow = getExpressionPredictionItem(pythagorasGrid, baseRows);
+  const hasSoulRow = baseRows.some((row, index) => isSoulPrediction(row, index));
+  const hasExpressionRow = baseRows.some((row, index) => isExpressionPrediction(row, index));
+
+  const rows = baseRows.map((row, index) => {
+    const title = formatPredictionTitle(row, index).toLowerCase();
+    if (title.includes("soul") && soulRow) return soulRow;
+    if ((title.includes("expression") || title.includes("name number")) && expressionRow) return expressionRow;
+    return row;
+  });
+
+  if (!hasSoulRow && soulRow) rows.push(soulRow);
+  if (!hasExpressionRow && expressionRow) rows.push(expressionRow);
+  return rows.sort((a, b) => getPredictionDisplayOrder(a) - getPredictionDisplayOrder(b));
+}
+
+function getSoulPredictionItem(pythagorasGrid: PythagoreanGridResponse, baseRows: NumerologyPredictionItem[]) {
+  const row = baseRows.find((item, index) => isSoulPrediction(item, index));
+  if (!row && pythagorasGrid.soulNumber === undefined) return null;
+
+  return {
+    ...(row || {}),
+    title: "Soul Number",
+    number: getSoulPredictionNumber(row || {}, pythagorasGrid.soulNumber)
+  } as NumerologyPredictionItem;
+}
+
+function getExpressionPredictionItem(pythagorasGrid: PythagoreanGridResponse, baseRows: NumerologyPredictionItem[]) {
+  const sources = [
+    pythagorasGrid.expressionNumberPredictions,
+    pythagorasGrid.expressionNoPredictions,
+    pythagorasGrid.expressionPredictions,
+    pythagorasGrid.nameNumberPredictions,
+    pythagorasGrid.nameNoPredictions
+  ];
+  const rows = [
+    ...sources.flatMap((source) => normalizePredictionItems(source)),
+    ...baseRows
+  ];
+  const expressionRow =
+    rows.find((row, index) => isExpressionPrediction(row, index)) ||
+    rows.find((row, index) => formatPredictionTitle(row, index).toLowerCase().includes("expression"));
+  const expressionNumber =
+    pythagorasGrid.nameNumber ??
+    pythagorasGrid.nameNo ??
+    pythagorasGrid.expressionNumber ??
+    pythagorasGrid.expressionNo;
+
+  if (!expressionRow && expressionNumber === undefined) return null;
+
+  return {
+    ...(expressionRow || {}),
+    title: "Name Number",
+    number: getExpressionPredictionNumber(expressionRow || {}, pythagorasGrid) ?? expressionNumber
+  } as NumerologyPredictionItem;
+}
+
+function getPredictionDisplayOrder(item: NumerologyPredictionItem) {
+  const title = formatPredictionTitle(item, 99).toLowerCase();
+  if (title.includes("challenge")) return 0;
+  if (title.includes("pinnacle")) return 1;
+  if (title.includes("soul")) return 2;
+  if (title.includes("name number") || title.includes("expression")) return 3;
+  return 4;
+}
+
+function isSoulPrediction(item: NumerologyPredictionItem, index: number) {
+  const title = formatPredictionTitle(item, index).toLowerCase();
+  const keys = Object.keys(item as Record<string, unknown>).map(normalizeKey);
+  return title.includes("soul") || keys.some((key) => key.includes("soul"));
+}
+
+function isExpressionPrediction(item: NumerologyPredictionItem, index: number) {
+  const title = formatPredictionTitle(item, index).toLowerCase();
+  const keys = Object.keys(item as Record<string, unknown>).map(normalizeKey);
+  return (
+    title.includes("expression") ||
+    title.includes("name number") ||
+    keys.some((key) => key === "namenumber" || key === "nameno" || key === "namenumberpredictions" || key === "namenopredictions")
   );
 }
 
@@ -399,13 +530,18 @@ function normalizePredictionItems(value: unknown): NumerologyPredictionItem[] {
 
 function formatPredictionTitle(item: NumerologyPredictionItem, index: number) {
   const inferred = getInferredPredictionTitle(item, index);
-  return String(inferred)
+  const title = String(inferred)
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/[_-]+/g, " ")
     .trim();
+
+  return /^expression number$/i.test(title) ? "Name Number" : title;
 }
 
 function getInferredPredictionTitle(item: NumerologyPredictionItem, index: number) {
+  const predictionTypeTitle = getPredictionTypeTitle(item);
+  if (predictionTypeTitle) return predictionTypeTitle;
+
   const explicitTitle = getTextValue(item.title) || getTextValue(item.name) || getTextValue(item.type) || getTextValue(item.label);
   const explicitTitleText = String(explicitTitle || "").trim();
   if (explicitTitleText && !/^prediction\s*\d+$/i.test(explicitTitleText)) return explicitTitleText;
@@ -415,11 +551,31 @@ function getInferredPredictionTitle(item: NumerologyPredictionItem, index: numbe
   if (text.includes("challenge")) return "Challenge Number";
   if (text.includes("pinnacle")) return "Pinnacle Number";
   if (text.includes("soul")) return "Soul Number";
-  if (text.includes("expression")) return "Expression Number";
+  if (text.includes("expression")) return "Name Number";
   if (text.includes("compound")) return "Compound Name Number";
   if (text.includes("name")) return "Name Number";
 
   return ["Challenge Number", "Pinnacle Number", "Soul Number", "Name Number"][index] || `Prediction ${index + 1}`;
+}
+
+function getPredictionTypeTitle(item: NumerologyPredictionItem) {
+  const record = item as Record<string, unknown>;
+  const predictionType = getAliasedTextValue(record, ["predictionType", "type"]);
+  const normalizedType = normalizeKey(String(predictionType || ""));
+
+  if (normalizedType === "challenge" || normalizedType === "challengenumber") return "Challenge Number";
+  if (normalizedType === "pinnacle" || normalizedType === "pinnaclenumber") return "Pinnacle Number";
+  if (normalizedType === "soul" || normalizedType === "soulnumber") return "Soul Number";
+  if (
+    normalizedType === "namenumber" ||
+    normalizedType === "nameno" ||
+    normalizedType === "expression" ||
+    normalizedType === "expressionnumber"
+  ) {
+    return "Name Number";
+  }
+
+  return "";
 }
 
 function getPredictionNumber(item: NumerologyPredictionItem) {
@@ -459,18 +615,32 @@ function getTextValue(value: unknown): string | number | undefined {
   return typeof value === "string" || typeof value === "number" ? value : undefined;
 }
 
+function getAliasedTextValue(record: Record<string, unknown>, aliases: string[]) {
+  for (const alias of aliases) {
+    const direct = getTextValue(record[alias]);
+    if (direct !== undefined) return direct;
+  }
+
+  const normalizedAliases = aliases.map(normalizeKey);
+  const matchingKey = Object.keys(record).find((key) => normalizedAliases.includes(normalizeKey(key)));
+  return matchingKey ? getTextValue(record[matchingKey]) : undefined;
+}
+
+function normalizeKey(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 function getTrailingNumber(value: unknown): string | undefined {
   return String(value || "").match(/\d+/g)?.at(-1);
 }
 
-function NameValueTable({ title, table }: { title: string; table?: PythagoreanNameTable }) {
+function NameValueTable({ table }: { table?: PythagoreanNameTable }) {
   const { language } = useTranslation();
   const columnCount = Math.max(table?.letters?.length || 0, table?.tableRows?.[0]?.length || 0);
   const columns = columnCount ? Array.from({ length: columnCount }) : [];
 
   return (
     <View style={styles.nameTablePanel}>
-      <Text style={styles.nameTableTitle}>{title}</Text>
       <View style={styles.nameValueTable}>
         <View style={styles.nameValueRow}>
           {columns.map((_, index) => (
@@ -555,7 +725,7 @@ function formatNumberList(values?: number[]) {
   return values?.length ? values.join(", ") : "-";
 }
 
-function buildPythagorasExportSections({
+export function buildPythagorasExportSections({
   dob,
   fullName,
   gender,
@@ -573,7 +743,7 @@ function buildPythagorasExportSections({
   t: ReturnType<typeof useTranslation>["t"];
 }): Promise<NumerologyExportSection[]> {
   const challengeRows = getChallengePinnacleRows(pythagorasGrid);
-  const predictionRows = normalizePredictionItems(pythagorasGrid?.challengePinnacleSoulNameNoPredictions);
+  const predictionRows = getPythagorasPredictionItems(pythagorasGrid);
   return translateUniqueTexts([
     "Pythagoras Grid",
     "Pythagorean number placement arranged as a Lu Shu style grid for repeated and missing number analysis.",
@@ -693,7 +863,7 @@ function buildPythagorasExportSections({
     },
     ...predictionRows.map((row, index) => {
       const title = formatPredictionTitle(row, index);
-      const number = getPredictionNumber(row);
+      const number = getDisplayPredictionNumber(row, title, pythagorasGrid);
       const numberLabel = title.toLowerCase().includes("number") ? title : `${title} Number`;
       return {
         title: tx(title),
@@ -791,9 +961,9 @@ const styles = StyleSheet.create({
   content: { alignSelf: "center", width: "100%", maxWidth: 420, minHeight: "100%", backgroundColor: "#ffffc9", padding: spacing.lg, paddingBottom: 104, gap: spacing.lg },
   pythagorasGrid: {
     alignSelf: "center",
-    width: 204,
-    height: 156,
-    borderRadius: 10,
+    width: 241,
+    height: 183,
+    borderRadius: 0,
     backgroundColor: "#fff",
     flexDirection: "row",
     flexWrap: "wrap",
@@ -806,9 +976,11 @@ const styles = StyleSheet.create({
     elevation: 6
   },
   gridCell: {
-    width: 61.33,
-    height: 45.33,
-    borderRadius: 7,
+    width: 73.6,
+    height: 54.4,
+    borderRadius: 0,
+    borderWidth: 1,
+    borderColor: "#d9d9d9",
     backgroundColor: "#f8fff6",
     alignItems: "center",
     justifyContent: "center",
@@ -819,9 +991,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1
   },
-  gridText: { color: "#111", fontSize: 18, fontWeight: "900", textAlign: "center" },
+  gridCellEmpty: { backgroundColor: "#eeeeee", borderColor: "#d7d7d7" },
+  gridText: { color: "#111", fontSize: 20, fontWeight: "900", textAlign: "center" },
+  gridTextEmpty: { color: "#9a9a9a" },
   statPanel: {
-    minHeight: 86,
+    minHeight: 112,
     borderRadius: 8,
     backgroundColor: "#fff",
     flexDirection: "row",
@@ -845,7 +1019,7 @@ const styles = StyleSheet.create({
   statLabel: { color: "#777", fontSize: 10, lineHeight: 15, fontWeight: "900", textAlign: "center" },
   statLabelEmphasis: { color: "#111", fontSize: 14, lineHeight: 18, fontWeight: "700" },
   statValue: { color: "#136a28", fontSize: 13, lineHeight: 28, fontWeight: "600", textAlign: "center", marginTop: 3 },
-  statValueEmphasis: { fontSize: 13 },
+  statValueEmphasis: { fontSize: 30, lineHeight: 36, fontWeight: "900" },
   statNote: { color: "#777", fontSize: 10, lineHeight: 13, fontWeight: "800", textAlign: "center", marginTop: 1 },
   countPanel: {
     minHeight: 58,
@@ -862,7 +1036,7 @@ const styles = StyleSheet.create({
     width: "100%",
     borderBottomWidth: 1,
     borderBottomColor: "#e1e1e1",
-    alignItems: "flex-start",
+    // alignItems: "flex-start",
     justifyContent: "center",
     paddingHorizontal: spacing.md,
     paddingVertical: 7
@@ -872,7 +1046,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
     fontWeight: "700",
-    textAlign: "left"
+    textAlign: "center"
   },
   countRow: { flex: 1, minHeight: 54, flexDirection: "row", alignItems: "center" },
   countItem: {
@@ -880,11 +1054,11 @@ const styles = StyleSheet.create({
     minWidth: 0,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 6
+    paddingVertical: 10
   },
   countDivider: { width: 1, alignSelf: "stretch", backgroundColor: "#e1e1e1" },
-  countNumber: { color: "#777", fontSize: 13, lineHeight: 13, fontWeight: "600", textAlign: "center" },
-  countValue: { color: "#136a28", fontSize: 13, lineHeight: 21, fontWeight: "600", textAlign: "center", marginTop: 2 },
+  countNumber: { color: "#777", fontSize: 14, lineHeight: 13, fontWeight: "700", textAlign: "center" },
+  countValue: { color: "#136a28", fontSize: 14, lineHeight: 21, fontWeight: "800", textAlign: "center", marginTop: 10 },
   missingRepeatedPanel: {
     borderRadius: 8,
     backgroundColor: "#fff",
@@ -898,8 +1072,8 @@ const styles = StyleSheet.create({
   missingRepeatedCell: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 8 },
   missingRepeatedDivider: { width: 1, backgroundColor: "#d6d6d6" },
   missingRepeatedValueDivider: { width: "100%", height: 1, backgroundColor: "#d6d6d6", marginTop: 7, marginBottom: 6 },
-  missingRepeatedLabel: { color: "#000", fontSize: 14, lineHeight: 17, fontWeight: "700", textAlign: "center" },
-  missingRepeatedValue: { color: "#000", fontSize: 13, lineHeight: 17, fontWeight: "600", textAlign: "center" },
+  missingRepeatedLabel: { color: "#000", fontSize: 14, lineHeight: 17, fontWeight: "800", textAlign: "center" },
+  missingRepeatedValue: { color: "#000", fontSize: 13, lineHeight: 17, fontWeight: "900", textAlign: "center" },
   soulCard: {
     borderRadius: 8,
     backgroundColor: "#fffdf5",
@@ -913,6 +1087,7 @@ const styles = StyleSheet.create({
   soulLabel: { flex: 1, borderRightWidth: 1, borderRightColor: "#d6d6d6", color: "#000", fontSize: 14, lineHeight: 17, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 6, paddingVertical: 6 },
   soulName: { flex: 1.35, color: "#000", fontSize: 14, lineHeight: 17, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 6, paddingVertical: 6 },
   soulValue: { flex: 1.35, color: "#000", fontSize: 13, lineHeight: 17, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 6, paddingVertical: 6 },
+  nameNumberSectionHeading: { backgroundColor: "#ffc6d9", color: "#000", fontSize: 15, lineHeight: 19, fontWeight: "800", textAlign: "center", paddingHorizontal: 10, paddingVertical: 8 },
   predictionCard: { borderWidth: 1, borderColor: "#8f8f78", borderRadius: 3, backgroundColor: "#fffff8", overflow: "hidden" },
   predictionRow: { minHeight: 34, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#8f8f78" },
   predictionBodyRow: { minHeight: 58, flexDirection: "row" },
@@ -921,27 +1096,26 @@ const styles = StyleSheet.create({
   predictionBody: { flex: 1.35, color: "#000", fontSize: 10, lineHeight: 13, fontWeight: "600", textAlign: "left", textAlignVertical: "top", paddingHorizontal: 5, paddingVertical: 6 },
   challengeBlock: {
     borderRadius: 8,
-    backgroundColor: "#fff",
     padding: 0
   },
   challengeTable: {
     borderWidth: 1,
     borderColor: "#d6d6d6",
     borderRadius: 6,
-    backgroundColor: "#fff",
     overflow: "hidden"
   },
-  challengeRow: { minHeight: 32, flexDirection: "row" },
-  challengeHeadCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", backgroundColor: "#d8f4d1", color: "#000", fontSize: 13, lineHeight: 15, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 3, paddingVertical: 4 },
-  challengeCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 13, lineHeight: 15, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 3, paddingVertical: 4 },
+  challengeRow: { minHeight: 38, flexDirection: "row" },
+  challengeHeadCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", backgroundColor: "#d8f4d1", color: "#000", fontSize: 15, lineHeight: 17, fontWeight: "800", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 6 },
+  challengeCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 15, lineHeight: 17, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 6 },
   challengeOrderCell: { backgroundColor: "#efffc8" },
-  challengeNumberCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", backgroundColor: "#fbffac", color: "#000", fontSize: 13, lineHeight: 16, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 3, paddingVertical: 4 },
-  challengePeriodCell: { flex: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", backgroundColor: "#fbffac", color: "#000", fontSize: 12, lineHeight: 14, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 3, paddingVertical: 4 },
+  challengeNumberCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", backgroundColor: "#fbffac", color: "#000", fontSize: 15, lineHeight: 18, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 6 },
+  challengePeriodCell: { flex: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", backgroundColor: "#fbffac", color: "#000", fontSize: 14, lineHeight: 17, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 6 },
   orderCell: { flex: 0.75 },
-  challengeSummary: { marginTop: 2, borderWidth: 1, borderColor: "#d6d6d6", borderRadius: 6, backgroundColor: "#fff", overflow: "hidden" },
-  challengeFooterRow: { minHeight: 28, flexDirection: "row", backgroundColor: "#fff" },
-  challengeFooterLabel: { flex: 3, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 13, lineHeight: 15, fontWeight: "700", textAlignVertical: "center", paddingHorizontal: 8, paddingVertical: 4 },
-  challengeFooterValue: { flex: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 13, lineHeight: 16, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 4 },
+  challengeSummary: { marginTop: 12, borderWidth: 1, borderColor: "#d6d6d6", borderRadius: 6, overflow: "hidden" },
+  challengeFooterRow: { minHeight: 34, flexDirection: "row" },
+  challengeFooterLabel: { flex: 3, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 15, lineHeight: 17, fontWeight: "800", textAlignVertical: "center", paddingHorizontal: 9, paddingVertical: 6 },
+  challengeFooterValue: { flex: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 15, lineHeight: 18, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 6 },
+  nameTableSectionHeading: { backgroundColor: "#ffc6d9", color: "#000", fontSize: 15, lineHeight: 19, fontWeight: "800", textAlign: "center", paddingHorizontal: 10, paddingVertical: 8 },
   nameTablePanel: {
     borderWidth: 1,
     borderColor: "#d6d6d6",

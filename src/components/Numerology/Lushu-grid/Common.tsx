@@ -16,7 +16,7 @@ export function SectionLabel({ title }: { title: string }) {
   );
 }
 
-export function GridIntro({ title, description }: { title: string; description: string }) {
+export function GridIntro({ description, title }: { description?: string; title: string }) {
   return (
     <View style={styles.gridIntro}>
       <View style={styles.gridIntroTitleWrap}>
@@ -24,9 +24,11 @@ export function GridIntro({ title, description }: { title: string; description: 
           {title}
         </Text>
       </View>
-      <Text style={styles.gridIntroDescription} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.72}>
-        {description}
-      </Text>
+      {description ? (
+        <Text style={styles.gridIntroDescription} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.72}>
+          {description}
+        </Text>
+      ) : null}
     </View>
   );
 }

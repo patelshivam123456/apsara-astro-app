@@ -22,8 +22,13 @@ const drawerItems = [
   ["remedies", "Remedies", "flower"],
   ["store", "Store", "shopping"],
   ["customer-care", "Customer Care", "headset"],
+  ["about-us", "About Us", "information"],
+  ["privacy-policy", "Privacy Policy", "shield-lock"],
+  ["terms-and-conditions", "Terms & Conditions", "file-document-check"],
   ["settings", "Settings", "cog"],
 ] as const;
+
+const customHeaderScreens = new Set(["my-horoscope", "about-us", "privacy-policy", "terms-and-conditions"]);
 
 export default function DrawerLayout() {
   const signOut = useAuthStore((state) => state.signOut);
@@ -47,7 +52,7 @@ export default function DrawerLayout() {
           name={name}
           options={{
             title: t(title),
-            headerShown: name !== "my-horoscope",
+            headerShown: !customHeaderScreens.has(name),
             drawerIcon: ({ color, size }) => (
               <MaterialCommunityIcons
                 name={icon as keyof typeof MaterialCommunityIcons.glyphMap}

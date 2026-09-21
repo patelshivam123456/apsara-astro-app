@@ -65,7 +65,7 @@ export function SubscriptionGate({ children }: PropsWithChildren) {
           </Dialog.Content>
           <Dialog.Actions>
             <Button mode="contained" onPress={() => router.replace("/subscription-plan")}>
-              View Plans
+              Purchase Plan
             </Button>
           </Dialog.Actions>
         </Dialog>

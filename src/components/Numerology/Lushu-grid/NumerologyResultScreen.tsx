@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -7,11 +8,23 @@ import { Button, Text } from "react-native-paper";
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { NumerologyCalculationTabs } from "@/components/Numerology/CalculationTabs";
+import { buildNameFrequencyExportSections, loadNameLetterRelationships } from "@/components/Numerology/NameFrequency";
 import { NumerologyExportButton, NumerologyExportRow, NumerologyExportSection } from "@/components/Numerology/NumerologyExport";
+import { buildPythagorasExportSections } from "@/components/Numerology/Pythoras";
+import { buildVedicExportSections } from "@/components/Numerology/Vedic-grid";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useTranslation } from "@/context/LanguageContext";
 import {
+  getChaldeanNameLetterAnalysisChart,
+  getChaldeanNamePairEvents,
+  getNameFrequencyNameChart,
+  getNumberRelationships,
   getPersonalityDestinyDetails,
+  getPythagoreanGrid,
+  getPythagoreanNameTable,
+  getPythagoreanRunningAgeAlphabet,
+  getVedicGrid,
+  NumerologyPredictionItem,
   PersonalityDestinyDetailsResponse,
   PersonalityDestinyType
 } from "@/services/numerology.service";
@@ -105,27 +118,9 @@ export function NumerologyResultScreen() {
           personBDob={personBDob}
           personBGender={personBGender}
         />
-        <NumerologyExportButton
-          title={`${t("Lo Shu Grid")} - ${fullName}`}
-          fileName={`lo-shu-grid-${fullName}`}
-          sections={() => buildLoShuExportSections({
-            dob,
-            fullName,
-            gender,
-            language,
-            t,
-            loShu,
-            matrix,
-            personalYear,
-            relationships,
-            repetitionEffects,
-            sectorEffects: currentSectorEffects,
-            sectorTranslating
-          })}
-        />
         <GridIntro
           title={t("Lo Shu Grid")}
-          description={t("Birth-date numbers arranged to reveal strengths, missing energies, and life patterns.")}
+          
         />
         <LoShuGrid grid={loShu?.grid} />
         <NumberSummaryGrid
@@ -142,6 +137,7 @@ export function NumerologyResultScreen() {
             ]
           ]}
         />
+        <LoShuArrowPredictions data={loShu} />
         <Pressable style={styles.detailButton} onPress={openPersonalityDestinyDetails}>
           <View style={styles.detailButtonCopy}>
             <Text style={styles.detailButtonTitle}>{t("Check Personality and Destiny Details")}</Text>
@@ -175,12 +171,296 @@ export function NumerologyResultScreen() {
         <SectorWiseEffects effects={currentSectorEffects} translating={sectorTranslating} />
         <PersonalYearReading value={personalYear?.personalYear} />
       </ScrollView>
+      <NumerologyExportButton
+        blink
+        fixed
+        title={`${t("Numerology Report")} - ${fullName}`}
+        fileName={`numerology-report-${fullName}`}
+        sections={() => buildCompleteNumerologyExportSections({
+          dob,
+          fullName,
+          gender,
+          language,
+          t,
+          loShu,
+          matrix,
+          personalYear,
+          relationships,
+          repetitionEffects,
+          sectorEffects: currentSectorEffects,
+          sectorTranslating
+        })}
+      />
       <AstrologerBottomNav active="home" respectSafeArea />
     </SafeAreaView>
   );
 }
 
-async function buildLoShuExportSections({
+type LoShuArrowPredictionRow = {
+  arrowType: string;
+  completionPercentage?: string | number;
+  prediction: string;
+  status: "Present" | "Absent";
+};
+
+function LoShuArrowPredictions({ data }: { data: ReturnType<typeof useNumerologyReport>["loShu"] }) {
+  const { language, t } = useTranslation();
+  const rows = useMemo(() => getLoShuArrowPredictionRows(data?.loShuArrowPredictions), [data?.loShuArrowPredictions]);
+  const [translationMap, setTranslationMap] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function translateRows() {
+      const texts = [
+        "Lo Shu Arrow Predictions",
+        "Present",
+        "Absent",
+        ...rows.flatMap((row) => [row.arrowType, row.prediction])
+      ].filter(Boolean);
+      const translations = await translateUniqueTexts(texts, language);
+      if (mounted) setTranslationMap(translations);
+    }
+
+    translateRows();
+    return () => {
+      mounted = false;
+    };
+  }, [language, rows]);
+
+  if (!rows.length) return null;
+  const tx = (text: string) => translationMap.get(text) || t(text);
+
+  return (
+    <View style={styles.arrowPredictionPanel}>
+      <Text style={styles.arrowPredictionTitle}>{tx("Lo Shu Arrow Predictions")}</Text>
+      <View style={styles.arrowPredictionList}>
+        {rows.map((row, index) => (
+          <View key={`${row.arrowType}-${index}`} style={styles.arrowPredictionCard}>
+            <View style={styles.arrowPredictionStatus}>
+              <Text style={styles.arrowPredictionStatusText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
+                {tx(row.arrowType)}: {tx(row.status)}
+              </Text>
+              <Text style={styles.arrowPredictionPercentText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
+                {formatCompletionPercentage(row.completionPercentage, language)}
+              </Text>
+            </View>
+            <Text style={styles.arrowPredictionText}>
+              {row.prediction ? `• ${tx(row.prediction)}` : "-"}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function getLoShuArrowPredictionRows(value: unknown): LoShuArrowPredictionRow[] {
+  return normalizeLoShuArrowPredictionItems(value)
+    .map((item, index) => {
+      const record = item as Record<string, unknown>;
+      const prediction = getLoShuPredictionText(item);
+      return {
+        arrowType: String(
+          getTextValue(record.arrowType) ??
+            getTextValue(record.arrowName) ??
+            getTextValue(record.name) ??
+            getTextValue(record.title) ??
+            getTextValue(record.type) ??
+            getTextValue(record.label) ??
+            `Arrow ${index + 1}`
+        ).trim(),
+        completionPercentage:
+          getTextValue(record.completionPercentage) ??
+          getTextValue(record.percentage) ??
+          getTextValue(record.completion) ??
+          getTextValue(record.completionPercent),
+        prediction,
+        status: getLoShuArrowStatus(item, prediction)
+      };
+    })
+    .filter((row) => row.arrowType || row.prediction);
+}
+
+function normalizeLoShuArrowPredictionItems(value: unknown): NumerologyPredictionItem[] {
+  if (Array.isArray(value)) return value.flatMap((item) => normalizeLoShuArrowPredictionItems(item));
+  if (!value || typeof value !== "object") return [];
+
+  const record = value as NumerologyPredictionItem;
+  if (isLoShuArrowPredictionRecord(record)) return [record];
+
+  return Object.entries(record).flatMap(([key, nested]) => {
+    if (Array.isArray(nested) || (nested && typeof nested === "object")) {
+      return normalizeLoShuArrowPredictionItems(nested).map((item) => ({
+        ...item,
+        arrowType: getTextValue((item as Record<string, unknown>).arrowType) ?? key
+      }));
+    }
+    return [{ arrowType: key, prediction: String(nested ?? "") }];
+  });
+}
+
+function isLoShuArrowPredictionRecord(record: NumerologyPredictionItem) {
+  const item = record as Record<string, unknown>;
+  return Boolean(
+    getLoShuPredictionText(record) ||
+      getTextValue(item.arrowType) !== undefined ||
+      getTextValue(item.completionPercentage) !== undefined ||
+      getTextValue(item.percentage) !== undefined ||
+      getTextValue(item.status) !== undefined ||
+      getTextValue(item.present) !== undefined ||
+      getTextValue(item.isPresent) !== undefined
+  );
+}
+
+function getLoShuPredictionText(item: NumerologyPredictionItem) {
+  const record = item as Record<string, unknown>;
+  return String(
+    item.prediction ??
+      record.predictionText ??
+      item.properties ??
+      item.description ??
+      item.meaning ??
+      item.impact ??
+      item.probableImpact ??
+      record.result ??
+      record.effect ??
+      record.effects ??
+      item.text ??
+      ""
+  ).trim();
+}
+
+function getLoShuArrowStatus(item: NumerologyPredictionItem, prediction: string): "Present" | "Absent" {
+  const record = item as Record<string, unknown>;
+  const statusValue =
+    getPrimitiveValue(record.status) ??
+    getPrimitiveValue(record.presentStatus) ??
+    getPrimitiveValue(record.arrowStatus) ??
+    getPrimitiveValue(record.isPresent) ??
+    getPrimitiveValue(record.present) ??
+    getPrimitiveValue(record.isArrowPresent);
+  const normalized = String(statusValue ?? "").trim().toLowerCase();
+
+  if (["false", "absent", "missing", "no", "not present", "0"].includes(normalized)) return "Absent";
+  if (["true", "present", "yes", "available", "1"].includes(normalized)) return "Present";
+  if (/absent|missing|not\s+present/i.test(prediction)) return "Absent";
+  return prediction ? "Present" : "Absent";
+}
+
+function formatCompletionPercentage(value: string | number | undefined, language: ReturnType<typeof useTranslation>["language"]) {
+  if (value === undefined || value === null || String(value).trim() === "") return "-";
+  const text = String(value).trim().replace(/%$/, "");
+  return localizeDigitsInText(`${text}%`, language);
+}
+
+function getTextValue(value: unknown): string | number | undefined {
+  return typeof value === "string" || typeof value === "number" ? value : undefined;
+}
+
+function getPrimitiveValue(value: unknown): string | number | boolean | undefined {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : undefined;
+}
+
+async function buildCompleteNumerologyExportSections({
+  dob,
+  fullName,
+  gender,
+  language,
+  t,
+  loShu,
+  matrix,
+  personalYear,
+  relationships,
+  repetitionEffects,
+  sectorEffects,
+  sectorTranslating
+}: {
+  dob: string;
+  fullName: string;
+  gender: string;
+  language: ReturnType<typeof useTranslation>["language"];
+  t: ReturnType<typeof useTranslation>["t"];
+  loShu: ReturnType<typeof useNumerologyReport>["loShu"];
+  matrix: ReturnType<typeof useNumerologyReport>["matrix"];
+  personalYear: ReturnType<typeof useNumerologyReport>["personalYear"];
+  relationships: ReturnType<typeof useNumerologyReport>["relationships"];
+  repetitionEffects: ReturnType<typeof useNumerologyReport>["repetitionEffects"];
+  sectorEffects: ReturnType<typeof useNumerologyReport>["currentSectorEffects"];
+  sectorTranslating: ReturnType<typeof useNumerologyReport>["sectorTranslating"];
+}): Promise<NumerologyExportSection[]> {
+  const payload = { dob, fullName, gender };
+  const [
+    loShuSections,
+    vedicGrid,
+    pythagorasGrid,
+    nameTable,
+    nameChart,
+    pairEvents,
+    letterAnalysis,
+    runningAgeAlphabet
+  ] = await Promise.all([
+    buildLoShuExportSections({
+      dob,
+      fullName,
+      gender,
+      language,
+      t,
+      loShu,
+      matrix,
+      personalYear,
+      relationships,
+      repetitionEffects,
+      sectorEffects,
+      sectorTranslating
+    }),
+    getVedicGrid(payload),
+    getPythagoreanGrid(payload),
+    getPythagoreanNameTable(fullName, 90),
+    getNameFrequencyNameChart(payload),
+    getChaldeanNamePairEvents(fullName),
+    getChaldeanNameLetterAnalysisChart(fullName),
+    dob ? getPythagoreanRunningAgeAlphabet(payload) : Promise.resolve([])
+  ]);
+  const [vedicRelationships, nameLetterRelationships] = await Promise.all([
+    loadVedicRelationships(vedicGrid),
+    loadNameLetterRelationships(nameChart)
+  ]);
+  const [vedicSections, pythagorasSections, nameFrequencySections] = await Promise.all([
+    buildVedicExportSections({ dob, fullName, gender, language, relationships: vedicRelationships, t, vedicGrid }),
+    buildPythagorasExportSections({ dob, fullName, gender, language, nameTable, pythagorasGrid, t }),
+    buildNameFrequencyExportSections({
+      dob,
+      fullName,
+      gender,
+      language,
+      letterAnalysis,
+      loShuGrid: loShu,
+      nameChart,
+      nameLetterRelationships,
+      pairEvents,
+      runningAgeAlphabet,
+      t
+    })
+  ]);
+
+  return [
+    ...loShuSections,
+    ...vedicSections,
+    ...pythagorasSections,
+    ...nameFrequencySections
+  ];
+}
+
+async function loadVedicRelationships(vedicGrid: Awaited<ReturnType<typeof getVedicGrid>>) {
+  const personalityNo = Number(vedicGrid.driverNumber);
+  const destinyNo = Number(vedicGrid.destinyNumber);
+  return Number.isFinite(personalityNo) && Number.isFinite(destinyNo)
+    ? getNumberRelationships(personalityNo, destinyNo)
+    : [];
+}
+
+export async function buildLoShuExportSections({
   dob,
   fullName,
   gender,
@@ -214,6 +494,7 @@ async function buildLoShuExportSections({
     { label: "Personality", number: personalityNumber, relationship: findRelationship(relationships || [], personalityNumber) },
     { label: "Destiny", number: destinyNumber, relationship: findRelationship(relationships || [], destinyNumber) }
   ];
+  const loShuArrowRows = getLoShuArrowPredictionRows(loShu?.loShuArrowPredictions);
   const sortedRepetitionEffects = [...(repetitionEffects || [])].sort(
     (first, second) => Number(first.loShuNumber || 0) - Number(second.loShuNumber || 0)
   );
@@ -223,6 +504,7 @@ async function buildLoShuExportSections({
     fetchPersonalityDestinyExportDetails("DESTINY", destinyNumber, language)
   ]);
   const translationMap = await buildLoShuExportTranslationMap({
+    loShuArrowRows,
     language,
     personalYear,
     repetitionEffects: sortedRepetitionEffects,
@@ -265,6 +547,17 @@ async function buildLoShuExportSections({
         [tx("Zodiac"), localizeDigitsInText(loShu?.zodiacNumber ?? "-", language), loShu?.zodiacSign ? tx(loShu.zodiacSign) : tx("Zodiac Sign")]
       ]
     },
+    ...(loShuArrowRows.length
+      ? [{
+          title: tx("Lo Shu Arrow Predictions"),
+          variant: "loShuArrows" as const,
+          rows: loShuArrowRows.map((row) => [
+            `${tx(row.arrowType)}: ${tx(row.status)}`,
+            formatCompletionPercentage(row.completionPercentage, language),
+            tx(row.prediction || "-")
+          ])
+        }]
+      : []),
     {
       title: tx("Check Personality and Destiny Details"),
       variant: "detailButton",
@@ -410,12 +703,14 @@ function buildPersonalityDestinyExportSections(
 }
 
 async function buildLoShuExportTranslationMap({
+  loShuArrowRows,
   language,
   personalYear,
   repetitionEffects,
   repetitionGeneralNote,
   sectorEffects
 }: {
+  loShuArrowRows?: LoShuArrowPredictionRow[];
   language: ReturnType<typeof useTranslation>["language"];
   personalYear: ReturnType<typeof useNumerologyReport>["personalYear"];
   repetitionEffects: ReturnType<typeof useNumerologyReport>["repetitionEffects"];
@@ -424,7 +719,7 @@ async function buildLoShuExportTranslationMap({
 }) {
   const exportTexts = [
     "Lo Shu Grid",
-    "Birth-date numbers arranged to reveal strengths, missing energies, and life patterns.",
+    // "Birth-date numbers arranged to reveal strengths, missing energies, and life patterns.",
     "Person Details",
     "Full Name",
     "Date of Birth",
@@ -436,6 +731,9 @@ async function buildLoShuExportTranslationMap({
     "Middle Row",
     "Bottom Row",
     "Numbers",
+    "Lo Shu Arrow Predictions",
+    "Present",
+    "Absent",
     "Personality Number",
     "Destiny Number",
     "Kua Number",
@@ -500,6 +798,7 @@ async function buildLoShuExportTranslationMap({
     "Colour",
     "of",
     ...(personalYearNotes || []),
+    ...(loShuArrowRows || []).flatMap((row) => [row.arrowType, row.prediction].filter(Boolean)),
     ...(repetitionEffects || []).flatMap((effect) => [effect.title, effect.meaning].filter((value): value is string => Boolean(value?.trim()))),
     ...(repetitionGeneralNote ? [repetitionGeneralNote] : []),
     ...sectorEffectTabs.map((tab) => tab.title),

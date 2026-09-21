@@ -5,14 +5,12 @@ import { Button, Text } from "react-native-paper";
 
 import { Screen } from "@/components/Screen";
 import { colors, spacing } from "@/constants/theme";
-import { useAuthStore } from "@/store/auth.store";
 import { useSubscriptionStore } from "@/store/subscription.store";
 
 export default function PaymentSuccessScreen() {
-  const roles = useAuthStore((state) => state.roles);
   const payment = useSubscriptionStore((state) => state.lastPayment);
   const subscription = payment?.subscription;
-  const homeRoute = roles.includes("ROLE_ASTROLOGER") ? "/astrologer" : "/(drawer)/(tabs)";
+  const homeRoute = "/astrologer";
 
   return (
     <Screen>

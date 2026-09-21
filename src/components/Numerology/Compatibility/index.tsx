@@ -9,6 +9,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { NumerologyCalculationTabs } from "@/components/Numerology/CalculationTabs";
 import { NumerologyExportButton, NumerologyExportSection } from "@/components/Numerology/NumerologyExport";
 import { defaultGrid } from "@/components/Numerology/Lushu-grid/constants";
+import { LoShuGrid } from "@/components/Numerology/Lushu-grid/LoShuGrid";
 import { localizeDigitsInText } from "@/components/Numerology/Lushu-grid/utils";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { colors, spacing } from "@/constants/theme";
@@ -115,11 +116,6 @@ export function CompatibilityRelationshipScreen() {
           personBDob={personB.dob}
           personBGender={personB.gender}
         />
-        <NumerologyExportButton
-          title={`${t("Compatibility/Relationship")} - ${personA.fullName}`}
-          fileName={`compatibility-relationship-${personA.fullName}-${personB.fullName}`}
-          sections={() => buildCompatibilityExportSections({ language, personA, personB, report, t })}
-        />
         <SectionLabel title={t("Compatibility Analysis")} />
         <PersonReportSection title={t("Lo Shu Grid-A")} name={personA.fullName} gender={personA.gender} fallbackDob={personA.dob} data={report?.personA} />
         <PersonReportSection title={t("Lo Shu Grid-B")} name={personB.fullName} gender={personB.gender} fallbackDob={personB.dob} data={report?.personB} />
@@ -128,6 +124,13 @@ export function CompatibilityRelationshipScreen() {
         <CompatibilityAnalysisTable data={report} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
+      <NumerologyExportButton
+        blink
+        fixed
+        title={`${t("Compatibility/Relationship")} - ${personA.fullName}`}
+        fileName={`compatibility-relationship-${personA.fullName}-${personB.fullName}`}
+        sections={() => buildCompatibilityExportSections({ language, personA, personB, report, t })}
+      />
       <AstrologerBottomNav active="home" respectSafeArea />
     </SafeAreaView>
   );
@@ -198,14 +201,11 @@ function buildCompatibilityExportSections({
     "Synergic Arrow Completion",
     "S. No.",
     "Synergic Arrow",
-    "Golden Arrow",
-    "Mental Arrow",
-    "Action Arrow",
+    ...buildSynergicArrowRows().map((row) => row.label),
     "Compatibility Numerology Analysis",
-    "Complementary Number Shared By Grid (A+B)",
-    "Complementary Number Shared By Grid (A)",
-    "Complementary Number Shared By Grid (B)",
-    "Completionary Arrow Completion",
+    "Complimentary Number Shared By Grid (A) to (B)",
+    "Complimentary Number Shared By Grid (B) to (A)",
+    "Complimentary Arrow Completion",
     "Arrow",
     "Inner Nature",
     "Life Path",
@@ -220,12 +220,14 @@ function buildCompatibilityExportSections({
     ].filter((value): value is string => Boolean(value?.trim()))
   ], language).then((translationMap) => {
     const tx = (text: string) => translationMap.get(text) || t(text);
+    const synergicCounts = getSynergicArrowCounts(report);
+    const complementaryNumbers = getComplementaryNumbers(report);
     const relationRows = [
       [tx("Personality"), localizeDigitsInText(report?.personA?.driverNumber ?? "-", language), localizeDigitsInText(report?.personB?.driverNumber ?? "-", language), report?.compatibility?.personalityStatus ? tx(formatRelation(report.compatibility.personalityStatus)) : "-"],
       [tx("Destiny"), localizeDigitsInText(report?.personA?.destinyNumber ?? "-", language), localizeDigitsInText(report?.personB?.destinyNumber ?? "-", language), report?.compatibility?.destinyStatus ? tx(formatRelation(report.compatibility.destinyStatus)) : "-"],
       [tx("Zodiac"), localizeDigitsInText(report?.personA?.zodiacNumber ?? "-", language), localizeDigitsInText(report?.personB?.zodiacNumber ?? "-", language), report?.compatibility?.zodiacStatus ? tx(formatRelation(report.compatibility.zodiacStatus)) : "-"]
     ].flat();
-    const synergicArrows = buildSynergicArrowChartRows().flatMap((row) => [
+    const synergicArrows = buildCompletedSynergicArrowRows(synergicCounts).flatMap((row) => [
       localizeDigitsInText(row.index, language),
       tx(row.label)
     ]);
@@ -258,15 +260,13 @@ function buildCompatibilityExportSections({
         ],
         [
           "analysis",
-          tx("Compatibility Numerology Analysis"),
-          tx("Complementary Number Shared By Grid (A+B)"),
-          localizeDigitsInText((report?.mixedRepeatedNumbers || []).join(" ") || "-", language),
-          tx("Complementary Number Shared By Grid (A)"),
-          localizeDigitsInText((report?.personA?.repeatedNumbers || []).join(" ") || "-", language),
-          tx("Complementary Number Shared By Grid (B)"),
-          localizeDigitsInText((report?.personB?.repeatedNumbers || []).join(" ") || "-", language),
-          tx("Completionary Arrow Completion"),
-          localizeDigitsInText(`${countCompletedArrows(report?.mixedCounts || {})} ${tx("Arrow")}`, language)
+          tx("Complimentary Number Analysis"),
+          tx("Complimentary Number Shared By Grid (A) to (B)"),
+          localizeDigitsInText(formatNumberList(complementaryNumbers.aToB), language),
+          tx("Complimentary Number Shared By Grid (B) to (A)"),
+          localizeDigitsInText(formatNumberList(complementaryNumbers.bToA), language),
+          tx("Complimentary Arrow Completion"),
+          localizeDigitsInText(`${countCompletedArrows(synergicCounts)} ${tx("Arrow")}`, language)
         ]
       ]
     }
@@ -338,7 +338,7 @@ function PersonReportSection({
         <InfoRow label={t("DOB")} value={localizeDigitsInText(data?.dob || fallbackDob || "-", language)} />
         <InfoRow label={t("Gender")} value={t(gender || "-")} last />
       </View>
-      <GridTable counts={data?.counts} grid={data?.grid} />
+      <LoShuGrid grid={data?.grid} />
       <View style={styles.numberGrid}>
         <NumberCard label={t("Personality Number")} value={data?.driverNumber} note={t("Inner Nature")} />
         <NumberCard label={t("Destiny Number")} value={data?.destinyNumber} note={t("Life Path")} />
@@ -391,19 +391,20 @@ function RelationshipChart({ data }: { data: CompatibilityGridResponse | null })
 
 function SynergicGridSection({ data }: { data: CompatibilityGridResponse | null }) {
   const { language, t } = useTranslation();
-  const arrows = buildSynergicArrowChartRows();
+  const arrows = buildCompletedSynergicArrowRows(getSynergicArrowCounts(data));
 
   return (
     <View style={styles.tablePanel}>
       <SectionLabel title={t("Synergic Grid")} />
-      <GridTable counts={data?.mixedCounts} grid={data?.mixedGrid} emphasized />
+      <LoShuGrid grid={data?.mixedGrid} />
       <Text style={styles.redTableTitle}>{t("Synergic Arrow Completion")}</Text>
-      <View style={styles.table}>
-        <TableRow cells={[t("S. No."), t("Synergic Arrow")]} header />
+      <View style={styles.synergicArrowTable}>
+        <TableRow cells={[t("S. No."), t("Synergic Arrow")]} cellStyle={styles.synergicArrowCell} header />
         {arrows.map((row) => (
           <TableRow
             key={row.label}
             cells={[localizeDigitsInText(row.index, language), t(row.label)]}
+            cellStyle={styles.synergicArrowCell}
           />
         ))}
       </View>
@@ -413,15 +414,16 @@ function SynergicGridSection({ data }: { data: CompatibilityGridResponse | null 
 
 function CompatibilityAnalysisTable({ data }: { data: CompatibilityGridResponse | null }) {
   const { language, t } = useTranslation();
+  const synergicCounts = getSynergicArrowCounts(data);
+  const complementaryNumbers = getComplementaryNumbers(data);
 
   return (
     <View style={styles.tablePanel}>
-      <SectionLabel title={t("Compatibility Numerology Analysis")} />
-      <View style={styles.countGrid}>
-        <InfoRow label={t("Complementary Number Shared By Grid (A+B)")} value={localizeDigitsInText((data?.mixedRepeatedNumbers || []).join(" ") || "-", language)} />
-        <InfoRow label={t("Complementary Number Shared By Grid (A)")} value={localizeDigitsInText((data?.personA?.repeatedNumbers || []).join(" ") || "-", language)} />
-        <InfoRow label={t("Complementary Number Shared By Grid (B)")} value={localizeDigitsInText((data?.personB?.repeatedNumbers || []).join(" ") || "-", language)} />
-        <InfoRow label={t("Completionary Arrow Completion")} value={localizeDigitsInText(`${countCompletedArrows(data?.mixedCounts || {})} ${t("Arrow")}`, language)} last />
+      <Text style={[styles.analysisTitle, styles.borderlessAnalysisTitle]}>{t("Complimentary Number Analysis")}</Text>
+      <View style={styles.borderlessCountGrid}>
+        <InfoRow label={t("Complimentary Number Shared By Grid (A) to (B)")} value={localizeDigitsInText(formatNumberList(complementaryNumbers.aToB), language)} analysis borderless />
+        <InfoRow label={t("Complimentary Number Shared By Grid (B) to (A)")} value={localizeDigitsInText(formatNumberList(complementaryNumbers.bToA), language)} analysis borderless />
+        <InfoRow label={t("Complimentary Arrow Completion")} value={localizeDigitsInText(`${countCompletedArrows(synergicCounts)} ${t("Arrow")}`, language)} analysis borderless last />
       </View>
     </View>
   );
@@ -472,23 +474,23 @@ function GridTable({
   );
 }
 
-function InfoRow({ label, value, last = false }: { label: string; value: string; last?: boolean }) {
+function InfoRow({ analysis = false, borderless = false, label, value, last = false }: { analysis?: boolean; borderless?: boolean; label: string; value: string; last?: boolean }) {
   const { language } = useTranslation();
   return (
     <View style={[styles.infoRow, last && styles.lastRow]}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{localizeDigitsInText(value, language)}</Text>
+      <Text style={[styles.infoLabel, analysis && styles.analysisLabel, borderless && styles.borderlessInfoCell]}>{label}</Text>
+      <Text style={[styles.infoValue, analysis && styles.analysisValue, borderless && styles.borderlessInfoCell]}>{localizeDigitsInText(value, language)}</Text>
     </View>
   );
 }
 
-function TableRow({ cells, header = false }: { cells: string[]; header?: boolean }) {
+function TableRow({ cells, cellStyle, header = false }: { cells: string[]; cellStyle?: object; header?: boolean }) {
   return (
     <View style={[styles.tableRow, header && styles.tableHeader]}>
       {cells.map((cell, index) => (
         <Text
           key={`${cell}-${index}`}
-          style={[styles.tableCell, header && styles.tableHeadCell, index === cells.length - 1 && styles.lastCell]}
+          style={[styles.tableCell, cellStyle, index === 0 && styles.synergicSerialCell, index === 1 && styles.synergicArrowNameCell, header && styles.tableHeadCell, index === cells.length - 1 && styles.lastCell]}
           numberOfLines={3}
           adjustsFontSizeToFit
           minimumFontScale={0.58}
@@ -531,31 +533,82 @@ function formatRelation(value: string) {
 
 function buildSynergicArrowRows() {
   return [
-    { index: "1.", label: "Golden Arrow (4-9-2)", numbers: ["4", "9", "2"] },
-    { index: "2.", label: "Mental Arrow (3-5-7)", numbers: ["3", "5", "7"] },
-    { index: "3.", label: "Action Arrow (8-1-6)", numbers: ["8", "1", "6"] },
-    { index: "4.", label: "Top to Bottom Arrow (4-3-8)", numbers: ["4", "3", "8"] },
-    { index: "5.", label: "Top to Bottom Arrow (9-5-1)", numbers: ["9", "5", "1"] },
-    { index: "6.", label: "Top to Bottom Arrow (2-7-6)", numbers: ["2", "7", "6"] },
-    { index: "7.", label: "Left to Right Corner Arrow (4-5-6)", numbers: ["4", "5", "6"] },
-    { index: "8.", label: "Right to Left Corner Arrow (2-5-8)", numbers: ["2", "5", "8"] }
+    { index: "1.", label: "Emotional Arrow", numbers: ["3", "5", "7"] },
+    { index: "2.", label: "Practical Arrow", numbers: ["8", "1", "6"] },
+    { index: "3.", label: "Thought Arrow", numbers: ["4", "9", "2"] },
+    { index: "4.", label: "Top To Bottom Arrow", numbers: ["4", "3", "8"] },
+    { index: "5.", label: "Determination Arrow", numbers: ["9", "5", "1"] },
+    { index: "6.", label: "Top To Bottom Arrow", numbers: ["2", "7", "6"] },
+    { index: "7.", label: "Left To Right Corner Arrow", numbers: ["4", "5", "6"] },
+    { index: "8.", label: "Right To Left Corner Arrow", numbers: ["2", "5", "8"] }
   ];
 }
 
-function buildSynergicArrowChartRows() {
-  return [
-    { index: "1.", label: "Golden Arrow" },
-    { index: "2.", label: "Mental Arrow" },
-    { index: "3.", label: "Action Arrow" }
-  ];
+function buildCompletedSynergicArrowRows(counts: Record<string, number>) {
+  const completedRows = buildSynergicArrowRows()
+    .filter((arrow) => isArrowCompleted(arrow.numbers, counts))
+    .map((arrow, index) => ({ index: `${index + 1}.`, label: arrow.label }));
+
+  return completedRows.length ? completedRows : [{ index: "-", label: "-" }];
 }
 
 function countCompletedArrows(counts: Record<string, number>) {
-  return buildSynergicArrowRows().reduce((total, arrow) => total + getArrowCount(arrow.numbers, counts), 0);
+  return buildSynergicArrowRows().filter((arrow) => isArrowCompleted(arrow.numbers, counts)).length;
 }
 
-function getArrowCount(numbers: string[], counts: Record<string, number>) {
-  return Math.min(...numbers.map((number) => Number(counts[number] || 0)));
+function getComplementaryNumbers(data: CompatibilityGridResponse | null | undefined) {
+  return {
+    aToB: getNumbersSharedToMissing(data?.personA, data?.personB),
+    bToA: getNumbersSharedToMissing(data?.personB, data?.personA)
+  };
+}
+
+function getNumbersSharedToMissing(source?: LoShuGridResponse, target?: LoShuGridResponse) {
+  const sourceCounts = getNumberCounts(source);
+  const targetMissing = new Set(getMissingNumbers(target));
+  return Array.from({ length: 9 }, (_, index) => String(index + 1)).filter((number) => targetMissing.has(number) && Number(sourceCounts[number] || 0) > 0);
+}
+
+function getMissingNumbers(person?: LoShuGridResponse) {
+  if (person?.missingNumbers?.length) return person.missingNumbers.map(String);
+  const counts = getNumberCounts(person);
+  return Array.from({ length: 9 }, (_, index) => String(index + 1)).filter((number) => Number(counts[number] || 0) <= 0);
+}
+
+function getNumberCounts(person?: LoShuGridResponse) {
+  if (person?.counts) return person.counts;
+  const rows = buildGridRows(person?.grid);
+  return rows.reduce<Record<string, number>>((counts, row) => {
+    row.forEach((cell) => {
+      String(cell || "").match(/\d/g)?.forEach((number) => {
+        counts[number] = (counts[number] || 0) + 1;
+      });
+    });
+    return counts;
+  }, {});
+}
+
+function formatNumberList(values: string[]) {
+  return values.length ? values.join(" ") : "-";
+}
+
+function isArrowCompleted(numbers: string[], counts: Record<string, number>) {
+  return numbers.every((number) => Number(counts[number] || 0) > 0);
+}
+
+function getSynergicArrowCounts(data: CompatibilityGridResponse | null | undefined) {
+  const rows = buildGridRows(data?.mixedGrid, data?.mixedCounts);
+  const positions = [defaultGrid.topRow, defaultGrid.middleRow, defaultGrid.bottomRow];
+
+  return rows.reduce<Record<string, number>>((counts, row, rowIndex) => {
+    row.forEach((cell, colIndex) => {
+      const number = positions[rowIndex]?.[colIndex];
+      if (!number) return;
+      const text = String(cell || "");
+      counts[number] = (text.match(new RegExp(number, "g")) || []).length;
+    });
+    return counts;
+  }, {});
 }
 
 function buildGridRows(grid?: LoShuGridResponse["grid"], counts?: Record<string, number>) {
@@ -587,8 +640,8 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, minWidth: 0, color: colors.ink, fontWeight: "700", fontSize: 15, lineHeight: 19, textAlign: "center" },
   scroll: { flex: 1 },
   content: { alignSelf: "center", width: "100%", maxWidth: 420, backgroundColor: "#ffffc9", padding: spacing.lg, paddingBottom: 104, gap: spacing.lg },
-  sectionLabel: { alignSelf: "center", width: "100%", minHeight: 40, borderRadius: 5, borderWidth: 1, borderColor: "#39a853", backgroundColor: "#bff2c6", alignItems: "flex-start", justifyContent: "center", paddingHorizontal: spacing.md, paddingVertical: 6 },
-  sectionLabelText: { width: "100%", color: "#145c24", fontSize: 18, lineHeight: 28, fontWeight: "900", textAlign: "left", writingDirection: "ltr", includeFontPadding: true },
+  sectionLabel: { alignSelf: "center", width: "100%", minHeight: 40, borderRadius: 5, borderWidth: 1, borderColor: "#39a853", backgroundColor: "#bff2c6", alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.md, paddingVertical: 6 },
+  sectionLabelText: { width: "100%", color: "#145c24", fontSize: 18, lineHeight: 28, fontWeight: "900", textAlign: "center", writingDirection: "ltr", includeFontPadding: true },
   reportBlock: { borderRadius: 8, backgroundColor: "#fff", padding: spacing.md, gap: spacing.md, shadowColor: "#000", shadowOpacity: 0.16, shadowRadius: 5, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
   blockTitle: { color: "#111", fontSize: 14, lineHeight: 18, fontWeight: "900", textAlign: "center" },
   numberGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
@@ -599,27 +652,37 @@ const styles = StyleSheet.create({
   tablePanel: { borderRadius: 8, backgroundColor: "#fff", padding: spacing.md, gap: spacing.sm, shadowColor: "#000", shadowOpacity: 0.16, shadowRadius: 5, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
   tableTitle: { color: "#111", fontSize: 14, lineHeight: 18, fontWeight: "900", textAlign: "center" },
   relationshipTable: { alignSelf: "center", width: "100%", borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#111", backgroundColor: "#fff" },
-  relationshipTitle: { minHeight: 22, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", color: "#111", fontSize: 13, lineHeight: 14, fontWeight: "900", paddingHorizontal: 4, paddingVertical: 3 },
-  relationshipRow: { flexDirection: "row", minHeight: 34 },
-  relationshipCell: { textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", color: "#111", fontSize: 11, lineHeight: 14, fontWeight: "900", paddingHorizontal: 3, paddingVertical: 4 },
-  relationshipHeadCell: { color: "#111", fontSize: 10, lineHeight: 13, fontWeight: "900" },
-  relationshipParticularCell: { flex: 1.35 },
-  relationshipGridCell: { flex: 0.62 },
-  relationshipRelationCell: { flex: 1 },
+  relationshipTitle: { minHeight: 30, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", color: "#111", fontSize: 16, lineHeight: 19, fontWeight: "900", paddingHorizontal: 5, paddingVertical: 6 },
+  relationshipRow: { flexDirection: "row", minHeight: 41 },
+  relationshipCell: { textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", color: "#111", fontSize: 13, lineHeight: 16, fontWeight: "900", paddingHorizontal: 4, paddingVertical: 6 },
+  relationshipHeadCell: { color: "#111", fontSize: 12, lineHeight: 15, fontWeight: "900" },
+  relationshipParticularCell: { flex: 1.85 },
+  relationshipGridCell: { flex: 0.58 },
+  relationshipRelationCell: { flex: 0.95 },
   relationshipRelationText: { color: "#d71920" },
-  redTableTitle: { borderWidth: 1, borderColor: "#f2b7b7", backgroundColor: "#fff", color: "#d71920", fontSize: 14, lineHeight: 18, fontWeight: "900", textAlign: "left", paddingHorizontal: 6, paddingVertical: 5 },
+  redTableTitle: { borderWidth: 1, borderColor: "#f2b7b7", backgroundColor: "#ffc6d9", color: "#111", fontSize: 15, lineHeight: 19, fontWeight: "900", textAlign: "center", paddingHorizontal: 6, paddingVertical: 7 },
   table: { borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#111", backgroundColor: "#fff" },
-  tableRow: { flexDirection: "row", minHeight: 34 },
+  synergicArrowTable: { borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#111", backgroundColor: "#fff" },
+  tableRow: { flexDirection: "row", minHeight: 41 },
   tableHeader: { backgroundColor: "#fff" },
-  tableCell: { flex: 1, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", color: "#111", fontSize: 12, lineHeight: 15, fontWeight: "800", paddingHorizontal: 4, paddingVertical: 5 },
-  tableHeadCell: { color: "#111", fontSize: 11, lineHeight: 14, fontWeight: "900" },
+  tableCell: { flex: 1, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", color: "#111", fontSize: 14, lineHeight: 18, fontWeight: "900", paddingHorizontal: 5, paddingVertical: 6 },
+  synergicArrowCell: { fontSize: 14, lineHeight: 18 },
+  synergicSerialCell: { flex: 0.55 },
+  synergicArrowNameCell: { flex: 1.45 },
+  tableHeadCell: { color: "#111", fontSize: 13, lineHeight: 16, fontWeight: "900" },
   lastCell: { borderRightWidth: 1 },
   infoTable: { borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#111", backgroundColor: "#fff" },
   infoRow: { minHeight: 32, flexDirection: "row" },
   lastRow: {},
   infoLabel: { flex: 0.75, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", backgroundColor: "#fff", color: "#111", fontSize: 11, lineHeight: 14, fontWeight: "900", paddingHorizontal: 4, paddingVertical: 5 },
   infoValue: { flex: 1.25, textAlign: "center", textAlignVertical: "center", borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", color: "#111", fontSize: 12, lineHeight: 15, fontWeight: "800", paddingHorizontal: 4, paddingVertical: 5 },
+  analysisTitle: { minHeight: 46, textAlign: "center", textAlignVertical: "center", borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111", backgroundColor: "#ffc6d9", color: "#111", fontSize: 16, lineHeight: 20, fontWeight: "900", paddingHorizontal: 8, paddingVertical: 8 },
+  analysisLabel: { flex: 1.65, fontSize: 14, lineHeight: 17, paddingVertical: 7 },
+  analysisValue: { flex: 0.85, fontSize: 15, lineHeight: 19, fontWeight: "900", paddingVertical: 7 },
   countGrid: { borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#111", backgroundColor: "#fff" },
+  borderlessAnalysisTitle: { borderWidth: 0 },
+  borderlessCountGrid: { backgroundColor: "#fff" },
+  borderlessInfoCell: { borderRightWidth: 0, borderBottomWidth: 0 },
   gridShadowWrap: {
     alignSelf: "center",
     width: 204,

@@ -1,10 +1,19 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ImageBackground, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Button, Text } from "react-native-paper";
+import { Badge, Button, IconButton, Text } from "react-native-paper";
 
 import { AstrologerCard } from "@/components/AstrologerCard";
+import {
+  AstrologerFilterModal,
+  AstrologerFilterState,
+  defaultAstrologerFilters,
+  filterAstrologers,
+  getActiveAstrologerFilterCount,
+  getAstrologerFilterOptions,
+  getAstrologerRouteId
+} from "@/components/AstrologerFilters";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { EmptyState, ErrorState, SkeletonRow } from "@/components/StateViews";
 import { ServiceTile } from "@/components/ServiceTile";
@@ -17,15 +26,15 @@ import { useWalletStore } from "@/store/wallet.store";
 import { getUserPublicId } from "@/utils/user";
 
 const quickServices = [
-  ["Horoscope", "zodiac-aries"],
+  ["Horoscope", "om"],
   ["Daily Predictions", "weather-sunset"],
-  ["Horoscope Compatibility", "heart-multiple"],
-  ["Kundali", "file-document-outline"],
+  ["Horoscope Compatibility", "hand-heart"],
+  ["Kundali", "script-text"],
   ["Match Making PDF", "account-heart-outline"],
   ["Apsra Astro Profile", "account-star-outline"],
-  ["Today's Muhurta", "calendar-star"],
-  ["Panchang", "calendar-month"],
-  ["Numeroscope", "numeric"],
+  ["Muhurta", "calendar-star"],
+  ["Today's Panchang", "calendar-month"],
+  ["Numeroscope", "numeric-9-plus-circle"],
   ["E-Pooja", "hands-pray"]
 ] as const;
 
@@ -37,16 +46,29 @@ export function HomeScreen() {
   const balance = useWalletStore((state) => state.balance);
   const astrologers = useAstrologers();
   const [refreshing, setRefreshing] = useState(false);
+  const [comingSoonService, setComingSoonService] = useState("");
+  const [filters, setFilters] = useState<AstrologerFilterState>(defaultAstrologerFilters);
+  const [filterVisible, setFilterVisible] = useState(false);
   const displayName = useMemo(() => {
     const profile = user as { firstName?: string; displayName?: string } | null;
     return profile?.firstName || profile?.displayName || "User";
   }, [user]);
+  const astrologerData = astrologers.data || [];
+  const filterOptions = useMemo(() => getAstrologerFilterOptions(astrologerData), [astrologerData]);
+  const filteredAstrologers = useMemo(() => filterAstrologers(astrologerData, filters), [astrologerData, filters]);
+  const activeFilterCount = getActiveAstrologerFilterCount(filters);
 
   const refresh = async () => {
     setRefreshing(true);
     await astrologers.refetch();
     setRefreshing(false);
   };
+
+  useEffect(() => {
+    if (!comingSoonService) return;
+    const timeout = setTimeout(() => setComingSoonService(""), 1200);
+    return () => clearTimeout(timeout);
+  }, [comingSoonService]);
 
   return (
     <ScrollView
@@ -72,6 +94,7 @@ export function HomeScreen() {
             key={title}
             title={title}
             icon={icon}
+            notice={comingSoonService === title ? "Coming Soon" : undefined}
             onPress={() => {
               if (title === "Horoscope") {
                 router.push("/my-horoscope");
@@ -87,6 +110,10 @@ export function HomeScreen() {
               }
               if (title === "Apsra Astro Profile") {
                 router.push("/apsara-astro-profile");
+                return;
+              }
+              if (title === "Muhurta" || title === "Today's Panchang") {
+                setComingSoonService(title);
                 return;
               }
               router.push(`/feature/${encodeURIComponent(title)}`);
@@ -107,8 +134,14 @@ export function HomeScreen() {
       </ImageBackground>
 
       <View style={styles.sectionHeader}>
-        <Text variant="titleLarge" style={styles.sectionTitleText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Top Astrologers")}</Text>
-        <Button mode="text" onPress={() => router.push("/astrologers")}>{t("View all")}</Button>
+        <Text variant="titleLarge" style={styles.sectionTitleText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Top Astrologers & Numerologist")}</Text>
+        <View style={styles.sectionActions}>
+          <View style={styles.filterIconWrap}>
+            <IconButton icon="tune-variant" mode="contained-tonal" size={20} onPress={() => setFilterVisible(true)} />
+            {activeFilterCount ? <Badge style={styles.filterBadge}>{activeFilterCount}</Badge> : null}
+          </View>
+          <Button mode="text" compact onPress={() => router.push("/astrologers")}>{t("View all")}</Button>
+        </View>
       </View>
       {astrologers.isLoading ? (
         <>
@@ -117,14 +150,17 @@ export function HomeScreen() {
         </>
       ) : astrologers.isError ? (
         <ErrorState message="Unable to load astrologers" onRetry={() => astrologers.refetch()} />
-      ) : astrologers.data?.length ? (
-        astrologers.data.slice(0, 4).map((astrologer) => (
+      ) : filteredAstrologers.length ? (
+        filteredAstrologers.slice(0, 4).map((astrologer) => (
           <AstrologerCard
             key={astrologer.publicId || astrologer.email}
             astrologer={astrologer}
             onChat={() => router.push("/chat")}
             onCall={() => router.push("/call")}
-            onView={() => router.push(`/astrologers/${astrologer.publicId}`)}
+            onView={() => {
+              const routeId = getAstrologerRouteId(astrologer);
+              if (routeId) router.push(`/astrologers/${routeId}`);
+            }}
           />
         ))
       ) : (
@@ -157,6 +193,13 @@ export function HomeScreen() {
           </View>
         ))}
       </View>
+      <AstrologerFilterModal
+        filters={filters}
+        onChange={setFilters}
+        onClose={() => setFilterVisible(false)}
+        options={filterOptions}
+        visible={filterVisible}
+      />
     </ScrollView>
   );
 }
@@ -176,6 +219,9 @@ const styles = StyleSheet.create({
   bannerText: { color: colors.cream, lineHeight: 21 },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
   sectionTitleText: { flex: 1, minWidth: 0 },
+  sectionActions: { flexDirection: "row", alignItems: "center", gap: spacing.xs, flexShrink: 0 },
+  filterIconWrap: { alignItems: "center", justifyContent: "center" },
+  filterBadge: { position: "absolute", top: 2, right: 1, backgroundColor: colors.danger },
   band: { borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.md },
   pillRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   blockTitle: { lineHeight: 28 },

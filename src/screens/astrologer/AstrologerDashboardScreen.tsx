@@ -1,10 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
-import { Image, ImageBackground, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Image, ImageBackground, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Text } from "react-native-paper";
+import { Badge, IconButton, Text } from "react-native-paper";
 
+import {
+  AstrologerFilterModal,
+  AstrologerFilterState,
+  defaultAstrologerFilters,
+  filterAstrologers,
+  getActiveAstrologerFilterCount,
+  getAstrologerFilterOptions
+} from "@/components/AstrologerFilters";
 import { AstrologerBottomNav, AstrologerSideDrawer } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { LoadingState } from "@/components/StateViews";
@@ -19,17 +27,17 @@ import { getUserPublicId } from "@/utils/user";
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
 const services: { label: string; icon: IconName; route?: string }[] = [
-  { label: "Daily\nPredictions", icon: "weather-sunny" },
-  { label: "Horoscope", icon: "zodiac-aries", route: "/astrologer/my-horoscope" },
-  { label: "Compatibility", icon: "heart-multiple" },
-  { label: "Kundali", icon: "file-document-outline", route: "/kundali-pdf" },
-  { label: "Match Making PDF", icon: "account-heart-outline", route: "/match-making-pdf" },
-  { label: "Apsra Astro Profile", icon: "account-star-outline", route: "/apsara-astro-profile" },
-  { label: "Today's\nMuhurta", icon: "calendar-star" },
+  // { label: "Daily\nPredictions", icon: "weather-sunny" },
+  { label: "Horoscope", icon: "om", route: "/astrologer/my-horoscope" },
+  { label: "Compatibility", icon: "hand-heart", route: "/match-making-pdf" },
+  { label: "Kundali", icon: "script-text", route: "/kundali-pdf" },
+  // { label: "Match Making PDF", icon: "account-heart-outline", route: "/match-making-pdf" },
+  // { label: "Apsra Astro Profile", icon: "account-star-outline", route: "/apsara-astro-profile" },
+  { label: "Muhurta", icon: "calendar-star" },
   { label: "Today's\nPanchang", icon: "script-text" },
-  { label: "Numeroscope", icon: "numeric", route: "/astrologer/numerology" },
-  { label: "E-Pooja", icon: "home-heart" },
-  { label: "Store", icon: "shopping" }
+  { label: "Numeroscope", icon: "numeric-9-plus-circle", route: "/astrologer/numerology" },
+  // { label: "E-Pooja", icon: "home-heart" },
+  // { label: "Store", icon: "shopping" }
 ];
 
 const fallbackExperts: Astrologer[] = [
@@ -43,6 +51,10 @@ const fallbackExperts: Astrologer[] = [
 
 export function AstrologerDashboardScreen() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [comingSoonService, setComingSoonService] = useState("");
+  const [filters, setFilters] = useState<AstrologerFilterState>(defaultAstrologerFilters);
+  const [filterVisible, setFilterVisible] = useState(false);
+  const comingSoonOpacity = useRef(new Animated.Value(0)).current;
   const { t } = useTranslation();
   const astrologers = useAstrologers();
   const isAuthLoaded = useAuthStore((state) => state.isAuthLoaded);
@@ -51,16 +63,31 @@ export function AstrologerDashboardScreen() {
   const user = useAuthStore((state) => state.user);
   const accessToken = useAuthStore((state) => state.accessToken);
   const userPublicId = getUserPublicId(user, accessToken);
-  const signOut = useAuthStore((state) => state.signOut);
   const name = useMemo(() => {
     const profile = user as { firstName?: string; displayName?: string; fullName?: string } | null;
     return profile?.displayName || profile?.fullName || profile?.firstName || "Ananya";
   }, [user]);
   const initials = useMemo(() => getUserInitials(user), [user]);
+  const profileRoute = roles.includes("ROLE_ASTROLOGER") ? "/astrologer/profile-me" : "/(drawer)/(tabs)/profile";
   const homeExperts = useMemo(() => {
     const data = astrologers.data?.length ? astrologers.data : fallbackExperts;
-    return data.slice(0, 6);
+    return data;
   }, [astrologers.data]);
+  const filterOptions = useMemo(() => getAstrologerFilterOptions(homeExperts), [homeExperts]);
+  const filteredHomeExperts = useMemo(() => filterAstrologers(homeExperts, filters), [filters, homeExperts]);
+  const activeFilterCount = getActiveAstrologerFilterCount(filters);
+
+  const showComingSoon = (label: string) => {
+    setComingSoonService(label);
+    comingSoonOpacity.stopAnimation();
+    comingSoonOpacity.setValue(0);
+    Animated.sequence([
+      Animated.timing(comingSoonOpacity, { toValue: 1, duration: 140, useNativeDriver: true }),
+      Animated.timing(comingSoonOpacity, { toValue: 0, duration: 140, useNativeDriver: true }),
+      Animated.timing(comingSoonOpacity, { toValue: 1, duration: 140, useNativeDriver: true }),
+      Animated.timing(comingSoonOpacity, { toValue: 0, duration: 900, useNativeDriver: true })
+    ]).start(() => setComingSoonService(""));
+  };
 
   useEffect(() => {
     if (!isAuthLoaded) return;
@@ -68,12 +95,9 @@ export function AstrologerDashboardScreen() {
       router.replace({ pathname: "/(auth)/login", params: { mode: "astrologer" } });
       return;
     }
-    if (!roles.includes("ROLE_ASTROLOGER")) {
-      router.replace("/(drawer)/(tabs)");
-    }
-  }, [isAuthLoaded, isLoggedIn, roles]);
+  }, [isAuthLoaded, isLoggedIn]);
 
-  if (!isAuthLoaded || !isLoggedIn || !roles.includes("ROLE_ASTROLOGER")) {
+  if (!isAuthLoaded || !isLoggedIn) {
     return <LoadingState label="Opening login" />;
   }
 
@@ -84,26 +108,26 @@ export function AstrologerDashboardScreen() {
           <Pressable style={styles.iconTap} onPress={() => setDrawerOpen(true)}>
             <MaterialCommunityIcons name="menu" size={25} color={colors.ink} />
           </Pressable>
-          <Image source={require("@/assets/new_logo_apsara.jpeg")} resizeMode="cover" style={styles.headerLogo} />
+          <Image source={require("@/assets/apsra-astro-logo.png")} resizeMode="cover" style={styles.headerLogo} />
           <View style={styles.brandBlock}>
             <Text style={styles.logoText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
               Apsra Astro
             </Text>
             <Text style={styles.tagline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6}>{t("ACCOUNT PREDICTIONS SACRED RITUALS ACCESSIBLE")}</Text>
           </View>
-          <View style={styles.wallet}>
+          {/* <View style={styles.wallet}>
             <Text style={styles.walletText}>Rs. 50</Text>
             <MaterialCommunityIcons name="plus-circle" size={18} color={colors.success} />
-          </View>
+          </View> */}
           <LanguageSelector />
-          <Pressable style={styles.notificationTap}>
+          {/* <Pressable style={styles.notificationTap}>
             <MaterialCommunityIcons name="bell-outline" size={20} color={colors.cocoa} />
-          </Pressable>
+          </Pressable> */}
         </View>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.profileCard}>
             <View style={styles.profileRow}>
-              <Pressable style={styles.avatar} onPress={() => router.push("/astrologer/profile-me")}>
+              <Pressable style={styles.avatar} onPress={() => router.push(profileRoute as never)}>
                 <Text style={styles.avatarText}>{initials}</Text>
               </Pressable>
               <View style={styles.profileCopy}>
@@ -121,11 +145,7 @@ export function AstrologerDashboardScreen() {
 
           {userPublicId ? <SubscriptionStatusCard userPublicId={userPublicId} compact /> : null}
 
-          <View style={styles.search}>
-            <MaterialCommunityIcons name="magnify" size={18} color="#111" />
-            <View style={styles.searchLine} />
-            <MaterialCommunityIcons name="microphone-outline" size={18} color="#333" />
-          </View>
+          {/* SS */}
 
           <SectionTitle title={t("Astrology Tools")} />
           <View style={styles.serviceGrid}>
@@ -134,16 +154,25 @@ export function AstrologerDashboardScreen() {
               return (
               <Pressable
                 key={service.label}
-                disabled={!enabled}
-                onPress={service.route ? () => router.push(service.route as never) : undefined}
-                style={[styles.serviceItem, !enabled && styles.serviceItemMuted]}
+                onPress={service.route ? () => router.push(service.route as never) : () => showComingSoon(service.label)}
+                style={({ pressed }) => [
+                  styles.serviceItem,
+                  !enabled && styles.serviceItemMuted,
+                  pressed && styles.serviceItemPressed
+                ]}
               >
                 <View style={[styles.serviceCircle, enabled && styles.serviceCircleActive]}>
-                  <MaterialCommunityIcons name={service.icon} size={24} color={enabled ? colors.amber : "#9d8d60"} />
+                  <MaterialCommunityIcons name={service.icon} size={20} color={enabled ? colors.amber : "#9d8d60"} />
                 </View>
-                <Text style={styles.serviceText} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.68}>
-                  {t(service.label)}
-                </Text>
+                {comingSoonService === service.label ? (
+                  <Animated.Text style={[styles.serviceText, styles.comingSoonText, { opacity: comingSoonOpacity }]} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.68}>
+                    {t("Coming Soon")}
+                  </Animated.Text>
+                ) : (
+                  <Text style={styles.serviceText} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.68}>
+                    {t(service.label)}
+                  </Text>
+                )}
               </Pressable>
               );
             })}
@@ -156,48 +185,81 @@ export function AstrologerDashboardScreen() {
             </View>
             <Text style={styles.claim}>{t("Claim Your\nFirst\nFree Chat")}</Text>
           </View>
-          <Text style={styles.caption}>{t("Talk with any of our certified Astrologers, Numerologist, Palmist, Tarot Reader, Graphologist, Vastu Experts, Gem Stone Consultant")}</Text>
+          <Text style={styles.caption}>{t("Consult with any of our verified professionals.")}</Text>
 
-          <SectionTitle title={t("Top Astrologers & Numerologist")} action={t("View all")} onAction={() => router.push("/astrologers")} />
-          <ExpertRow astrologers={homeExperts} />
+          <SectionTitle
+            title={t("Top Astrologers & Numerologist")}
+            action={t("View all")}
+            activeFilterCount={activeFilterCount}
+            onAction={() => router.push("/astrologers")}
+            onFilter={() => setFilterVisible(true)}
+          />
+          <ExpertRow astrologers={filteredHomeExperts} />
 
           <View style={styles.pageTwo}>
-            <Text style={styles.subhead}>{t("Gem stone & Pyrites")}</Text>
+            {/* <Text style={styles.subhead}>{t("Gem stone & Pyrites")}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gems}>
               {Array.from({ length: 7 }).map((_, index) => (
                 <View key={index} style={styles.gemOuter}>
                   <View style={styles.gemInner} />
                 </View>
               ))}
-            </ScrollView>
+            </ScrollView> */}
 
-            <Text style={styles.subhead}>{t("Apsra Astro Blogs")}</Text>
+            {/* <Text style={styles.subhead}>{t("Apsra Astro Blogs")}</Text>
             <View style={styles.blogRow}>
               {[0, 1, 2].map((item) => <View key={item} style={styles.blogCard} />)}
-            </View>
+            </View> */}
 
             <View style={styles.trustRow}>
               <TrustItem icon="account-check" label={t("Verified\nProfessionals")} />
-              <TrustItem icon="lock-check" label={t("Confidential\nConsultation")} />
-              <TrustItem icon="cash-lock" label={t("Seamless &\nSecure\nPayment")} />
+              <TrustItem icon="lock-check" label={t("Confidentiality")} />
+              <TrustItem icon="cash-lock" label={t("Secure Payment Gateway")} />
             </View>
           </View>
         </ScrollView>
 
         <AstrologerBottomNav />
+        <AstrologerFilterModal
+          filters={filters}
+          onChange={setFilters}
+          onClose={() => setFilterVisible(false)}
+          options={filterOptions}
+          visible={filterVisible}
+        />
         <AstrologerSideDrawer visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
       </View>
     </SafeAreaView>
   );
 }
 
-function SectionTitle({ title, action, crown, onAction }: { title: string; action?: string; crown?: boolean; onAction?: () => void }) {
+function SectionTitle({
+  activeFilterCount = 0,
+  action,
+  crown,
+  onAction,
+  onFilter,
+  title
+}: {
+  activeFilterCount?: number;
+  action?: string;
+  crown?: boolean;
+  onAction?: () => void;
+  onFilter?: () => void;
+  title: string;
+}) {
   return (
     <View style={styles.sectionTitle}>
       <View style={styles.titleRow}>
         {crown ? <MaterialCommunityIcons name="crown" size={19} color="#d59a13" /> : null}
         <Text style={styles.sectionText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{title}</Text>
       </View>
+      {onFilter ? (
+        <View style={styles.sectionFilterWrap}>
+          <IconButton icon="tune-variant" mode="contained-tonal" size={17} onPress={onFilter} style={styles.sectionFilter} />
+          {activeFilterCount ? <Badge style={styles.sectionFilterBadge}>{activeFilterCount}</Badge> : null}
+        </View>
+      ) : null}
       {action ? (
         <Pressable onPress={onAction} hitSlop={8}>
           <Text style={styles.viewAll}>{action}</Text>
@@ -241,25 +303,59 @@ function getUserInitials(user: unknown) {
 
 function ExpertRow({ astrologers }: { astrologers: Astrologer[] }) {
   const { t } = useTranslation();
+  const { width } = useWindowDimensions();
+  const pageWidth = Math.min(width, 430) - spacing.md * 2;
+  const cardWidth = (pageWidth - spacing.sm * 2) / 3;
+  const pages = chunkExperts(astrologers, 6);
+
   return (
-    <View style={styles.expertRow}>
-      {astrologers.map((astrologer, index) => {
-        const name = getExpertName(astrologer);
-        return (
-        <Pressable key={astrologer.publicId || astrologer.email || name} disabled style={styles.expertCard}>
-          <Text style={styles.expertRole} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t(astrologer.specialization || "Astrologer")}</Text>
-          <View style={styles.expertPhoto}>
-            <MaterialCommunityIcons name="account-circle" size={58} color={index % 2 === 0 ? "#1a1a1a" : "#3b2517"} />
-            <View style={styles.expertShade}>
-              <Text style={styles.expertName} numberOfLines={1}>{name}</Text>
-              <Text style={styles.price}>Rs. {astrologer.pricePerMinute || 30}/min</Text>
-            </View>
-          </View>
-        </Pressable>
-        );
-      })}
-    </View>
+    <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={styles.expertCarousel}>
+      {pages.map((page, pageIndex) => (
+        <View key={`expert-page-${pageIndex}`} style={[styles.expertPage, { width: pageWidth }]}>
+          {page.map((astrologer, index) => {
+            const name = getExpertName(astrologer);
+            const experience = astrologer.yearsOfExperience;
+            const routeId = encodeURIComponent(astrologer.publicId || astrologer.userId || astrologer.email || "");
+            const openExpert = () => router.push(routeId ? `/astrologers/${routeId}` : "/astrologers");
+            return (
+            <Pressable key={astrologer.publicId || astrologer.email || `${name}-${pageIndex}-${index}`} style={({ pressed }) => [styles.expertCard, { width: cardWidth }, pressed && styles.expertCardPressed]} onPress={openExpert}>
+              <View style={styles.expertAvatar}>
+                <Text style={styles.expertAvatarText}>{getExpertInitial(astrologer)}</Text>
+              </View>
+              <Text style={styles.expertName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{name}</Text>
+              <Text style={styles.expertRole} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t(astrologer.specialization || "Astrologer")}</Text>
+              <View style={styles.expertMetaRow}>
+                <Text style={styles.expertMeta} numberOfLines={1}>{experience ? formatExperience(experience) : t("New")}</Text>
+                <Text style={styles.price} numberOfLines={1}>Rs. {astrologer.pricePerMinute || 30}/min</Text>
+              </View>
+            </Pressable>
+            );
+          })}
+        </View>
+      ))}
+    </ScrollView>
   );
+}
+
+function chunkExperts(astrologers: Astrologer[], size: number) {
+  const pages: Astrologer[][] = [];
+  for (let index = 0; index < astrologers.length; index += size) {
+    pages.push(astrologers.slice(index, index + size));
+  }
+  return pages;
+}
+
+function getExpertInitial(astrologer: Astrologer) {
+  const name = astrologer.displayName || getExpertName(astrologer);
+  return name.trim().charAt(0).toUpperCase() || "A";
+}
+
+function formatExperience(experience: number | string) {
+  const years = Number(experience);
+  if (Number.isFinite(years)) {
+    return `${experience} ${years === 1 ? "year" : "years"}`;
+  }
+  return String(experience).toLowerCase().includes("year") ? String(experience) : `${experience} years`;
 }
 
 function TrustItem({ icon, label }: { icon: IconName; label: string }) {
@@ -282,15 +378,6 @@ function StatPill({ label, value }: { label: string; value: string }) {
   );
 }
 
-function NavItem({ icon, label, onPress }: { icon: IconName; label: string; onPress?: () => void }) {
-  return (
-    <Pressable disabled={!onPress} onPress={onPress} style={styles.navItem}>
-      <MaterialCommunityIcons name={icon} size={30} color="#050505" />
-      <Text style={styles.navText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.cream },
   phone: { flex: 1, alignSelf: "center", width: "100%", maxWidth: 430, backgroundColor: colors.cream },
@@ -299,10 +386,10 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", minHeight: 62, gap: 5, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: spacing.sm },
   iconTap: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#fff7df", borderWidth: 1, borderColor: colors.border },
   notificationTap: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#fff7df", borderWidth: 1, borderColor: colors.border },
-  headerLogo: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.ink },
+  headerLogo: { width: 47, height: 42,marginTop: 8 },
   brandBlock: { flex: 1, minWidth: 96 },
   logoText: { fontSize: 16, lineHeight: 20, fontWeight: "900", color: colors.ink },
-  wallet: { minWidth: 62, borderWidth: 1, borderColor: "#d7eac8", borderRadius: 17, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 6, height: 32, backgroundColor: "#f8fff3" },
+  wallet: { minWidth: 10, borderWidth: 1, borderColor: "#d7eac8", borderRadius: 17, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 6, height: 32, backgroundColor: "#f8fff3" },
   walletText: { fontSize: 11, lineHeight: 13, color: colors.ink, fontWeight: "900" },
   tagline: { color: colors.amber, fontSize: 6, lineHeight: 8, fontWeight: "800" },
   profileCard: { marginTop: spacing.md, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: spacing.md, gap: spacing.md },
@@ -319,48 +406,68 @@ const styles = StyleSheet.create({
   statLabel: { color: colors.cocoa, fontSize: 11, fontWeight: "700" },
   search: { height: 42, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface, flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md },
   searchLine: { flex: 1 },
-  serviceGrid: {width: "100%", flexDirection: "row", flexWrap: "wrap",  rowGap: 10},
-  serviceItem: { width: "31.5%",marginHorizontal: 3, minHeight: 56, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.sm, paddingVertical: spacing.md },
-  serviceItemMuted: { opacity: 0.72 },
-  serviceCircle: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#fff4ce", borderColor: colors.border, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  serviceGrid: { width: "100%", flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 12 },
+  serviceItem: {
+    width: "31.5%",
+    minHeight: 112,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ead79a",
+    backgroundColor: "#fffdf8",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.md,
+    shadowColor: "#6b4a08",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 7,
+    elevation: 3
+  },
+  serviceItemPressed: { opacity: 0.86, transform: [{ scale: 0.98 }] },
+  serviceItemMuted: { backgroundColor: "#fff9ea", borderColor: "#eadcae", borderStyle: "dashed" },
+  serviceCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#fff4ce", borderColor: "#f0df9c", borderWidth: 1, alignItems: "center", justifyContent: "center" },
   serviceCircleActive: { borderColor: colors.gold, backgroundColor: "#fff0b8" },
-  serviceText: { width: "100%", minHeight: 44, marginTop: spacing.sm, fontSize: 12, lineHeight: 22, textAlign: "center", fontWeight: "900", color: colors.ink, includeFontPadding: true },
+  serviceText: { width: "100%", minHeight: 36, marginTop: spacing.sm, fontSize: 12, lineHeight: 15, textAlign: "center", fontWeight: "900", color: colors.ink, includeFontPadding: true },
+  comingSoonText: { color: colors.amber },
   chatBanner: { height: 92, borderRadius: 8, borderWidth: 1, borderColor: colors.border, overflow: "hidden", flexDirection: "row", backgroundColor: "#ecf8e8" },
   bannerPhoto: { width: 114, height: "100%" },
   bannerPhotoImage: { resizeMode: "cover" },
   bannerCopy: { justifyContent: "center", alignItems: "center", width: 108 },
   chatNow: { fontFamily: "serif", fontSize: 29, lineHeight: 31, fontWeight: "900", color: "#111", textAlign: "center" },
   claim: { flex: 1, fontFamily: "serif", alignSelf: "center", textAlign: "center", fontSize: 18, lineHeight: 21, fontWeight: "900", color: "#111" },
-  caption: { marginTop: 6, fontFamily: "serif", fontSize: 10, lineHeight: 14, color: "#111" },
+  caption: { marginTop: 2, fontFamily: "serif", fontSize: 12, lineHeight: 14, color: "#111" },
   sectionTitle: { marginTop: 12, marginBottom: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
   titleRow: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 4 },
   sectionText: { flex: 1, minWidth: 0, fontFamily: "serif", fontSize: 13, lineHeight: 16, fontWeight: "900", color: "#111" },
+  sectionFilterWrap: { alignItems: "center", justifyContent: "center" },
+  sectionFilter: { width: 34, height: 34, margin: 0 },
+  sectionFilterBadge: { position: "absolute", top: -3, right: -3, backgroundColor: colors.danger },
   viewAll: { fontFamily: "serif", fontSize: 12, color: "#777" },
-  expertRow: {borderRadius :8, flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 },
-  // expertCard: { width: "30.5%", backgroundColor: "#f8fff5" },
+  expertCarousel: { alignItems: "flex-start" },
+  expertPage: { flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-start", columnGap: spacing.sm, rowGap: spacing.sm },
   expertCard: {
-  width: "30.5%",
-  backgroundColor: "#f8fff5",
-
-  // Shadow (iOS)
-  shadowColor: "#000",
-  shadowOffset: {
-    width: 0,
-    height: 2,
+    minHeight: 154,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e5d59b",
+    backgroundColor: "#fffdf8",
+    padding: spacing.sm,
+    alignItems: "center",
+    shadowColor: "#60481f",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 7,
+    elevation: 3
   },
-  shadowOpacity: 0.15,
-  shadowRadius: 8,
-  // borderRadius: 8,
-
-  // Shadow (Android)
-  elevation: 4,
-  // paddingBottom: 4,
-},
-  expertRole: { minHeight: 38, paddingHorizontal: 3, borderRadius:8, textAlign: "center", textAlignVertical: "center", fontSize: 10, lineHeight: 13, color: "#111" },
-  expertPhoto: { height: 100, justifyContent: "flex-end", alignItems: "center", backgroundColor: "#e2f6df" },
-  expertShade: { alignSelf: "stretch", minHeight: 42, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.28)", paddingHorizontal: 4 },
-  expertName: { fontFamily: "serif", fontSize: 16, lineHeight: 19, color: "#fff", fontWeight: "900" },
-  price: { fontSize: 10, color: "#fff",paddingBottom: 2 },
+  expertCardPressed: { opacity: 0.86, transform: [{ scale: 0.98 }] },
+  expertAvatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: colors.gold, backgroundColor: "#fff4ce", alignItems: "center", justifyContent: "center", marginBottom: spacing.xs },
+  expertAvatarText: { color: colors.ink, fontSize: 22, lineHeight: 27, fontWeight: "900" },
+  expertName: { width: "100%", minHeight: 20, textAlign: "center", fontSize: 13, lineHeight: 17, color: colors.ink, fontWeight: "900" },
+  expertRole: { width: "100%",  marginTop: 2, textAlign: "center", fontSize: 10, lineHeight: 13, color: colors.cocoa, fontWeight: "700" },
+  expertMetaRow: { width: "100%", marginTop: 4,  justifyContent: "flex-end", gap: 3 },
+  expertMeta: { alignSelf: "center", maxWidth: "100%", borderRadius: 8, backgroundColor: "#f8fff5", borderWidth: 1, borderColor: "#d7eac8", paddingHorizontal: 6, paddingVertical: 2, fontSize: 9, lineHeight: 12, color: colors.success, fontWeight: "900", overflow: "hidden" },
+  price: { width: "100%", textAlign: "center", fontSize: 10, lineHeight: 13, color: colors.amber, fontWeight: "900" },
   pageTwo: { paddingTop: 22 },
   subhead: { marginTop: 8, marginBottom: 8, marginLeft: 0, fontFamily: "serif", fontSize: 13, lineHeight: 17, color: "#111", fontWeight: "700" },
   gems: { gap: 10, paddingHorizontal: 0},
@@ -368,13 +475,11 @@ const styles = StyleSheet.create({
   gemInner: { width: 31, height: 31, borderRadius: 16, backgroundColor: "#22160d", borderWidth: 5, borderColor: "#fff6e2" },
   blogRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
   blogCard: { width: "30.5%", height: 126, borderRadius: 12, borderWidth: 4, borderColor: "#073b4a", backgroundColor: "#d5f4d7" },
-  trustRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 48, marginBottom: 20 },
+  trustRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 2, marginBottom: 2 },
   trustItem: { width: "31%", alignItems: "center" },
-  trustCircle: { width: 70, height: 70, borderRadius: 35, borderWidth: 4, borderColor: "#3e9b35", alignItems: "center", justifyContent: "center", backgroundColor: "#f8fff7" },
-  trustText: { width: "100%", minHeight: 48, marginTop: 8, textAlign: "center", fontFamily: "serif", fontSize: 14, lineHeight: 16, color: "#111", fontWeight: "900" },
+  trustCircle: { width: 70, height: 70, borderRadius: 35, borderWidth: 1, borderColor: "#3e9b35", alignItems: "center", justifyContent: "center", backgroundColor: "#f8fff7" },
+  trustText: { width: "100%", minHeight: 48, marginTop: 8, textAlign: "center", fontFamily: "serif", fontSize: 13, lineHeight: 16, color: "#111", fontWeight: "700" },
   bottomNav: { position: "absolute", left: 0, right: 0, bottom: 0, height: 66, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#efefef", flexDirection: "row", justifyContent: "space-around", alignItems: "center" },
-  navItem: { width: "20%", alignItems: "center", justifyContent: "center", gap: 2 },
-  navText: { width: "100%", minHeight: 22, textAlign: "center", fontSize: 9, lineHeight: 11, color: "#111" },
   drawerLayer: { ...StyleSheet.absoluteFill, flexDirection: "row" },
   drawerDim: { flex: 1, backgroundColor: "rgba(0,0,0,0.18)" },
   drawerPanel: { position: "absolute", left: 0, top: 0, bottom: 0, width: "82%", maxWidth: 330, backgroundColor: "#fff" },

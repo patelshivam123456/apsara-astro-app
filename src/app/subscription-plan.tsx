@@ -34,7 +34,6 @@ export default function SubscriptionPlanScreen() {
   const { width } = useWindowDimensions();
   const user = useAuthStore((state) => state.user);
   const accessToken = useAuthStore((state) => state.accessToken);
-  const roles = useAuthStore((state) => state.roles);
   const userPublicId = getUserPublicId(user, accessToken);
   const trial = useSubscriptionStore((state) => state.trials[userPublicId]);
   const subscription = useSubscriptionStore((state) => state.subscriptions[userPublicId]);
@@ -47,7 +46,7 @@ export default function SubscriptionPlanScreen() {
   const trialInfo = getTrialInfo(trial);
   const active = isSubscriptionActive(subscription);
   const title = active ? "My Subscription" : "Choose Your Subscription Plan";
-  const homeRoute = roles.includes("ROLE_ASTROLOGER") ? "/astrologer" : "/(drawer)/(tabs)";
+  const homeRoute = "/astrologer";
   const subtitle = active
     ? "Your active plan is shown below. Renewal or upgrade opens within 10 days of expiry."
     : "Unlock astrology, numerology, tarot, and personalized reports with one simple plan.";

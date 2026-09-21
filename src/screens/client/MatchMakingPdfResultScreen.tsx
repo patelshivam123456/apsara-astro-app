@@ -14,6 +14,17 @@ import { generateMatchMakingPdf, MatchMakingReportResponse } from "@/services/ku
 import { useMatchMakingStore } from "@/store/matchMaking.store";
 
 type ReportType = "others" | "horoscopeCharts";
+type TableCell = string | { image?: string; text: string };
+type DashaLevel = "maha" | "antar" | "pratyantar" | "sookshma" | "prana";
+type DashaNames = Partial<Record<DashaLevel, string>>;
+
+const otherSectionColumns: Record<string, string[]> = {
+  ashtakootmilan: ["koot", "person1", "person2", "points_obtained", "area_of_life", "description", "max_points"],
+  dashakootmilan: ["koot", "person1", "person2", "points_obtained", "area_of_life", "result", "max_points"],
+  navpanchamyoga: ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Rahu", "Ketu", "Ascendant"],
+  planetarypositions: ["name", "awastha", "full_degree", "house", "is_combusted", "is_retro", "karakamsha", "longitude", "lord_of", "nakshatra", "nakshatra_lord", "nakshatra_no", "nakshatra_pada", "rashi_lord", "sign", "sign_no", "speed", "sub_lord", "type"],
+  vimshottaridasha: ["maha_dasha", "antar_dasha", "pratyantar_dasha", "sookshma_dasha", "prana_dasha", "start_time", "end_time"]
+};
 
 export function MatchMakingPdfResultScreen() {
   const { language, t } = useTranslation();
@@ -21,19 +32,15 @@ export function MatchMakingPdfResultScreen() {
   const request = useMatchMakingStore((state) => state.request);
   const setResult = useMatchMakingStore((state) => state.setResult);
   const [activeReport, setActiveReport] = useState<ReportType>("others");
-  const [activeSections, setActiveSections] = useState<Record<ReportType, string>>({ others: "", horoscopeCharts: "" });
+  const [activeOtherSection, setActiveOtherSection] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
 
   const currentData = activeReport === "others" ? result?.others : result?.horoscopeCharts;
-  const sectionKeys = useMemo(() => getSectionKeys(currentData, activeReport), [activeReport, currentData]);
-  const activeSection = sectionKeys.includes(activeSections[activeReport]) ? activeSections[activeReport] : sectionKeys[0] || "";
-  const activeValue = activeSection && currentData ? currentData[activeSection] : currentData;
-
-  useEffect(() => {
-    if (!sectionKeys.length) return;
-    setActiveSections((current) => sectionKeys.includes(current[activeReport]) ? current : { ...current, [activeReport]: sectionKeys[0] });
-  }, [activeReport, sectionKeys]);
+  const reportSections = useMemo(() => buildVisibleSections(currentData, activeReport), [activeReport, currentData]);
+  const selectedOtherSection = activeReport === "others"
+    ? reportSections.find((section) => section.title === activeOtherSection) || reportSections[0]
+    : undefined;
 
   useEffect(() => {
     if (!request || request.languageCode === language) return;
@@ -45,11 +52,15 @@ export function MatchMakingPdfResultScreen() {
       languageCode: language
     };
 
-    setRefreshing(true);
-    setRefreshError("");
-    generateMatchMakingPdf(nextRequest)
+    Promise.resolve()
+      .then(() => {
+        if (!mounted) return null;
+        setRefreshing(true);
+        setRefreshError("");
+        return generateMatchMakingPdf(nextRequest);
+      })
       .then((response) => {
-        if (mounted) setResult(response, nextRequest);
+        if (mounted && response) setResult(response, nextRequest);
       })
       .catch((error) => {
         if (mounted) setRefreshError(getApiErrorMessage(error, "Unable to generate response for selected language"));
@@ -76,7 +87,10 @@ export function MatchMakingPdfResultScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text variant="headlineSmall" style={styles.title} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Match Making PDF Result")}</Text>
+        <View style={styles.hero}>
+          <Text variant="headlineSmall" style={styles.title} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Match Making PDF Result")}</Text>
+          <Text style={styles.subtitle}>{request ? formatMatchLine(request) : t("Match making details")}</Text>
+        </View>
         {refreshing ? <Text style={styles.muted}>{t("Loading response for selected language")}</Text> : null}
         {refreshError ? <Text style={styles.errorText}>{t(refreshError)}</Text> : null}
 
@@ -93,26 +107,38 @@ export function MatchMakingPdfResultScreen() {
         ) : (
           <>
             {request ? <MatchSummary request={request} /> : null}
-            {sectionKeys.length > 1 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionTabs}>
-                {sectionKeys.map((key) => (
-                  <Pressable
-                    key={key}
-                    style={[styles.sectionTab, activeSection === key && styles.sectionTabActive]}
-                    onPress={() => setActiveSections((current) => ({ ...current, [activeReport]: key }))}
-                  >
-                    <Text style={[styles.sectionTabText, activeSection === key && styles.sectionTabTextActive]}>{formatKey(key)}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            ) : null}
-
-            <View style={styles.card}>
-              <Text variant="titleLarge" style={styles.cardTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
-                {formatKey(activeSection || (activeReport === "others" ? "Others" : "Horoscope-chart"))}
-              </Text>
-              <ReportValue value={activeValue} />
-            </View>
+            {activeReport === "others" ? (
+              <>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionTabs}>
+                  {reportSections.map((section) => {
+                    const selected = (selectedOtherSection?.title || "") === section.title;
+                    return (
+                      <Pressable
+                        key={section.title}
+                        style={[styles.sectionTab, selected && styles.sectionTabActive]}
+                        onPress={() => setActiveOtherSection(section.title)}
+                      >
+                        <Text style={[styles.sectionTabText, selected && styles.sectionTabTextActive]}>{formatKey(section.title)}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+                {selectedOtherSection ? (
+                  <View style={styles.card}>
+                    <OthersSectionContent title={selectedOtherSection.title} value={selectedOtherSection.value} />
+                  </View>
+                ) : null}
+              </>
+            ) : (
+              reportSections.map((section, index) => (
+                <View key={`${section.title}-${index}`} style={styles.card}>
+                  <Text variant="titleLarge" style={styles.cardTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
+                    {formatKey(section.title)}
+                  </Text>
+                  <HoroscopeChartSection title={section.title} value={section.value} />
+                </View>
+              ))
+            )}
           </>
         )}
       </ScrollView>
@@ -167,189 +193,650 @@ function PersonSummary({
   );
 }
 
-function ReportValue({ label, value }: { label?: string; value: unknown }) {
-  if (value === null || value === undefined || value === "") return null;
+function formatMatchLine(request: NonNullable<ReturnType<typeof useMatchMakingStore.getState>["request"]>) {
+  return [request.p1FullName, request.p2FullName].filter(Boolean).join(" & ") || "Match making details";
+}
 
-  if (typeof value === "string") {
-    if (isImageValue(value, label)) {
+function OthersSectionContent({ title, value }: { title: string; value: unknown }) {
+  const sectionType = normalizeSectionKey(title);
+
+  if (sectionType.includes("basicastrodetails") || sectionType.includes("manglikdosha")) {
+    const pair = getPersonPair(value);
+    if (pair) {
+      const contentRows = flattenKeyValueRows(getExtraPairContent(value), "Content");
       return (
-        <View style={styles.imageBlock}>
-          {label ? <Text style={styles.valueLabel}>{formatKey(label)}</Text> : null}
-          <RemoteImage value={value} />
+        <View style={styles.valueGroup}>
+          <PersonPairTabs first={pair.p1} second={pair.p2} />
+          {contentRows.length ? <SingleDataTable columns={["Details", "Value"]} rows={contentRows} /> : null}
         </View>
       );
     }
+  }
 
-    return (
-      <View style={styles.valueRow}>
-        {label ? <Text style={styles.valueLabel}>{formatKey(label)}</Text> : null}
-        <Text style={styles.body}>{value}</Text>
+  if (sectionType.includes("navpancham")) {
+    const planetTables = buildPlanetTables(value, otherSectionColumns.navpanchamyoga);
+    if (planetTables.length) {
+      return (
+        <View style={styles.planetGrid}>
+          {planetTables.map((table) => (
+            <View key={table.title} style={styles.planetMiniCard}>
+              <Text style={styles.planetBadge}>{formatKey(table.title)}</Text>
+              <SingleDataTable columns={table.columns} rows={table.rows} />
+            </View>
+          ))}
+        </View>
+      );
+    }
+  }
+
+  const columns = otherSectionColumns[sectionType];
+  if (columns) {
+    if (sectionType === "vimshottaridasha") {
+      const table = buildVimshottariTable(value);
+      return <SingleDataTable columns={table.columns} rows={table.rows} />;
+    }
+    return <SingleDataTable columns={columns} rows={buildSectionRows(value, columns, sectionType)} />;
+  }
+
+  return <ReportValue label={title} value={value} />;
+}
+
+function PersonPairTabs({ first, second }: { first: Record<string, unknown>; second: Record<string, unknown> }) {
+  const [activePerson, setActivePerson] = useState<"p1" | "p2">("p1");
+  const value = activePerson === "p1" ? first : second;
+
+  return (
+    <>
+      <View style={styles.personTabs}>
+        <Pressable style={[styles.personTab, activePerson === "p1" && styles.personTabActive]} onPress={() => setActivePerson("p1")}>
+          <Text style={[styles.personTabText, activePerson === "p1" && styles.personTabTextActive]}>Person 1</Text>
+        </Pressable>
+        <Pressable style={[styles.personTab, activePerson === "p2" && styles.personTabActive]} onPress={() => setActivePerson("p2")}>
+          <Text style={[styles.personTabText, activePerson === "p2" && styles.personTabTextActive]}>Person 2</Text>
+        </Pressable>
       </View>
-    );
-  }
+      <PersonDetailCard title={activePerson === "p1" ? "Person 1" : "Person 2"} value={value} />
+    </>
+  );
+}
 
-  if (typeof value === "number" || typeof value === "boolean") {
-    return (
-      <View style={styles.valueRow}>
-        {label ? <Text style={styles.valueLabel}>{formatKey(label)}</Text> : null}
-        <Text style={styles.body}>{String(value)}</Text>
-      </View>
-    );
-  }
+function PersonDetailCard({ title, value }: { title: string; value: Record<string, unknown> }) {
+  const rows = Object.entries(value)
+    .filter(([, item]) => item !== null && item !== undefined && item !== "")
+    .filter(([key, item]) => !isImageEntry(key, item));
 
-  if (Array.isArray(value)) {
-    return <ArrayTable label={label} rows={value} />;
-  }
+  return (
+    <View style={styles.personDetailCard}>
+      <Text style={styles.valueLabel}>{title}</Text>
+      {rows.map(([key, item]) => (
+        <View key={key} style={styles.detailTile}>
+          <Text style={styles.detailLabel}>{formatKey(key)}</Text>
+          {Array.isArray(item) || isRecord(item) ? (
+            <SingleDataTable {...buildSingleSectionTable(item, key)} />
+          ) : (
+            <Text style={styles.detailValue}>{stringifyFlatValue(item)}</Text>
+          )}
+        </View>
+      ))}
+    </View>
+  );
+}
 
-  if (typeof value === "object") {
-    return <ObjectTable label={label} value={value as Record<string, unknown>} />;
+function normalizeSectionKey(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function getPersonPair(value: unknown) {
+  if (!isRecord(value)) return null;
+
+  if (isRecord(value.p1) && isRecord(value.p2)) return { p1: value.p1, p2: value.p2 };
+  if (isRecord(value.person1) && isRecord(value.person2)) return { p1: value.person1, p2: value.person2 };
+  if (isRecord(value.Person1) && isRecord(value.Person2)) return { p1: value.Person1, p2: value.Person2 };
+
+  const entries = Object.entries(value);
+  const first = entries.find(([key]) => /^(p1|person[_\s-]?1|boy|male)$/i.test(key));
+  const second = entries.find(([key]) => /^(p2|person[_\s-]?2|girl|female)$/i.test(key));
+
+  if (first && second && isRecord(first[1]) && isRecord(second[1])) {
+    return { p1: first[1], p2: second[1] };
   }
 
   return null;
 }
 
-function ObjectTable({ label, value }: { label?: string; value: Record<string, unknown> }) {
-  const entries = Object.entries(value).filter(([, item]) => item !== null && item !== undefined && item !== "");
+function getExtraPairContent(value: unknown) {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter(([key]) => !/^(p1|p2|person[_\s-]?1|person[_\s-]?2|person1|person2|boy|girl|male|female)$/i.test(key))
+  );
+}
 
-  if (hasPersonPair(value)) {
-    return <PersonComparisonTable label={label} p1={value.p1 as Record<string, unknown>} p2={value.p2 as Record<string, unknown>} />;
-  }
+function buildPlanetTables(value: unknown, columns: string[]) {
+  if (!isRecord(value)) return [];
+
+  return Object.entries(value)
+    .filter(([, item]) => isRecord(item) || Array.isArray(item))
+    .map(([title, item]) => {
+      return { title, columns, rows: buildRowsForColumns(item, columns, normalizeSectionKey(title)) };
+    })
+    .filter((table) => table.rows.length);
+}
+
+function ReportValue({ label, value }: { label?: string; value: unknown }) {
+  if (value === null || value === undefined || value === "") return null;
+
+  const images = collectImages(value, label);
+  const table = buildSingleSectionTable(value, label);
 
   return (
     <View style={styles.valueGroup}>
-      {label ? <Text style={styles.valueLabel}>{formatKey(label)}</Text> : null}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.table}>
-          {entries.map(([key, item]) => (
-            <View key={key} style={styles.tableRow}>
-              <Text style={styles.tableKeyCell}>{formatKey(key)}</Text>
-              <View style={styles.tableValueCell}>
-                <TableCellValue label={key} value={item} />
-              </View>
-            </View>
-          ))}
+      {images.map((image, index) => (
+        <View key={`${image.label}-${index}`} style={styles.imageBlock}>
+          <Text style={styles.valueLabel}>{formatKey(image.label)}</Text>
+          <RemoteImage value={image.value} />
         </View>
-      </ScrollView>
+      ))}
+      {table.rows.length ? <SingleDataTable columns={table.columns} rows={table.rows} /> : null}
     </View>
   );
 }
 
-function ArrayTable({ label, rows }: { label?: string; rows: unknown[] }) {
-  if (!rows.length) return null;
-  const objectRows = rows.filter(isRecord);
+function HoroscopeChartSection({ title, value }: { title: string; value: unknown }) {
+  const charts = collectPersonCharts(value);
 
-  if (objectRows.length === rows.length) {
-    const columns = Array.from(new Set(objectRows.flatMap((row) => Object.keys(row))));
-    return (
-      <View style={styles.valueGroup}>
-        {label ? <Text style={styles.valueLabel}>{formatKey(label)}</Text> : null}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.gridTable}>
-            <View style={styles.gridRow}>
-              {columns.map((column) => (
-                <Text key={column} style={styles.gridHeadCell}>{formatKey(column)}</Text>
-              ))}
-            </View>
-            {objectRows.map((row, index) => (
-              <View key={index} style={styles.gridRow}>
-                {columns.map((column) => (
-                  <View key={`${index}-${column}`} style={styles.gridCell}>
-                    <TableCellValue label={column} value={row[column]} compact />
-                  </View>
-                ))}
-              </View>
+  if (!charts.length) return <ReportValue label={title} value={value} />;
+  const rows = charts.flatMap((chart) => chart.rows);
+
+  return (
+    <View style={styles.valueGroup}>
+      {charts.map((chart) => (
+        <View key={`${chart.person}-${chart.name}`} style={styles.chartBlock}>
+          <Text style={styles.valueLabel}>{chart.person}</Text>
+          <RemoteImage value={chart.svg} />
+        </View>
+      ))}
+      <SingleDataTable columns={["Person", "Name", "Symbol"]} rows={rows} />
+    </View>
+  );
+}
+
+function collectPersonCharts(value: unknown): { name: string; person: string; rows: TableCell[][]; svg: string }[] {
+  if (!isRecord(value)) return [];
+
+  const entries = Object.entries(value);
+  const directPersonEntries = entries.filter(([key, item]) => isRecord(item) && (/^(p1|person[_\s-]?1)$/i.test(key) || /^(p2|person[_\s-]?2)$/i.test(key)));
+
+  if (directPersonEntries.length) {
+    return directPersonEntries.flatMap(([key, item]) => chartBlocksFromRecord(personLabelFromKey(key), item as Record<string, unknown>));
+  }
+
+  const blocks = chartBlocksFromRecord("", value);
+  if (blocks.length) return blocks;
+
+  return entries.flatMap(([key, item]) => (
+    isRecord(item) ? chartBlocksFromRecord(formatKey(key), item) : []
+  ));
+}
+
+function chartBlocksFromRecord(personFallback: string, record: Record<string, unknown>) {
+  const svg = getSvgImage(record);
+  if (!svg) return [];
+
+  const person = personFallback || stringifyFlatValue(record.person || record.person_name) || "Person";
+  const rows = buildChartPlanetRows(record, person);
+  return [{ name: stringifyFlatValue(record.name || person), person, rows, svg }];
+}
+
+function buildChartPlanetRows(record: Record<string, unknown>, person: string): TableCell[][] {
+  const source =
+    Array.isArray(record.planets) ? record.planets :
+    Array.isArray(record.planet) ? record.planet :
+    isRecord(record.planets) ? Object.values(record.planets) :
+    isRecord(record.planet) ? Object.values(record.planet) :
+    isRecord(record.data) ? Object.values(record.data) :
+    [];
+
+  const rows = source.flatMap((item) => collectChartPlanetRecords(item)).map((item) => [
+    person,
+    stringifyFlatValue(getPlanetField(item, "name")),
+    stringifyFlatValue(getPlanetField(item, "symbol"))
+  ]);
+
+  return rows.length ? rows : [[person, stringifyFlatValue(getPlanetField(record, "name") || person), stringifyFlatValue(getPlanetField(record, "symbol"))]];
+}
+
+function collectChartPlanetRecords(value: unknown): Record<string, unknown>[] {
+  if (Array.isArray(value)) return value.flatMap(collectChartPlanetRecords);
+  if (!isRecord(value)) return [];
+  if (getPlanetField(value, "name") !== undefined || getPlanetField(value, "symbol") !== undefined) return [value];
+  return Object.values(value).flatMap(collectChartPlanetRecords);
+}
+
+function getPlanetField(record: Record<string, unknown>, field: "name" | "symbol") {
+  const aliases = field === "name"
+    ? ["name", "planetname", "planet_name", "planetName"]
+    : ["symbol", "planetsymbol", "planet_symbol", "planetSymbol", "shortname", "short_name"];
+  const found = Object.entries(record).find(([key]) => aliases.map(normalizeSectionKey).includes(normalizeSectionKey(key)));
+  return found?.[1];
+}
+
+function getSvgImage(record: Record<string, unknown>) {
+  const candidates = [record.svg, record.base64_image, record.image, record.chart].filter((item): item is string => typeof item === "string");
+  return candidates.find((item) => item.trim().startsWith("<svg") || item.trim().startsWith("data:image/svg") || /\.svg(\?|#|$)/i.test(item.trim())) || "";
+}
+
+function personLabelFromKey(key: string) {
+  return /1/.test(key) || /^p1$/i.test(key) ? "Person 1" : "Person 2";
+}
+
+function SingleDataTable({ columns, rows }: { columns: string[]; rows: TableCell[][] }) {
+  const widths = columns.map((column, index) => getMatchColumnWidth(column, rows.map((row) => cellText(row[index]))));
+
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <View style={styles.gridTable}>
+        <View style={styles.gridRow}>
+          {columns.map((column, index) => (
+            <Text key={column} style={[styles.gridHeadCell, { width: widths[index] }]}>{formatKey(column)}</Text>
+          ))}
+        </View>
+        {rows.map((row, rowIndex) => (
+          <View key={rowIndex} style={styles.gridRow}>
+            {columns.map((column, columnIndex) => (
+              <TableCellView key={`${rowIndex}-${column}`} value={row[columnIndex]} width={widths[columnIndex]} />
             ))}
           </View>
-        </ScrollView>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+function TableCellView({ value, width }: { value: TableCell | undefined; width: number }) {
+  if (isImageCell(value)) {
+    return (
+      <View style={[styles.gridCell, styles.imageNameCell, { width }]}>
+        {value.image ? <Image source={{ uri: normalizeImageUri(value.image) }} style={styles.inlineIcon} contentFit="contain" /> : null}
+        <Text style={styles.gridCellText}>{value.text || "-"}</Text>
       </View>
     );
   }
 
-  return (
-    <View style={styles.valueGroup}>
-      {label ? <Text style={styles.valueLabel}>{formatKey(label)}</Text> : null}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.table}>
-          {rows.map((item, index) => (
-            <View key={index} style={styles.tableRow}>
-              <Text style={styles.tableKeyCell}>{String(index + 1)}</Text>
-              <View style={styles.tableValueCell}>
-                <TableCellValue value={item} />
-              </View>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-    </View>
-  );
+  return <Text style={[styles.gridCell, { width }]}>{cellText(value) || "-"}</Text>;
 }
 
-function PersonComparisonTable({
-  label,
-  p1,
-  p2
-}: {
-  label?: string;
-  p1: Record<string, unknown>;
-  p2: Record<string, unknown>;
-}) {
-  const [activePerson, setActivePerson] = useState<"p1" | "p2">("p1");
-  const activeData = activePerson === "p1" ? p1 : p2;
-  return (
-    <View style={styles.valueGroup}>
-      {label ? <Text style={styles.valueLabel}>{formatKey(label)}</Text> : null}
-      <View style={styles.personTabs}>
-        {(["p1", "p2"] as const).map((personKey) => (
-          <Pressable
-            key={personKey}
-            style={[styles.personTab, activePerson === personKey && styles.personTabActive]}
-            onPress={() => setActivePerson(personKey)}
-          >
-            <Text style={[styles.personTabText, activePerson === personKey && styles.personTabTextActive]}>
-              {formatKey(personKey)}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.table}>
-          {Object.entries(activeData).map(([key, item]) => (
-            <View key={key} style={styles.tableRow}>
-              <Text style={styles.tableKeyCell}>{formatKey(key)}</Text>
-              <View style={styles.tableValueCell}>
-                <TableCellValue label={key} value={item} compact />
-              </View>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-    </View>
-  );
+function buildSingleSectionTable(value: unknown, label?: string) {
+  if (Array.isArray(value) && value.every(isRecord)) {
+    const columns = Array.from(new Set(value.flatMap((row) => Object.keys(row).filter((key) => !isImageEntry(key, row[key])))));
+    return {
+      columns: columns.length ? columns : ["Value"],
+      rows: value.map((row) => columns.map((column) => stringifyFlatValue(row[column])))
+    };
+  }
+
+  if (isRecord(value) && isRecord(value.p1) && isRecord(value.p2)) {
+    const p1 = value.p1;
+    const p2 = value.p2;
+    const fields = Array.from(new Set([...Object.keys(p1), ...Object.keys(p2)].filter((key) => !isImageEntry(key, p1[key]) && !isImageEntry(key, p2[key]))));
+    return {
+      columns: ["Details", "Person 1", "Person 2"],
+      rows: fields.map((field) => [formatKey(field), stringifyFlatValue(p1[field]), stringifyFlatValue(p2[field])])
+    };
+  }
+
+  const rows = flattenKeyValueRows(value, label || "Value");
+  return {
+    columns: ["Details", "Value"],
+    rows
+  };
 }
 
-function TableCellValue({ compact = false, label, value }: { compact?: boolean; label?: string; value: unknown }) {
-  if (value === null || value === undefined || value === "") return <Text style={styles.tableText}>-</Text>;
+function buildRowsForColumns(value: unknown, columns: string[], sectionType: string): TableCell[][] {
+  const records = collectDataRecords(value, columns);
+  if (!records.length && isRecord(value)) return [columns.map((column) => getColumnCell(value, column, sectionType))];
+  return records.map((record) => columns.map((column) => getColumnCell(record, column, sectionType)));
+}
 
-  if (typeof value === "string") {
-    if (isImageValue(value, label)) return <RemoteImage value={value} compact={compact} />;
-    return <Text style={styles.tableText}>{value}</Text>;
+function buildSectionRows(value: unknown, columns: string[], sectionType: string): TableCell[][] {
+  if (sectionType === "vimshottaridasha") {
+    const rows = flattenVimshottariRows(value);
+    if (rows.length) return rows;
   }
 
-  if (typeof value === "number" || typeof value === "boolean") {
-    return <Text style={styles.tableText}>{String(value)}</Text>;
+  return buildRowsForColumns(value, columns, sectionType);
+}
+
+function buildVimshottariTable(value: unknown) {
+  const columns = otherSectionColumns.vimshottaridasha;
+  const rows = buildSectionRows(value, columns, "vimshottaridasha");
+  const visibleIndexes = columns
+    .map((column, index) => ({ column, index }))
+    .filter(({ column, index }) => {
+      if (!["sookshma_dasha", "prana_dasha"].includes(column)) return true;
+      return rows.some((row) => hasDisplayValue(row[index]));
+    });
+
+  return {
+    columns: visibleIndexes.map(({ column }) => column),
+    rows: rows.map((row) => visibleIndexes.map(({ index }) => row[index]))
+  };
+}
+
+function collectDataRecords(value: unknown, columns: string[], parentKey = ""): Record<string, unknown>[] {
+  if (Array.isArray(value)) {
+    const recordRows = value.filter(isRecord);
+    if (recordRows.length === value.length) return recordRows;
+    return value.flatMap((item, index) => collectDataRecords(item, columns, String(index + 1)));
   }
+
+  if (!isRecord(value)) return [];
+
+  const directMatches = columns.filter((column) => getRecordValue(value, column) !== undefined).length;
+  if (directMatches >= Math.min(2, columns.length)) return [{ __key: parentKey, ...value }];
+
+  return Object.entries(value).flatMap(([key, item]) => collectDataRecords(item, columns, key));
+}
+
+function getColumnCell(record: Record<string, unknown>, column: string, sectionType: string): TableCell {
+  const value = getRecordValue(record, column);
+  const normalizedColumn = normalizeSectionKey(column);
+  if (normalizedColumn === "koot") return stringifyFlatValue(value ?? record.__key);
+  if (normalizedColumn === "maxpoints") {
+    return stringifyFlatValue(value ?? getDefaultMaxPoints(valueForKootFallback(record), sectionType));
+  }
+  if (sectionType === "planetarypositions" && normalizeSectionKey(column) === "name") {
+    return {
+      image: stringifyFlatValue(getRecordValue(record, "image") ?? getRecordValue(record, "planet_image") ?? getRecordValue(record, "icon")),
+      text: stringifyFlatValue(value)
+    };
+  }
+  return stringifyFlatValue(value);
+}
+
+function valueForKootFallback(record: Record<string, unknown>) {
+  return record.__key ?? getRecordValue(record, "koot") ?? getRecordValue(record, "name") ?? getRecordValue(record, "type");
+}
+
+function getDefaultMaxPoints(koot: unknown, sectionType: string) {
+  const key = normalizeSectionKey(stringifyFlatValue(koot));
+  if (sectionType === "ashtakootmilan") {
+    const max: Record<string, string> = {
+      varna: "1",
+      vashya: "2",
+      tara: "3",
+      yoni: "4",
+      grahamaitri: "5",
+      gana: "6",
+      bhakoota: "7",
+      bhakoot: "7",
+      nadi: "8"
+    };
+    return max[key];
+  }
+
+  if (sectionType === "dashakootmilan") {
+    const max: Record<string, string> = {
+      vashya: "2",
+      yoni: "4",
+      gana: "6",
+      dina: "3",
+      tara: "3",
+      rashi: "7",
+      rajju: "5",
+      rasyadhipati: "5",
+      rashyadhipati: "5",
+      grahamaitri: "5",
+      vedha: "2",
+      mahendra: "2",
+      streedargha: "2",
+      stree: "2",
+      streegarga: "2",
+      streedargah: "2"
+    };
+    return max[key];
+  }
+
+  return undefined;
+}
+
+function flattenVimshottariRows(value: unknown): TableCell[][] {
+  const rows: TableCell[][] = [];
+  const source = unwrapDashaSource(value);
+
+  const pushRow = (names: DashaNames, start: unknown, end: unknown) => {
+    rows.push([
+      names.maha || "--",
+      names.antar || "--",
+      names.pratyantar || "--",
+      names.sookshma || "--",
+      names.prana || "--",
+      stringifyFlatValue(start),
+      stringifyFlatValue(end)
+    ]);
+  };
+
+  const walk = (node: unknown, names: DashaNames, dates: { start?: unknown; end?: unknown }) => {
+    if (!isRecord(node)) return;
+    const nextNames = { ...names, ...getDirectDashaNames(node) };
+    const start = getRecordValue(node, "start_time") ?? getRecordValue(node, "start_date") ?? dates.start;
+    const end = getRecordValue(node, "end_time") ?? getRecordValue(node, "end_date") ?? dates.end;
+    const childGroups = getDashaChildGroups(node);
+
+    if (!childGroups.length) {
+      pushRow(nextNames, start, end);
+      return;
+    }
+
+    childGroups.forEach(({ entries, level }) => {
+      entries.forEach(([name, child]) => {
+        walk(child, { ...nextNames, [level]: formatKey(name) }, { start, end });
+      });
+    });
+  };
+
+  if (Array.isArray(source)) {
+    const flatRows = buildRowsForColumns(source, otherSectionColumns.vimshottaridasha, "vimshottaridasha");
+    const hasNestedDasha = source.some((item) => isRecord(item) && getDashaChildGroups(item).length);
+    if (!hasNestedDasha && flatRows.some((row) => row.some(hasDisplayValue))) return flatRows;
+    source.forEach((item) => walk(item, {}, {}));
+  }
+
+  if (isRecord(source)) {
+    const sourceGroups = getDashaChildGroups(source);
+    if (sourceGroups.length) {
+      walk(source, {}, {});
+    } else {
+      Object.entries(source).forEach(([name, item]) => walk(item, { maha: formatKey(name) }, {}));
+    }
+  }
+
+  if (rows.length) return rows;
+  return buildRowsForColumns(value, otherSectionColumns.vimshottaridasha, "vimshottaridasha");
+}
+
+function getDashaChildGroups(record: Record<string, unknown>): { level: DashaLevel; entries: [string, unknown][] }[] {
+  const keys: { level: DashaLevel; keys: string[] }[] = [
+    { level: "maha", keys: ["maha_dasha", "mahaDasha", "maha"] },
+    { level: "antar", keys: ["antar_dasha", "antarDasha", "antar"] },
+    { level: "pratyantar", keys: ["pratyantar_dasha", "pratyantarDasha", "pratyantar"] },
+    { level: "sookshma", keys: ["sookshma_dasha", "sookshmaDasha", "sookshma"] },
+    { level: "prana", keys: ["prana_dasha", "pranaDasha", "prana"] }
+  ];
+
+  const groups = keys.flatMap(({ keys: childKeys, level }) => {
+    const childValue = childKeys.map((key) => record[key]).find((item) => isRecord(item) || Array.isArray(item));
+    const entries = getDashaEntries(childValue, level);
+    return entries.length ? [{ level, entries }] : [];
+  });
+
+  if (groups.length) return groups;
+
+  return ["children", "periods", "data"].flatMap((key) => {
+    const entries = getDashaEntries(record[key], nextDashaLevel(getHighestDashaLevel(getDirectDashaNames(record))));
+    return entries.length ? [{ level: nextDashaLevel(getHighestDashaLevel(getDirectDashaNames(record))), entries }] : [];
+  });
+}
+
+function getDashaEntries(value: unknown, level: DashaLevel): [string, unknown][] {
+  if (isRecord(value)) return Object.entries(value);
+  if (!Array.isArray(value)) return [];
+
+  return value.filter(isRecord).map((item, index) => {
+    const name = getDisplayDashaName(item, level) || getDisplayDashaName(item, "maha") || String(index + 1);
+    return [name, item];
+  });
+}
+
+function getDirectDashaNames(record: Record<string, unknown>): DashaNames {
+  const levels: DashaLevel[] = ["maha", "antar", "pratyantar", "sookshma", "prana"];
+  return levels.reduce<DashaNames>((names, level) => {
+    const value = getDisplayDashaName(record, level);
+    if (value) names[level] = value;
+    return names;
+  }, {});
+}
+
+function getDisplayDashaName(record: Record<string, unknown>, level: DashaLevel) {
+  const value = getRecordValue(record, `${level}_dasha`);
+  if (value === undefined || Array.isArray(value) || isRecord(value)) return "";
+  const text = stringifyFlatValue(value);
+  return text && text !== "-" ? text : "";
+}
+
+function getHighestDashaLevel(names: DashaNames): DashaLevel | undefined {
+  return (["prana", "sookshma", "pratyantar", "antar", "maha"] as DashaLevel[]).find((level) => Boolean(names[level]));
+}
+
+function nextDashaLevel(level: DashaLevel | undefined): DashaLevel {
+  const order: DashaLevel[] = ["maha", "antar", "pratyantar", "sookshma", "prana"];
+  const index = level ? order.indexOf(level) : -1;
+  return order[Math.min(index + 1, order.length - 1)];
+}
+
+function hasDisplayValue(value: TableCell | undefined) {
+  const text = cellText(value);
+  return Boolean(text && text !== "-");
+}
+
+function unwrapDashaSource(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  const keys = ["maha_dasha", "mahaDasha", "vimshottari_dasha", "vimshottariDasha", "dasha", "dashas", "data"];
+  const key = keys.find((item) => isRecord(value[item]) || Array.isArray(value[item]));
+  return key ? value[key] : value;
+}
+
+function getRecordValue(record: Record<string, unknown>, column: string) {
+  const normalizedColumn = normalizeSectionKey(column);
+  const aliases = getColumnAliases(normalizedColumn);
+  const found = Object.entries(record).find(([key]) => aliases.includes(normalizeSectionKey(key)));
+  return found?.[1];
+}
+
+function getColumnAliases(column: string) {
+  const aliases: Record<string, string[]> = {
+    koot: ["koot", "koota", "kootname", "kootaname", "name", "type", "title"],
+    name: ["name", "planetname"],
+    symbol: ["symbol", "planetsymbol", "shortname"],
+    person1: ["person1", "p1", "boy", "male"],
+    person2: ["person2", "p2", "girl", "female"],
+    pointsobtained: ["pointsobtained", "points", "score", "obtainedpoints"],
+    areaoflife: ["areaoflife", "area", "lifearea"],
+    maxpoints: ["maxpoints", "maximumpoints", "maxpoint", "maxponits", "maxponit", "totalpoints", "max", "maximum", "outof", "outofpoints"],
+    mahadasha: ["mahadasha", "maha"],
+    antardasha: ["antardasha", "antar"],
+    pratyantardasha: ["pratyantardasha", "pratyantar"],
+    sookshmadasha: ["sookshmadasha", "sookshma"],
+    pranadasha: ["pranadasha", "prana"],
+    starttime: ["starttime", "startdate", "start"],
+    endtime: ["endtime", "enddate", "end"],
+    fulldegree: ["fulldegree", "fullDegree", "degree"],
+    iscombusted: ["iscombusted", "combusted"],
+    isretro: ["isretro", "retro"],
+    lordof: ["lordof"],
+    nakshatralord: ["nakshatralord"],
+    nakshatrano: ["nakshatrano", "nakshatranumber"],
+    nakshatrapada: ["nakshatrapada", "pada"],
+    rashilord: ["rashilord"],
+    signno: ["signno", "signnumber"],
+    sublord: ["sublord"]
+  };
+
+  return [column, ...(aliases[column] || [])].map(normalizeSectionKey);
+}
+
+function cellText(value: TableCell | undefined) {
+  if (isImageCell(value)) return value.text;
+  return value || "";
+}
+
+function isImageCell(value: TableCell | undefined): value is { image?: string; text: string } {
+  return Boolean(value && typeof value === "object" && "text" in value);
+}
+
+function getMatchColumnWidth(column: string, values: string[]) {
+  const key = normalizeSectionKey(column);
+  const longest = [column, ...values].reduce((max, item) => Math.max(max, String(item || "").length), 0);
+
+  if (/description|content|comment|remed|areaoflife/.test(key)) return 240;
+  if (/start|end|date|time/.test(key)) return 128;
+  if (/point|score|percent|year|month|day|hour|minute/.test(key)) return 104;
+  if (/person|name|planet|dasha|koot|result|value|details/.test(key)) return Math.min(160, Math.max(120, longest * 7 + 28));
+  if (longest <= 8) return 96;
+  if (longest <= 18) return 132;
+  return 180;
+}
+
+function flattenKeyValueRows(value: unknown, label: string): string[][] {
+  if (value === null || value === undefined || value === "") return [];
+  if (typeof value !== "object") return [[formatKey(label), stringifyFlatValue(value)]];
 
   if (Array.isArray(value)) {
-    if (!value.length) return <Text style={styles.tableText}>-</Text>;
-    if (value.every((item) => typeof item !== "object" || item === null)) {
-      return <Text style={styles.tableText}>{value.map(String).join(", ")}</Text>;
+    if (!value.length) return [];
+    if (value.every((item) => !isRecord(item) && !Array.isArray(item))) {
+      return [[formatKey(label), stringifyFlatValue(value)]];
     }
-    return <ArrayTable rows={value} />;
+    return value.flatMap((item, index) => flattenKeyValueRows(item, `${label} ${index + 1}`));
   }
 
-  if (isRecord(value)) return <ObjectTable value={value} />;
+  return Object.entries(value)
+    .filter(([, item]) => item !== null && item !== undefined && item !== "")
+    .filter(([key, item]) => !isImageEntry(key, item))
+    .flatMap(([key, item]) => {
+      const nextLabel = label === "Value" ? key : `${label} ${key}`;
+      return flattenKeyValueRows(item, nextLabel);
+    });
+}
 
-  return <Text style={styles.tableText}>{String(value)}</Text>;
+function collectImages(value: unknown, label = "Chart"): { label: string; value: string }[] {
+  if (typeof value === "string") return isImageValue(value, label) ? [{ label, value }] : [];
+  if (!value || typeof value !== "object") return [];
+  if (Array.isArray(value)) return value.flatMap((item, index) => collectImages(item, `${label} ${index + 1}`));
+
+  return Object.entries(value).flatMap(([key, item]) => {
+    const nextLabel = formatKey(key);
+    if (typeof item === "string" && isImageValue(item, key)) return [{ label: nextLabel, value: item }];
+    return collectImages(item, nextLabel);
+  });
+}
+
+function stringifyFlatValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    if (!value.length) return "-";
+    return value.map(stringifyFlatValue).filter((item) => item && item !== "-").join(", ") || "-";
+  }
+  if (isRecord(value)) return Object.entries(value)
+    .filter(([, item]) => item !== null && item !== undefined && item !== "")
+    .filter(([key, item]) => !isImageEntry(key, item))
+    .map(([key, item]) => `${formatKey(key)}: ${stringifyFlatValue(item)}`)
+    .join(", ") || "-";
+
+  return String(value);
+}
+
+function isImageEntry(key: string, value: unknown) {
+  return typeof value === "string" && isImageValue(value, key);
 }
 
 function RemoteImage({ compact = false, value }: { compact?: boolean; value: string }) {
@@ -385,8 +872,42 @@ function RemoteImage({ compact = false, value }: { compact?: boolean; value: str
 function getSectionKeys(data: MatchMakingReportResponse | undefined, reportType: ReportType) {
   if (!data || typeof data !== "object") return [];
   const keys = Object.keys(data).filter((key) => data[key] !== null && data[key] !== undefined);
-  if (reportType !== "horoscopeCharts") return keys;
+  if (reportType !== "horoscopeCharts") return sortOtherSectionKeys(keys);
   return [...keys].sort(compareChartKeys);
+}
+
+function sortOtherSectionKeys(keys: string[]) {
+  const order = [
+    "ashtakootmilan",
+    "basicastrodetails",
+    "dashakootmilan",
+    "manglikdosha",
+    "navpanchamyoga",
+    "planetarypositions",
+    "vimshottaridasha"
+  ];
+
+  return [...keys].sort((a, b) => {
+    const first = order.indexOf(normalizeSectionKey(a));
+    const second = order.indexOf(normalizeSectionKey(b));
+    if (first !== -1 && second !== -1) return first - second;
+    if (first !== -1) return -1;
+    if (second !== -1) return 1;
+    return a.localeCompare(b);
+  });
+}
+
+function buildVisibleSections(data: MatchMakingReportResponse | undefined, reportType: ReportType) {
+  const fallbackTitle = reportType === "others" ? "Others" : "Horoscope-chart";
+  if (!data || typeof data !== "object") return [];
+
+  const keys = getSectionKeys(data, reportType);
+  if (!keys.length) return [{ title: fallbackTitle, value: data }];
+
+  return keys.map((key) => ({
+    title: key,
+    value: data[key]
+  }));
 }
 
 function isImageValue(value: string, label?: string) {
@@ -414,10 +935,6 @@ function normalizeImageUri(value: string) {
   const clean = value.trim();
   if (clean.startsWith("<svg")) return toSvgDataUri(clean);
   return clean;
-}
-
-function hasPersonPair(value: Record<string, unknown>) {
-  return isRecord(value.p1) && isRecord(value.p2);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -494,13 +1011,15 @@ function formatKey(value: string) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#fff8df" },
-  header: { minHeight: 56, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  root: { flex: 1, backgroundColor: "#fbfbef" },
+  header: { minHeight: 58, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
   headerAction: { width: 86, marginLeft: -8 },
   headerTitle: { flex: 1, color: colors.ink, fontWeight: "800", textAlign: "center" },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg },
-  title: { color: "#5f3b00", fontWeight: "900", lineHeight: 30 },
-  summaryCard: { borderRadius: 8, borderWidth: 1, borderColor: "#f0dca2", backgroundColor: colors.surface, padding: spacing.md, flexDirection: "row", alignItems: "stretch", gap: spacing.sm, shadowColor: "#6b4a00", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 7, elevation: 3 },
+  content: { alignSelf: "center", width: "100%", maxWidth: 1160, paddingBottom: spacing.xxl, gap: spacing.lg },
+  hero: { alignItems: "center", paddingHorizontal: spacing.lg, paddingTop: spacing.xl, gap: spacing.xs },
+  title: { color: colors.amber, fontWeight: "900", lineHeight: 31, textAlign: "center" },
+  subtitle: { color: colors.cocoa, fontSize: 12, lineHeight: 17, textAlign: "center" },
+  summaryCard: { marginHorizontal: spacing.lg, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: spacing.md, flexDirection: "row", alignItems: "stretch", gap: spacing.sm },
   personSummary: { flex: 1, minWidth: 0, borderRadius: 8, backgroundColor: "#fffaf0", padding: spacing.md, gap: 3 },
   personKicker: { color: colors.cocoa, fontSize: 10, lineHeight: 13, fontWeight: "900" },
   personName: { color: colors.ink, fontSize: 15, lineHeight: 20, fontWeight: "900" },
@@ -508,45 +1027,43 @@ const styles = StyleSheet.create({
   personPlace: { color: colors.cocoa, fontSize: 11, lineHeight: 15, fontWeight: "600" },
   matchBadge: { width: 52, borderRadius: 8, backgroundColor: "#ffd45d", alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
   matchBadgeText: { color: "#5f3b00", fontSize: 10, lineHeight: 13, fontWeight: "900", textAlign: "center" },
-  tabs: { minWidth: "100%", borderRadius: 8, borderWidth: 1, borderColor: "#f0dca2", backgroundColor: colors.surface, padding: 3, flexDirection: "row", gap: 3 },
-  tab: { minWidth: 150, minHeight: 42, borderRadius: 6, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.md },
-  tabActive: { backgroundColor: "#ffd45d" },
+  tabs: { minHeight: 58, paddingHorizontal: spacing.lg, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border, alignItems: "center", gap: spacing.md },
+  tab: { minWidth: 150, minHeight: 38, borderRadius: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.md },
+  tabActive: { borderWidth: 1, borderColor: colors.lime, backgroundColor: "#ffffb8" },
   tabText: { color: colors.cocoa, fontWeight: "800" },
   tabTextActive: { color: colors.ink },
-  sectionTabs: { gap: spacing.sm, paddingVertical: 2 },
-  sectionTab: { minHeight: 38, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: spacing.md, alignItems: "center", justifyContent: "center" },
-  sectionTabActive: { borderColor: "#ffd45d", backgroundColor: "#fff0c1" },
-  sectionTabText: { color: colors.cocoa, fontWeight: "800" },
-  sectionTabTextActive: { color: colors.ink },
+  sectionTabs: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, backgroundColor: "#fffdf4" },
+  sectionTab: { minHeight: 34, borderRadius: 10, backgroundColor: "#fff", paddingHorizontal: spacing.md, alignItems: "center", justifyContent: "center" },
+  sectionTabActive: { backgroundColor: "#ff7f2a" },
+  sectionTabText: { color: "#6b5a28", fontSize: 12, lineHeight: 16, fontWeight: "900", letterSpacing: 0.5 },
+  sectionTabTextActive: { color: "#fff" },
   personTabs: { borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: "#fffaf0", padding: 3, flexDirection: "row", gap: 3 },
   personTab: { flex: 1, minHeight: 38, borderRadius: 6, alignItems: "center", justifyContent: "center" },
   personTabActive: { backgroundColor: "#ffd45d" },
   personTabText: { color: colors.cocoa, fontWeight: "800" },
   personTabTextActive: { color: colors.ink },
-  card: { borderRadius: 8, borderWidth: 1, borderColor: "#f0dca2", backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.md },
-  nestedCard: { borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: "#fffdf4", padding: spacing.md, gap: spacing.sm },
-  cardTitle: { color: "#5f3b00", fontWeight: "900", lineHeight: 28 },
+  card: { marginHorizontal: spacing.lg, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: spacing.lg, gap: spacing.md },
+  cardTitle: { color: colors.ink, fontSize: 16, lineHeight: 22, fontWeight: "900", marginBottom: spacing.xs },
   valueGroup: { gap: spacing.sm },
-  valueRow: { gap: 4 },
+  personDetailCard: { flex: 1, minWidth: 290, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff", padding: spacing.md, gap: spacing.md },
+  detailTile: { minHeight: 74, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff", padding: spacing.md, justifyContent: "center", gap: spacing.xs },
+  detailLabel: { color: "#8a6b00", fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 0.9, textTransform: "uppercase" },
+  detailValue: { color: colors.ink, fontSize: 13, lineHeight: 18, fontWeight: "800" },
+  planetGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
+  planetMiniCard: { flex: 1, minWidth: 310, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff", padding: spacing.md, gap: spacing.sm },
+  planetBadge: { alignSelf: "flex-start", borderRadius: 12, backgroundColor: "#ff7f2a", color: "#fff", fontSize: 11, lineHeight: 15, fontWeight: "900", letterSpacing: 0.8, paddingHorizontal: spacing.md, paddingVertical: 5, textTransform: "uppercase" },
+  chartBlock: { gap: spacing.sm },
   imageBlock: { gap: spacing.sm },
   valueLabel: { color: colors.cocoa, fontSize: 12, lineHeight: 16, fontWeight: "900" },
-  body: { color: colors.ink, lineHeight: 22 },
   muted: { color: colors.cocoa },
   errorText: { color: colors.danger, fontWeight: "700" },
-  table: { minWidth: 620, borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: "hidden", backgroundColor: "#fff" },
-  tableRow: { minHeight: 38, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border },
-  tableKeyCell: { flex: 0.8, backgroundColor: "#fff0c1", borderRightWidth: 1, borderRightColor: colors.border, color: colors.ink, fontSize: 12, lineHeight: 16, fontWeight: "900", textAlignVertical: "center", padding: spacing.sm },
-  tableValueCell: { flex: 1.4, minWidth: 0, justifyContent: "center", padding: spacing.sm },
-  tableText: { color: colors.ink, fontSize: 12, lineHeight: 18, fontWeight: "600" },
   gridTable: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: "hidden", backgroundColor: "#fff" },
   gridRow: { minHeight: 38, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border },
-  gridHeadCell: { width: 132, backgroundColor: "#fff0c1", borderRightWidth: 1, borderRightColor: colors.border, color: colors.ink, fontSize: 12, lineHeight: 16, fontWeight: "900", textAlign: "center", textAlignVertical: "center", padding: spacing.sm },
-  gridCell: { width: 132, borderRightWidth: 1, borderRightColor: colors.border, justifyContent: "center", padding: spacing.sm },
-  compareTable: { minWidth: 760, borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: "hidden", backgroundColor: "#fff" },
-  compareRow: { minHeight: 38, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border },
-  compareHeadCell: { flex: 1, backgroundColor: "#fff0c1", borderRightWidth: 1, borderRightColor: colors.border, color: colors.ink, fontSize: 12, lineHeight: 16, fontWeight: "900", textAlign: "center", textAlignVertical: "center", padding: spacing.sm },
-  compareKeyCell: { flex: 1, backgroundColor: "#fffaf0", borderRightWidth: 1, borderRightColor: colors.border, color: colors.ink, fontSize: 12, lineHeight: 16, fontWeight: "900", textAlignVertical: "center", padding: spacing.sm },
-  compareCell: { flex: 1, minWidth: 0, borderRightWidth: 1, borderRightColor: colors.border, justifyContent: "center", padding: spacing.sm },
+  gridHeadCell: { width: 132, backgroundColor: "#354f82", borderRightWidth: 1, borderRightColor: colors.border, color: "#fff", fontSize: 12, lineHeight: 16, fontWeight: "900", textAlign: "center", textAlignVertical: "center", padding: spacing.sm },
+  gridCell: { width: 132, borderRightWidth: 1, borderRightColor: colors.border, color: colors.ink, fontSize: 12, lineHeight: 18, fontWeight: "700", padding: spacing.sm },
+  imageNameCell: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  inlineIcon: { width: 24, height: 24 },
+  gridCellText: { flex: 1, minWidth: 0, color: colors.ink, fontSize: 12, lineHeight: 18, fontWeight: "700" },
   reportImage: { width: "100%", height: 320, borderRadius: 8, backgroundColor: "#fff", borderWidth: 1, borderColor: colors.border },
   compactImage: { height: 170 }
 });

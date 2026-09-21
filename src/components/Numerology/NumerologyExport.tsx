@@ -1,10 +1,9 @@
-import { useState } from "react";
-import { Alert, Platform, Pressable, StyleSheet } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Animated, Platform, Pressable, StyleSheet } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Text } from "react-native-paper";
 
 import { spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
@@ -15,24 +14,44 @@ export type NumerologyExportSection = {
   title: string;
   rows: NumerologyExportRow[];
   layout?: "normal" | "wide";
-  variant?: "normal" | "intro" | "loShuGrid" | "summary" | "detailButton" | "effects" | "reading" | "details" | "count" | "splitPanel" | "soul" | "repetitionEffects" | "compatibilityPage";
+  variant?: "normal" | "intro" | "loShuGrid" | "summary" | "summaryTwoColumn" | "detailButton" | "effects" | "reading" | "details" | "count" | "splitPanel" | "soul" | "repetitionEffects" | "loShuArrows" | "compatibilityPage";
 };
 
 type NumerologyExportButtonProps = {
   fileName: string;
   title: string;
   sections: NumerologyExportSection[] | (() => Promise<NumerologyExportSection[]>);
+  fixed?: boolean;
+  blink?: boolean;
 };
 
-export function NumerologyExportButton({ fileName, sections, title }: NumerologyExportButtonProps) {
+export function NumerologyExportButton({ blink, fileName, fixed, sections, title }: NumerologyExportButtonProps) {
   const { t } = useTranslation();
   const [exporting, setExporting] = useState(false);
+  const pulse = useMemo(() => new Animated.Value(1), []);
+
+  useEffect(() => {
+    if (!blink) {
+      pulse.setValue(1);
+      return;
+    }
+
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.42, duration: 620, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 620, useNativeDriver: true })
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [blink, pulse]);
 
   const exportReport = async () => {
     try {
       setExporting(true);
       const resolvedSections = typeof sections === "function" ? await sections() : sections;
       const html = buildPdfHtml(title, resolvedSections);
+      const compactHtml = buildCompactPdfHtml(title, resolvedSections);
       const safeBaseName = fileName.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-|-$/g, "") || "numerology-report";
       const hasWideSection = resolvedSections.some((section) => section.layout === "wide");
 
@@ -41,27 +60,17 @@ export function NumerologyExportButton({ fileName, sections, title }: Numerology
         return;
       }
 
-      const pdf = await Print.printToFileAsync({
-        html,
-        base64: Platform.OS === "android",
-        width: hasWideSection ? 792 : 612,
-        height: hasWideSection ? 612 : 792,
-        margins: { top: 24, right: 24, bottom: 24, left: 24 }
-      });
+      const pdf = await printPdfFile(html, hasWideSection, compactHtml);
 
-      if (Platform.OS === "android" && pdf.base64) {
-        const initialUri = FileSystem.StorageAccessFramework.getUriForDirectoryInRoot("Download");
-        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
-
-        if (permissions.granted) {
-          const destinationUri = await FileSystem.StorageAccessFramework.createFileAsync(
-            permissions.directoryUri,
-            safeBaseName,
-            "application/pdf"
-          );
-          await FileSystem.StorageAccessFramework.writeAsStringAsync(destinationUri, pdf.base64, {
-            encoding: FileSystem.EncodingType.Base64
-          });
+      if (Platform.OS === "android") {
+        const downloaded = await saveAndroidPdfToDownloads({
+          compactHtml,
+          fallbackUri: pdf.uri,
+          fileName: `${safeBaseName}.pdf`,
+          hasWideSection,
+          html
+        });
+        if (downloaded) {
           Alert.alert(t("Download PDF"), t("PDF downloaded successfully."));
           return;
         }
@@ -76,7 +85,8 @@ export function NumerologyExportButton({ fileName, sections, title }: Numerology
       } else {
         Alert.alert(t("Download PDF"), t("PDF generated successfully."));
       }
-    } catch {
+    } catch (err) {
+      console.error("Unable to download PDF file", err);
       Alert.alert(t("Download PDF"), t("Unable to download PDF file."));
     } finally {
       setExporting(false);
@@ -84,11 +94,103 @@ export function NumerologyExportButton({ fileName, sections, title }: Numerology
   };
 
   return (
-    <Pressable style={[styles.button, exporting && styles.buttonDisabled]} onPress={exportReport} disabled={exporting}>
-      <MaterialCommunityIcons name="file-pdf-box" size={21} color="#145c24" />
-      <Text style={styles.buttonText}>{exporting ? t("Downloading") : t("Download PDF")}</Text>
-    </Pressable>
+    <Animated.View style={fixed && styles.fixedWrap}>
+      <Pressable style={[styles.button, fixed && styles.fixedButton, exporting && styles.buttonDisabled]} onPress={exportReport} disabled={exporting}>
+        <MaterialCommunityIcons name="file-pdf-box" size={21} color="#145c24" />
+        <Animated.Text style={[styles.buttonText, blink && { opacity: pulse }]}>{exporting ? t("Downloading") : t("Download PDF")}</Animated.Text>
+      </Pressable>
+    </Animated.View>
   );
+}
+
+async function saveAndroidPdfToDownloads({
+  compactHtml,
+  fallbackUri,
+  fileName,
+  hasWideSection,
+  html
+}: {
+  compactHtml: string;
+  fallbackUri: string;
+  fileName: string;
+  hasWideSection: boolean;
+  html: string;
+}) {
+  const initialUri = FileSystem.StorageAccessFramework.getUriForDirectoryInRoot("Download");
+  const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
+  if (!permissions.granted) return false;
+
+  try {
+    const pdfBase64 = await getPdfBase64({ compactHtml, fallbackUri, hasWideSection, html });
+    const destinationUri = await FileSystem.StorageAccessFramework.createFileAsync(
+      permissions.directoryUri,
+      fileName,
+      "application/pdf"
+    );
+    await FileSystem.StorageAccessFramework.writeAsStringAsync(destinationUri, pdfBase64, {
+      encoding: FileSystem.EncodingType.Base64
+    });
+    return true;
+  } catch (err) {
+    console.warn("Unable to save PDF directly to Downloads; falling back to share sheet", err);
+    return false;
+  }
+}
+
+async function getPdfBase64({
+  compactHtml,
+  fallbackUri,
+  hasWideSection,
+  html
+}: {
+  compactHtml: string;
+  fallbackUri: string;
+  hasWideSection: boolean;
+  html: string;
+}) {
+  try {
+    return await FileSystem.readAsStringAsync(fallbackUri, {
+      encoding: FileSystem.EncodingType.Base64
+    });
+  } catch (err) {
+    console.warn("Unable to read printed PDF file; regenerating PDF as base64", err);
+  }
+
+  try {
+    const pdf = await Print.printToFileAsync({
+      html,
+      base64: true,
+      width: hasWideSection ? 792 : 612,
+      height: hasWideSection ? 612 : 792,
+      margins: { top: 24, right: 24, bottom: 24, left: 24 }
+    });
+    if (pdf.base64) return pdf.base64;
+  } catch (err) {
+    console.warn("Unable to regenerate designed PDF as base64; trying compact PDF", err);
+  }
+
+  const compactPdf = await Print.printToFileAsync({ html: compactHtml, base64: true });
+  if (!compactPdf.base64) throw new Error("PDF base64 output is empty");
+  return compactPdf.base64;
+}
+
+async function printPdfFile(html: string, hasWideSection: boolean, fallbackHtml: string) {
+  try {
+    return await Print.printToFileAsync({
+      html,
+      width: hasWideSection ? 792 : 612,
+      height: hasWideSection ? 612 : 792,
+      margins: { top: 24, right: 24, bottom: 24, left: 24 }
+    });
+  } catch (err) {
+    console.warn("Retrying PDF generation with default print options", err);
+    try {
+      return await Print.printToFileAsync({ html });
+    } catch (fallbackErr) {
+      console.warn("Retrying PDF generation with compact HTML", fallbackErr);
+      return Print.printToFileAsync({ html: fallbackHtml });
+    }
+  }
 }
 
 function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
@@ -131,7 +233,6 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
           border-radius: 8px;
           background: #fff;
           padding: 12px;
-          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.16);
           break-inside: auto;
           page-break-inside: auto;
         }
@@ -139,8 +240,8 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
           page-break-inside: auto;
         }
         tr {
-          break-inside: avoid;
-          page-break-inside: avoid;
+          break-inside: auto;
+          page-break-inside: auto;
         }
         h2 {
           margin: 0 0 10px;
@@ -202,7 +303,6 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 4px;
-          box-shadow: 0 5px 8px rgba(13, 52, 64, 0.22);
         }
         .loshu-cell {
           min-height: 46px;
@@ -219,6 +319,9 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 8px;
+        }
+        .summary-grid.two-column {
+          grid-template-columns: repeat(2, 1fr);
         }
         .number-card {
           min-height: 82px;
@@ -268,6 +371,49 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
           font-weight: 800;
           margin-top: 3px;
         }
+        .arrow-card {
+          border-radius: 8px;
+          border: 1.5px solid #39a853;
+          background: #fffde5;
+          padding: 10px;
+        }
+        .arrow-item {
+          border: 1px solid #8dcc83;
+          border-radius: 6px;
+          background: #fff;
+          overflow: hidden;
+          margin-top: 8px;
+        }
+        .arrow-item:first-child {
+          margin-top: 0;
+        }
+        .arrow-status {
+          min-height: 34px;
+          background: #f3ffd7;
+          border-bottom: 1px solid #d6dfc9;
+          color: #145c24;
+          display: flex;
+          justify-content: space-between;
+          gap: 18px;
+          font-size: 14px;
+          line-height: 18px;
+          font-weight: 900;
+          padding: 8px 10px;
+        }
+        .arrow-status-main {
+          text-align: left;
+        }
+        .arrow-status-percent {
+          text-align: right;
+          white-space: nowrap;
+        }
+        .arrow-prediction {
+          color: #111;
+          font-size: 12px;
+          line-height: 19px;
+          font-weight: 700;
+          padding: 8px 10px;
+        }
         .effects-card {
           background: #fffde5;
         }
@@ -303,7 +449,6 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 3px;
-          box-shadow: 0 4px 6px rgba(11, 58, 120, 0.2);
         }
         .repetition-cell {
           border: 1px solid #edf2ff;
@@ -341,7 +486,6 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
           background: #fff;
           padding: 10px 12px;
           margin-top: 8px;
-          box-shadow: 0 2px 4px rgba(11, 58, 120, 0.12);
         }
         .repetition-effect-title {
           color: #061b4f;
@@ -479,7 +623,6 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
           background: #fff;
           padding: 0;
           overflow: hidden;
-          box-shadow: 0 4px 7px rgba(13, 52, 64, 0.18);
         }
         .split-row,
         .soul-row {
@@ -534,9 +677,8 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
           background: #fff;
           padding: 12px;
           margin-top: 14px;
-          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.16);
-          break-inside: avoid;
-          page-break-inside: avoid;
+          break-inside: auto;
+          page-break-inside: auto;
         }
         .compat-heading {
           min-height: 40px;
@@ -573,7 +715,6 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
           background: #fff;
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          box-shadow: 0 2px 8px rgba(119, 119, 119, 0.18);
         }
         .compat-grid-cell {
           border-right: 1px solid #d7d7d7;
@@ -672,6 +813,88 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
   </html>`;
 }
 
+function buildCompactPdfHtml(title: string, sections: NumerologyExportSection[]) {
+  const body = sections.map(renderCompactSection).join("");
+
+  return `<!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <style>
+        @page { margin: 18px; }
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          color: #111;
+          font-family: Arial, sans-serif;
+          background: #fff;
+        }
+        h1 {
+          margin: 0 0 12px;
+          color: #145c24;
+          font-size: 22px;
+          line-height: 28px;
+          font-weight: 900;
+        }
+        h2 {
+          margin: 14px 0 6px;
+          color: #145c24;
+          font-size: 16px;
+          line-height: 21px;
+          font-weight: 900;
+          border-bottom: 1px solid #145c24;
+          padding-bottom: 4px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 8px;
+        }
+        th, td {
+          border: 1px solid #333;
+          padding: 5px;
+          text-align: center;
+          vertical-align: middle;
+          font-size: 10px;
+          line-height: 13px;
+          font-weight: 700;
+        }
+        th {
+          background: #d8f4d1;
+          font-weight: 900;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>${escapeHtml(title)}</h1>
+      ${body}
+    </body>
+  </html>`;
+}
+
+function renderCompactSection(section: NumerologyExportSection) {
+  const rows = section.rows.length ? section.rows : [["-"]];
+  return `
+    <section>
+      <h2>${escapeHtml(section.title)}</h2>
+      <table>
+        ${rows
+          .map(
+            (row, rowIndex) => `
+              <tr>
+                ${row
+                  .map((cell) => {
+                    const tag = rowIndex === 0 ? "th" : "td";
+                    return `<${tag}>${escapeHtml(formatCell(cell))}</${tag}>`;
+                  })
+                  .join("")}
+              </tr>`
+          )
+          .join("")}
+      </table>
+    </section>`;
+}
+
 function renderSection(section: NumerologyExportSection) {
   switch (section.variant) {
     case "intro":
@@ -679,6 +902,7 @@ function renderSection(section: NumerologyExportSection) {
     case "loShuGrid":
       return renderLoShuGridSection(section);
     case "summary":
+    case "summaryTwoColumn":
       return renderSummarySection(section);
     case "detailButton":
       return renderDetailButtonSection(section);
@@ -696,6 +920,8 @@ function renderSection(section: NumerologyExportSection) {
       return renderSoulSection(section);
     case "repetitionEffects":
       return renderRepetitionEffectsSection(section);
+    case "loShuArrows":
+      return renderLoShuArrowSection(section);
     case "compatibilityPage":
       return renderCompatibilityPageSection(section);
     default:
@@ -723,8 +949,9 @@ function renderLoShuGridSection(section: NumerologyExportSection) {
 }
 
 function renderSummarySection(section: NumerologyExportSection) {
+  const twoColumn = section.variant === "summaryTwoColumn";
   return `
-    <section class="summary-grid">
+    <section class="summary-grid${twoColumn ? " two-column" : ""}">
       ${section.rows
         .map(
           ([label, value, note]) => `
@@ -743,6 +970,23 @@ function renderDetailButtonSection(section: NumerologyExportSection) {
     <section class="detail-button">
       <div class="detail-button-title">${escapeHtml(formatCell(section.rows[0]?.[0]))}</div>
       <div class="detail-button-subtitle">${escapeHtml(formatCell(section.rows[1]?.[0]))}</div>
+    </section>`;
+}
+
+function renderLoShuArrowSection(section: NumerologyExportSection) {
+  return `
+    <section class="card arrow-card">
+      <h2>${escapeHtml(section.title)}</h2>
+      ${section.rows
+        .map(([status, percentage, prediction]) => `
+          <div class="arrow-item">
+            <div class="arrow-status">
+              <span class="arrow-status-main">${escapeHtml(formatCell(status))}</span>
+              <span class="arrow-status-percent">${escapeHtml(formatCell(percentage))}</span>
+            </div>
+            <div class="arrow-prediction">• ${escapeHtml(formatCell(prediction))}</div>
+          </div>`)
+        .join("")}
     </section>`;
 }
 
@@ -1028,6 +1272,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.16,
     shadowRadius: 4,
     elevation: 3
+  },
+  fixedWrap: {
+    position: "absolute",
+    right: spacing.md,
+    bottom: 86,
+    zIndex: 50,
+    elevation: 10
+  },
+  fixedButton: {
+    minHeight: 46,
+    shadowColor: "#145c24",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.24,
+    shadowRadius: 8,
+    elevation: 8
   },
   buttonDisabled: { opacity: 0.68 },
   buttonText: { color: "#145c24", fontSize: 14, lineHeight: 18, fontWeight: "900" }

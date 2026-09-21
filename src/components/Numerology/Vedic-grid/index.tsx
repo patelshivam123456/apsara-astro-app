@@ -7,6 +7,7 @@ import { Button, Text } from "react-native-paper";
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { NumerologyCalculationTabs } from "@/components/Numerology/CalculationTabs";
+import { buildFullNumerologyExportSections } from "@/components/Numerology/FullNumerologyExport";
 import { NumerologyExportButton, NumerologyExportSection } from "@/components/Numerology/NumerologyExport";
 import { ErrorState, LoadingState } from "@/components/StateViews";
 import { useTranslation } from "@/context/LanguageContext";
@@ -110,14 +111,9 @@ export function VedicGridScreen() {
           personBDob={personBDob}
           personBGender={personBGender}
         />
-        <NumerologyExportButton
-          title={`${t("Master Vedic Grid")} - ${fullName}`}
-          fileName={`vedic-grid-${fullName}`}
-          sections={() => buildVedicExportSections({ dob, fullName, gender, language, relationships, t, vedicGrid })}
-        />
         <GridIntro
           title={t("Master Vedic Grid")}
-          description={t("Vedic number placement showing core numbers, zodiac influence, and active grid energy.")}
+          
         />
         <LoShuGrid grid={vedicGrid?.grid} />
         <NumberSummaryGrid
@@ -140,6 +136,13 @@ export function VedicGridScreen() {
         <PratyantarDashaChart dateOfBirth={vedicGrid?.dob || dob} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
+      <NumerologyExportButton
+        blink
+        fixed
+        title={`${t("Numerology Report")} - ${fullName}`}
+        fileName={`numerology-report-${fullName}`}
+        sections={() => buildFullNumerologyExportSections({ dob, fullName, gender, language, t })}
+      />
       <AstrologerBottomNav active="home" respectSafeArea />
     </SafeAreaView>
   );
@@ -334,7 +337,7 @@ function getTrailingNumber(value: unknown): string | undefined {
   return String(value || "").match(/\d+/g)?.at(-1);
 }
 
-async function buildVedicExportSections({
+export async function buildVedicExportSections({
   dob,
   fullName,
   gender,
@@ -364,6 +367,8 @@ async function buildVedicExportSections({
     fetchDashaExportRows(reportDob),
     fetchPratyantarExportRows(reportDob)
   ]);
+  const dashaExportRows = limitExportRows(dashaRows, 80);
+  const pratyantarExportRows = limitExportRows(pratyantarRows, 120);
   const translationMap = await translateUniqueTexts([
     "Master Vedic Grid",
     "Vedic number placement showing core numbers, zodiac influence, and active grid energy.",
@@ -483,26 +488,39 @@ async function buildVedicExportSections({
       title: tx("Mahadasha & Antardasha Chart"),
       rows: [
         [tx("From"), tx("To"), tx("Maha Dasha"), tx("Antar Dasha")],
-        ...dashaRows.map((row) => [
+        ...dashaExportRows.rows.map((row) => [
           localizeDigitsInText(compactDate(row.fromDate), language),
           localizeDigitsInText(compactDate(row.toDate), language),
           localizeDigitsInText(row.mahadashaNumber ?? "-", language),
           localizeDigitsInText(row.antardashaNumber ?? "-", language)
-        ])
+        ]),
+        ...(dashaExportRows.remaining > 0
+          ? [[`${localizeDigitsInText(dashaExportRows.remaining, language)} more rows`, "Open the app for complete chart", "", ""]]
+          : [])
       ]
     },
     {
       title: tx("Pratyantar Dasha Chart"),
       rows: [
         [tx("From"), tx("To"), tx("Pratyantar Dasha")],
-        ...pratyantarRows.map((row) => [
+        ...pratyantarExportRows.rows.map((row) => [
           localizeDigitsInText(compactDate(row.fromDate, true), language),
           localizeDigitsInText(compactDate(row.toDate, true), language),
           localizeDigitsInText(row.pratyantarDashaNumber ?? "-", language)
-        ])
+        ]),
+        ...(pratyantarExportRows.remaining > 0
+          ? [[`${localizeDigitsInText(pratyantarExportRows.remaining, language)} more rows`, "Open the app for complete chart", ""]]
+          : [])
       ]
     }
   ];
+}
+
+function limitExportRows<T>(rows: T[], limit: number) {
+  return {
+    rows: rows.slice(0, limit),
+    remaining: Math.max(0, rows.length - limit)
+  };
 }
 
 type DashaExportRow = {

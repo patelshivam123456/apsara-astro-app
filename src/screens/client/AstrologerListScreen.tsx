@@ -1,77 +1,45 @@
 import { useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import { FlatList, GestureResponderEvent, Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Avatar, Button, Chip, Text } from "react-native-paper";
+import { Avatar, Badge, Button, Chip, IconButton, Text } from "react-native-paper";
 
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
+import {
+  AstrologerFilterModal,
+  defaultAstrologerFilters,
+  filterAstrologers,
+  getActiveAstrologerFilterCount,
+  getAstrologerFilterOptions,
+  getAstrologerRouteId,
+  splitAstrologerValues,
+  AstrologerFilterState
+} from "@/components/AstrologerFilters";
 import { EmptyState, ErrorState, LoadingState } from "@/components/StateViews";
 import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 import { useAstrologers } from "@/hooks/useAstrologers";
 import { Astrologer } from "@/types/api";
 
-type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
-type ExpFilter = "All Experience" | "0 - 5 Years" | "6 - 10 Years" | "11+ Years";
-
-const expFilters: ExpFilter[] = ["All Experience", "0 - 5 Years", "6 - 10 Years", "11+ Years"];
-
-function splitValues(value?: string | string[]) {
-  if (Array.isArray(value)) return value.map((item) => item.trim()).filter(Boolean);
-  return (value || "").split(",").map((item) => item.trim()).filter(Boolean);
-}
-
 function getName(astrologer: Astrologer) {
   return astrologer.displayName || astrologer.fullName || [astrologer.firstName, astrologer.lastName].filter(Boolean).join(" ") || "Apsara Expert";
 }
 
 function getSkills(astrologer: Astrologer) {
-  return splitValues(astrologer.expertise).join(", ") || astrologer.specialization || "Astrology";
-}
-
-function getExperience(astrologer: Astrologer) {
-  const value = Number(astrologer.yearsOfExperience || 0);
-  return Number.isFinite(value) ? value : 0;
-}
-
-function matchesExperience(astrologer: Astrologer, filter: ExpFilter) {
-  const years = getExperience(astrologer);
-  if (filter === "All Experience") return true;
-  if (filter === "0 - 5 Years") return years <= 5;
-  if (filter === "6 - 10 Years") return years >= 6 && years <= 10;
-  return years >= 11;
-}
-
-function unique(values: string[]) {
-  return [...new Set(values.filter(Boolean))];
+  return splitAstrologerValues(astrologer.expertise).join(", ") || astrologer.specialization || "Astrology";
 }
 
 export function AstrologerListScreen() {
   const { t } = useTranslation();
   const query = useAstrologers();
-  const [category, setCategory] = useState("All");
-  const [language, setLanguage] = useState("All");
-  const [location, setLocation] = useState("All");
-  const [experience, setExperience] = useState<ExpFilter>("All Experience");
+  const [filters, setFilters] = useState<AstrologerFilterState>(defaultAstrologerFilters);
+  const [filterVisible, setFilterVisible] = useState(false);
 
   const data = query.data || [];
-  const categories = useMemo(() => unique(data.flatMap((item) => [item.specialization || "", ...splitValues(item.expertise)])), [data]);
-  const languages = useMemo(() => unique(data.flatMap((item) => splitValues(item.language || item.languagesKnown))), [data]);
-  const locations = useMemo(() => unique(data.map((item) => item.city || item.state || "").filter(Boolean)), [data]);
-
-  const filtered = useMemo(() => data.filter((item) => {
-    const skillText = [item.specialization || "", ...splitValues(item.expertise)].join(" ").toLowerCase();
-    const languageText = splitValues(item.language || item.languagesKnown).join(" ").toLowerCase();
-    const locationText = [item.city, item.state].filter(Boolean).join(" ").toLowerCase();
-
-    return (
-      (category === "All" || skillText.includes(category.toLowerCase())) &&
-      (language === "All" || languageText.includes(language.toLowerCase())) &&
-      (location === "All" || locationText.includes(location.toLowerCase())) &&
-      matchesExperience(item, experience)
-    );
-  }), [category, data, experience, language, location]);
+  const filterOptions = useMemo(() => getAstrologerFilterOptions(data), [data]);
+  const filtered = useMemo(() => filterAstrologers(data, filters), [data, filters]);
+  const activeFilterCount = getActiveAstrologerFilterCount(filters);
 
   if (query.isLoading) return <LoadingState label="Loading astrologers" />;
   if (query.isError) {
@@ -97,13 +65,10 @@ export function AstrologerListScreen() {
             <View style={styles.header}>
               <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
               <Text variant="titleLarge" style={styles.title}>{t("Astrologers")}</Text>
-              <View style={styles.headerGap} />
-            </View>
-            <View style={styles.filterPanel}>
-              <FilterGroup title="Category" options={["All", ...categories.slice(0, 8)]} selected={category} onSelect={setCategory} />
-              <FilterGroup title="Language" options={["All", ...languages.slice(0, 8)]} selected={language} onSelect={setLanguage} />
-              <FilterGroup title="Location" options={["All", ...locations.slice(0, 8)]} selected={location} onSelect={setLocation} />
-              <FilterGroup title="Experience" options={expFilters} selected={experience} onSelect={(value) => setExperience(value as ExpFilter)} />
+              <View style={styles.filterIconWrap}>
+                <IconButton icon="tune-variant" mode="contained-tonal" size={21} onPress={() => setFilterVisible(true)} />
+                {activeFilterCount ? <Badge style={styles.filterBadge}>{activeFilterCount}</Badge> : null}
+              </View>
             </View>
             <View style={styles.resultHeader}>
               <Text style={styles.resultTitle}>{filtered.length} {t(filtered.length === 1 ? "astrologer" : "astrologers")}</Text>
@@ -113,34 +78,15 @@ export function AstrologerListScreen() {
         )}
         ListEmptyComponent={<EmptyState title="No astrologers found" description="Try changing the filters." />}
       />
+      <AstrologerFilterModal
+        filters={filters}
+        onChange={setFilters}
+        onClose={() => setFilterVisible(false)}
+        options={filterOptions}
+        visible={filterVisible}
+      />
       <AstrologerBottomNav active="home" respectSafeArea />
     </SafeAreaView>
-  );
-}
-
-function FilterGroup({ title, options, selected, onSelect }: { title: string; options: string[]; selected: string; onSelect: (value: string) => void }) {
-  const { t } = useTranslation();
-  return (
-    <View style={styles.filterGroup}>
-      <Text style={styles.filterLabel}>{t(title).toUpperCase()}</Text>
-      <View style={styles.chips}>
-        {options.map((item) => {
-          const active = item === selected;
-          return (
-            <Chip
-              key={`${title}-${item}`}
-              compact
-              selected={active}
-              onPress={() => onSelect(item)}
-              style={[styles.chip, active && styles.activeChip]}
-              textStyle={[styles.chipText, active && styles.activeChipText]}
-            >
-              {t(item)}
-            </Chip>
-          );
-        })}
-      </View>
-    </View>
   );
 }
 
@@ -150,9 +96,14 @@ function AstrologerResultCard({ astrologer }: { astrologer: Astrologer }) {
   const skills = getSkills(astrologer);
   const years = astrologer.yearsOfExperience || "5";
   const initials = name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const routeId = getAstrologerRouteId(astrologer);
+  const openDetails = () => {
+    if (routeId) router.push(`/astrologers/${routeId}`);
+  };
+  const stopCardPress = (event?: GestureResponderEvent) => event?.stopPropagation();
 
   return (
-    <Pressable style={styles.card} onPress={() => router.push(`/astrologers/${astrologer.publicId}`)}>
+    <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]} onPress={openDetails}>
       <View style={styles.cardTop}>
         <View style={styles.avatarWrap}>
           <Avatar.Text size={72} label={initials || "AA"} style={styles.avatar} labelStyle={styles.avatarLabel} />
@@ -161,15 +112,18 @@ function AstrologerResultCard({ astrologer }: { astrologer: Astrologer }) {
         <View style={styles.cardInfo}>
           <Text variant="titleLarge" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.76} style={styles.cardName}>{name}</Text>
           <Text style={styles.cardMeta} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{years}+ {t("years")} • {t(skills)}</Text>
-          <Chip compact icon="currency-inr" style={styles.priceChip} textStyle={styles.priceText}>₹{astrologer.pricePerMinute || 25}/min</Chip>
+          <View style={styles.cardBadges}>
+            <Chip compact icon="currency-inr" style={styles.priceChip} textStyle={styles.priceText}>₹{astrologer.pricePerMinute || 25}/min</Chip>
+            <Chip compact icon={astrologer.isOnline === false ? "clock-outline" : "check-circle"} style={styles.statusChip} textStyle={styles.statusText}>
+              {t(astrologer.isOnline === false ? "Offline" : "Online")}
+            </Chip>
+          </View>
         </View>
+        <MaterialCommunityIcons name="chevron-right" size={28} color={colors.amber} style={styles.cardChevron} />
       </View>
       <View style={styles.cardActions}>
-        <Button mode="outlined" icon="chat" textColor={colors.amber} style={styles.outlineAction} onPress={() => router.push("/chat")}>{t("Chat")}</Button>
-        <Button mode="contained-tonal" icon="phone" style={styles.callAction} onPress={() => router.push("/call")}>{t("Call")}</Button>
-        <Button mode="text" compact onPress={() => router.push(`/astrologers/${astrologer.publicId}`)}>
-          <MaterialCommunityIcons name="chevron-right" size={24} color={colors.amber} />
-        </Button>
+        <Button mode="outlined" icon="chat" textColor={colors.amber} style={styles.outlineAction} contentStyle={styles.actionContent} disabled onPress={stopCardPress}>{t("Chat")}</Button>
+        <Button mode="contained-tonal" icon="phone" style={styles.callAction} contentStyle={styles.actionContent} disabled onPress={stopCardPress}>{t("Call")}</Button>
       </View>
     </Pressable>
   );
@@ -178,34 +132,45 @@ function AstrologerResultCard({ astrologer }: { astrologer: Astrologer }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f7f7f7" },
   list: { flex: 1 },
-  content: { padding: spacing.md, paddingBottom: 92, gap: spacing.md },
+  content: { padding: spacing.md, paddingBottom: 96, gap: spacing.md },
   top: { gap: spacing.md },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  title: { color: colors.ink, fontWeight: "700",fontSize: 15 },
-  headerGap: { width: 70 },
-  filterPanel: { borderWidth: 1, borderColor: "#d4bd22", borderRadius: 12, backgroundColor: "#ffffc9", padding: spacing.md, gap: spacing.md },
-  filterGroup: { gap: spacing.xs },
-  filterLabel: { color: colors.amber, fontSize: 10, fontWeight: "900", letterSpacing: 0 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  chip: { backgroundColor: "#fffde6", borderWidth: 1, borderColor: "#d4bd22" },
-  activeChip: { backgroundColor: "#c5a500" },
-  chipText: { color: colors.ink, fontSize: 12, fontWeight: "700" },
-  activeChipText: { color: "#111", fontWeight: "900" },
+  title: { color: colors.ink, fontWeight: "900", fontSize: 19, lineHeight: 24, textAlign: "center" },
+  filterIconWrap: { width: 70, alignItems: "flex-end", justifyContent: "center" },
+  filterBadge: { position: "absolute", top: 2, right: 0, backgroundColor: colors.danger },
   resultHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.sm },
-  resultTitle: { flex: 1, minWidth: 0, color: colors.ink, fontWeight: "900" },
-  resultMuted: { color: colors.cocoa, fontSize: 12 },
-  card: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.surface, padding: spacing.md, gap: spacing.md },
-  cardTop: { flexDirection: "row", gap: spacing.md },
+  resultTitle: { flex: 1, minWidth: 0, color: colors.ink, fontSize: 17, lineHeight: 22, fontWeight: "900" },
+  resultMuted: { color: colors.cocoa, fontSize: 12, lineHeight: 16 },
+  card: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    gap: spacing.md,
+    shadowColor: "#6b5309",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2
+  },
+  cardPressed: { opacity: 0.86, transform: [{ scale: 0.99 }] },
+  cardTop: { flexDirection: "row", gap: spacing.md, alignItems: "center" },
   avatarWrap: { width: 88, alignItems: "center" },
   avatar: { backgroundColor: colors.ink },
-  avatarLabel: { color: colors.lime, fontSize: 24, fontWeight: "800" },
-  onlineDot: { width: 14, height: 14, borderRadius: 7, marginTop: spacing.md },
+  avatarLabel: { color: colors.lime, fontSize: 24, fontWeight: "900" },
+  onlineDot: { width: 15, height: 15, borderRadius: 8, marginTop: spacing.sm, borderWidth: 2, borderColor: colors.surface },
   cardInfo: { flex: 1, minWidth: 0, gap: spacing.sm },
-  cardName: { color: colors.ink, fontWeight: "900", lineHeight: 27 },
-  cardMeta: { color: colors.cocoa, lineHeight: 21 },
+  cardName: { color: colors.ink, fontWeight: "900", lineHeight: 30 },
+  cardMeta: { color: colors.cocoa, fontSize: 14, lineHeight: 20, fontWeight: "700" },
+  cardBadges: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, alignItems: "center" },
   priceChip: { alignSelf: "flex-start", backgroundColor: "#e8ddf8" },
   priceText: { color: colors.ink, fontSize: 16, fontWeight: "900" },
-  cardActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  statusChip: { alignSelf: "flex-start", backgroundColor: "#f2ffe9" },
+  statusText: { color: colors.success, fontSize: 12, fontWeight: "900" },
+  cardChevron: { marginLeft: spacing.xs },
+  cardActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingLeft: 100 },
   outlineAction: { borderColor: colors.border, borderRadius: 28 },
-  callAction: { borderRadius: 28, backgroundColor: "#e8ddf8" }
+  callAction: { borderRadius: 28, backgroundColor: "#e8ddf8" },
+  actionContent: { minWidth: 96, minHeight: 42 }
 });

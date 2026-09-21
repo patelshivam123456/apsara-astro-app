@@ -12,7 +12,6 @@ import { useTranslation } from "@/context/LanguageContext";
 import { forgotPassword } from "@/services/auth.service";
 import { getApiErrorMessage } from "@/services/apiClient";
 import { useAuthStore } from "@/store/auth.store";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 const schema = z.object({
   username: z.string().min(1, "Username is required").email("Enter a valid email"),
@@ -24,7 +23,6 @@ type FormValues = z.infer<typeof schema>;
 export function LoginScreen() {
   const { t } = useTranslation();
   const signIn = useAuthStore((state) => state.signIn);
-  const roles = useAuthStore((state) => state.roles);
   const [secure, setSecure] = useState(true);
   const [error, setError] = useState("");
   const [forgotOpen, setForgotOpen] = useState(false);
@@ -49,8 +47,7 @@ export function LoginScreen() {
     setError("");
     try {
       await signIn(values.username, values.password);
-      const nextRoles = useAuthStore.getState().roles.length ? useAuthStore.getState().roles : roles;
-      router.replace(nextRoles.includes("ROLE_ASTROLOGER") ? "/astrologer" : "/(drawer)/(tabs)");
+      router.replace("/astrologer");
     } catch (err) {
       setError(getApiErrorMessage(err, "Login failed"));
     }

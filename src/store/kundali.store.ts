@@ -1,11 +1,11 @@
 import { create } from "zustand";
 
-import { KundaliBasicPayload, KundaliBasicResponse } from "@/services/kundali.service";
+import { KundaliBasicPayload, KundaliCombinedResponse } from "@/services/kundali.service";
 
 type KundaliState = {
-  result: KundaliBasicResponse | null;
+  result: KundaliCombinedResponse | null;
   request: KundaliBasicPayload | null;
-  setResult: (result: KundaliBasicResponse, request?: KundaliBasicPayload) => void;
+  setResult: (result: KundaliCombinedResponse, request?: KundaliBasicPayload) => void;
   clearResult: () => void;
 };
 

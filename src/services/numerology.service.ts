@@ -26,6 +26,7 @@ export type LoShuGridResponse = {
     middleRow?: string[];
     bottomRow?: string[];
   };
+  loShuArrowPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
 };
 
 export type CompatibilityGridPayload = {
@@ -103,8 +104,10 @@ export type NumerologyPredictionItem = {
   name?: string;
   title?: string;
   type?: string;
+  predictionType?: string;
   label?: string;
   number?: string | number;
+  numberValue?: string | number;
   numberPresent?: string | number;
   value?: string | number;
   yog?: string | number;
@@ -122,6 +125,14 @@ export type NumerologyPredictionItem = {
 export type PythagoreanGridResponse = LoShuGridResponse & {
   driverAddedToGrid?: boolean;
   destinyAddedToGrid?: boolean;
+  expressionNumber?: string | number;
+  expressionNo?: string | number;
+  nameNo?: string | number;
+  expressionNumberPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
+  expressionNoPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
+  expressionPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
+  nameNumberPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
+  nameNoPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
   challengePinnacleSoulNameNoPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
   challengeNumber?: {
     challengeOne?: string | number;

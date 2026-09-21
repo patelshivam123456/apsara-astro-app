@@ -7,6 +7,7 @@ import { Button, Text } from "react-native-paper";
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { NumerologyCalculationTabs } from "@/components/Numerology/CalculationTabs";
+import { buildFullNumerologyExportSections } from "@/components/Numerology/FullNumerologyExport";
 import { NumerologyExportButton, NumerologyExportSection } from "@/components/Numerology/NumerologyExport";
 import { GridIntro } from "@/components/Numerology/Lushu-grid/Common";
 import { localizeDigitsInText } from "@/components/Numerology/Lushu-grid/utils";
@@ -19,9 +20,11 @@ import {
   ChaldeanNamePairEventsResponse,
   getChaldeanNameLetterAnalysisChart,
   getChaldeanNamePairEvents,
+  getLoShuGrid,
   getNameFrequencyNameChart,
   getNumberRelationships,
   getPythagoreanRunningAgeAlphabet,
+  LoShuGridResponse,
   NameFrequencyNameChartResponse,
   NumerologyPredictionItem,
   NumberRelationshipItem,
@@ -52,6 +55,7 @@ export function NameFrequencyScreen() {
   const personBDob = String(params.personBDob || "");
   const personBGender = String(params.personBGender || "Female");
   const payload = useMemo(() => ({ dob, fullName, gender }), [dob, fullName, gender]);
+  const [loShuGrid, setLoShuGrid] = useState<LoShuGridResponse | null>(null);
   const [nameChart, setNameChart] = useState<NameFrequencyNameChartResponse | null>(null);
   const [pairEvents, setPairEvents] = useState<ChaldeanNamePairEventsResponse | null>(null);
   const [letterAnalysis, setLetterAnalysis] = useState<ChaldeanNameLetterAnalysisChartResponse | null>(null);
@@ -67,9 +71,13 @@ export function NameFrequencyScreen() {
       try {
         setLoading(true);
         setError(null);
-        const nameChartResponse = await getNameFrequencyNameChart(payload);
+        const [nameChartResponse, loShuGridResponse] = await Promise.all([
+          getNameFrequencyNameChart(payload),
+          getLoShuGrid(payload)
+        ]);
         if (!mounted) return;
         setNameChart(nameChartResponse);
+        setLoShuGrid(loShuGridResponse);
         const relationshipRows = await loadNameLetterRelationships(nameChartResponse);
         if (!mounted) return;
         setNameLetterRelationships(relationshipRows);
@@ -104,17 +112,19 @@ export function NameFrequencyScreen() {
   const summaryRows = useMemo(
     () => [
       [
-        { label: t("Total Letters"), value: letterAnalysis?.totalLetters },
-        { label: t("Compound Name Number"), value: letterAnalysis?.compoundNameNumber },
-        { label: t("Total Name Number"), value: letterAnalysis?.totalNameNumber }
+        { label: t("Personality Number"), value: loShuGrid?.driverNumber, note: t("Inner Nature") },
+        { label: t("Destiny Number"), value: loShuGrid?.destinyNumber, note: t("Life Path") }
       ],
       [
-        { label: t("Total Life Years"), value: pairEvents?.totalLifeYears },
-        { label: t("First Name"), value: letterAnalysis?.firstName || "-" },
-        { label: t("Last Name"), value: letterAnalysis?.lastName || "-" }
+        { label: t("Zodiac"), value: loShuGrid?.zodiacNumber, note: loShuGrid?.zodiacSign || t("Zodiac Sign") },
+        { label: t("NN : Name Number"), value: nameChart?.nameNumber ?? letterAnalysis?.totalNameNumber, note: `${t("Compound")}: ${letterAnalysis?.compoundNameNumber ?? "-"}` }
+      ],
+      [
+        { label: t("Running Age"), value: nameChart?.runningAge },
+        { label: t("Name Age"), value: nameChart?.nameAge }
       ]
     ],
-    [letterAnalysis, pairEvents, t]
+    [letterAnalysis, loShuGrid, nameChart, t]
   );
 
   if (loading) return <LoadingState label="Loading name frequency" />;
@@ -138,37 +148,28 @@ export function NameFrequencyScreen() {
           personBDob={personBDob}
           personBGender={personBGender}
         />
-        <NumerologyExportButton
-          title={`${t("Name Frequency")} - ${fullName}`}
-          fileName={`name-frequency-${fullName}`}
-          sections={() => buildNameFrequencyExportSections({
-            dob,
-            fullName,
-            gender,
-            language,
-            letterAnalysis,
-            nameChart,
-            pairEvents,
-            runningAgeAlphabet,
-            nameLetterRelationships,
-            t
-          })}
-        />
         <GridIntro
           title={t("Name Frequency")}
-          description={t("Chaldean name pair events and letter frequency analysis.")}
+          // description={t("Chaldean name pair events and letter frequency analysis.")}
         />
-        <NameSummary fullName={letterAnalysis?.fullName || pairEvents?.fullName || fullName} normalizedName={letterAnalysis?.normalizedName || pairEvents?.normalizedName} />
+        <NameSummary dob={dob} fullName={letterAnalysis?.fullName || pairEvents?.fullName || fullName} />
         
         <SummaryGrid rows={summaryRows} />
-        <PairEventsTable data={pairEvents} />
-        <RunningAgeAlphabetTable rows={runningAgeAlphabet} />
+        <NameChartTable data={nameChart} relationships={nameLetterRelationships} />
+        <NameFrequencyPredictionCards name={fullName} data={letterAnalysis} />
         <NameLettersTable data={letterAnalysis} />
         <NumberFrequencyTable data={letterAnalysis} />
-        <NameFrequencyPredictionCards name={fullName} data={letterAnalysis} />
-        <NameChartTable data={nameChart} relationships={nameLetterRelationships} />
+        <RunningAgeAlphabetTable rows={runningAgeAlphabet} />
+        <PairEventsTable data={pairEvents} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
+      <NumerologyExportButton
+        blink
+        fixed
+        title={`${t("Numerology Report")} - ${fullName}`}
+        fileName={`numerology-report-${fullName}`}
+        sections={() => buildFullNumerologyExportSections({ dob, fullName, gender, language, t })}
+      />
       <AstrologerBottomNav active="home" respectSafeArea />
     </SafeAreaView>
   );
@@ -213,12 +214,12 @@ function NameChartTable({ data, relationships }: { data: NameFrequencyNameChartR
   );
 }
 
-function NameSummary({ fullName, normalizedName }: { fullName?: string; normalizedName?: string }) {
+function NameSummary({ dob, fullName }: { dob?: string; fullName?: string }) {
   const { t } = useTranslation();
   return (
     <View style={styles.infoTable}>
       <InfoRow label={t("Full Name")} value={fullName || "-"} />
-      <InfoRow label={t("Normalized Name")} value={normalizedName || "-"} last />
+      <InfoRow label={t("Date of Birth")} value={dob || "-"} last />
     </View>
   );
 }
@@ -232,18 +233,23 @@ function InfoRow({ label, value, last = false }: { label: string; value: string;
   );
 }
 
-function SummaryGrid({ rows }: { rows: { label: string; value?: string | number }[][] }) {
+function SummaryGrid({ rows }: { rows: { label: string; value?: string | number; note?: string }[][] }) {
   const { language } = useTranslation();
   return (
     <View style={styles.summaryTable}>
       {rows.map((row, rowIndex) => (
         <View key={`summary-${rowIndex}`} style={styles.summaryRow}>
           {row.map((item, itemIndex) => (
-            <View key={`${item.label}-${itemIndex}`} style={[styles.summaryCell, itemIndex < row.length - 1 && styles.cellRightBorder]}>
+            <View key={`${item.label}-${itemIndex}`} style={styles.summaryCell}>
               <Text style={styles.summaryLabel} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.62}>{item.label}</Text>
               <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.62}>
                 {localizeDigitsInText(item.value ?? "-", language)}
               </Text>
+              {item.note ? (
+                <Text style={styles.summaryNote} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.58}>
+                  {localizeDigitsInText(item.note, language)}
+                </Text>
+              ) : null}
             </View>
           ))}
         </View>
@@ -258,10 +264,10 @@ function PairEventsTable({ data }: { data: ChaldeanNamePairEventsResponse | null
 
   return (
     <View style={styles.tablePanel}>
-      <Text style={styles.tableTitle}>{t("Name Pair Events")}</Text>
+      <Text style={styles.tableTitle}>{t("Name Letter Pair Vibration")}</Text>
       <View style={styles.wideTable}>
         <TableRow
-          cells={[t("Year"), t("Pair"), t("Event 1"), t("Event 2"), t("Vibration")]}
+          cells={[t("Year"), t("Pair"), t("Running Age (1)"), t("Running Age (2)"), t("Vibration")]}
           header
         />
         {rows.map((row, index) => (
@@ -289,7 +295,7 @@ function NumberFrequencyTable({ data }: { data: ChaldeanNameLetterAnalysisChartR
 
   return (
     <View style={styles.tablePanel}>
-      <Text style={styles.numberFrequencyTitle}>{t("Number Frequencies")}</Text>
+      <Text style={styles.numberFrequencyTitle}>{t("Letter Number Frequency Chart")}</Text>
       <View style={styles.compactTable}>
         <TableRow cells={[t("Frequency"), t("Numbers")]} header />
         {frequencyRows.map((row) => (
@@ -343,20 +349,23 @@ function NameFrequencyPredictionCards({ data, name }: { data: ChaldeanNameLetter
         const numberLabel = title.toLowerCase().includes("number") ? title : `${title} Number`;
 
         return (
-          <View key={`${title}-${index}`} style={styles.predictionCard}>
-            <View style={styles.predictionRow}>
-              <Text style={styles.predictionLabel}>{t("Name")}</Text>
-              <Text style={styles.predictionValue} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.68}>
-                {data?.fullName || name || "-"}
-              </Text>
-            </View>
-            <View style={styles.predictionRow}>
-              <Text style={styles.predictionLabel}>{tx(numberLabel)}</Text>
-              <Text style={styles.predictionValue}>{localizeDigitsInText(number ?? "-", language)}</Text>
-            </View>
-            <View style={styles.predictionBodyRow}>
-              <Text style={styles.predictionLabel}>{tx("Properties")} :</Text>
-              <Text style={styles.predictionBody}>{properties ? tx(properties) : "-"}</Text>
+          <View key={`${title}-${index}`}>
+            {index === 0 ? <Text style={styles.nameNumberAnalysisHeading}>{tx("Name Number Analysis")}</Text> : null}
+            <View style={styles.predictionCard}>
+              <View style={styles.predictionRow}>
+                <Text style={styles.predictionLabel}>{t("Name")}</Text>
+                <Text style={styles.predictionValue} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.68}>
+                  {data?.fullName || name || "-"}
+                </Text>
+              </View>
+              <View style={styles.predictionRow}>
+                <Text style={styles.predictionLabel}>{tx(numberLabel)}</Text>
+                <Text style={styles.predictionValue}>{localizeDigitsInText(number ?? "-", language)}</Text>
+              </View>
+              <View style={styles.predictionBodyRow}>
+                <Text style={styles.predictionLabel}>{tx("Properties")} :</Text>
+                <Text style={styles.predictionBody}>{properties ? tx(properties) : "-"}</Text>
+              </View>
             </View>
           </View>
         );
@@ -371,7 +380,7 @@ function RunningAgeAlphabetTable({ rows }: { rows: PythagoreanRunningAgeAlphabet
 
   return (
     <View style={styles.runningAgePanel}>
-      <Text style={styles.runningAgeTitle}>{t("Running Age Alphabet")}</Text>
+      <Text style={styles.runningAgeTitle}>{t("Alphabet Age Progression Chart")}</Text>
       <View style={styles.runningAgeHeaderRow}>
         <Text style={styles.runningAgeHeadCell}>{t("Alphabet")}</Text>
         <Text style={styles.runningAgeHeadCell}>{t("Period (in year)")}</Text>
@@ -511,10 +520,12 @@ function normalizePredictionItems(value: unknown): NumerologyPredictionItem[] {
 }
 
 function formatPredictionTitle(item: NumerologyPredictionItem, index: number) {
-  return String(getTextValue(item.title) || getTextValue(item.name) || getTextValue(item.type) || getTextValue(item.label) || `Prediction ${index + 1}`)
+  const title = String(getTextValue(item.title) || getTextValue(item.name) || getTextValue(item.type) || getTextValue(item.label) || `Prediction ${index + 1}`)
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/[_-]+/g, " ")
     .trim();
+
+  return title.toLowerCase().includes("compound") && title.toLowerCase().includes("name") ? "Name Number" : title;
 }
 
 function getPredictionNumber(item: NumerologyPredictionItem) {
@@ -567,12 +578,13 @@ function getTrailingNumber(value: unknown): string | undefined {
   return String(value || "").match(/\d+/g)?.at(-1);
 }
 
-function buildNameFrequencyExportSections({
+export function buildNameFrequencyExportSections({
   dob,
   fullName,
   gender,
   language,
   letterAnalysis,
+  loShuGrid,
   nameChart,
   nameLetterRelationships,
   pairEvents,
@@ -584,6 +596,7 @@ function buildNameFrequencyExportSections({
   gender: string;
   language: ReturnType<typeof useTranslation>["language"];
   letterAnalysis: ChaldeanNameLetterAnalysisChartResponse | null;
+  loShuGrid?: LoShuGridResponse | null;
   nameChart: NameFrequencyNameChartResponse | null;
   nameLetterRelationships: NumberRelationshipItem[];
   pairEvents: ChaldeanNamePairEventsResponse | null;
@@ -604,21 +617,22 @@ function buildNameFrequencyExportSections({
     "Female",
     "Other",
     "Name Summary",
-    "Normalized Name",
-    "Total Letters",
-    "Compound Name Number",
-    "Total Name Number",
-    "Total Life Years",
-    "First Name",
-    "Last Name",
-    "Name Pair Events",
+    "Personality Number",
+    "Destiny Number",
+    "Zodiac",
+    "Zodiac Sign",
+    "NN : Name Number",
+    "Compound",
+    "Inner Nature",
+    "Life Path",
+    "Name Letter Pair Vibration",
     "Year",
     "Pair",
-    "Event 1",
-    "Event 2",
+    "Running Age (1)",
+    "Running Age (2)",
     "Vibration",
     "No records found",
-    "Running Age Alphabet",
+    "Alphabet Age Progression Chart",
     "Alphabet",
     "Period (in year)",
     "From",
@@ -627,10 +641,11 @@ function buildNameFrequencyExportSections({
     "Letter",
     "Chaldean Number",
     "Placement",
-    "Number Frequencies",
+    "Letter Number Frequency Chart",
     "Frequency",
     "Numbers",
     "Name Chart",
+    "Name Number Analysis",
     "Particular",
     "Relation",
     "Properties",
@@ -680,65 +695,41 @@ function buildNameFrequencyExportSections({
       variant: "soul",
       rows: [
         [tx("Full Name"), letterAnalysis?.fullName || pairEvents?.fullName || fullName],
-        [tx("Normalized Name"), letterAnalysis?.normalizedName || pairEvents?.normalizedName || "-"]
+        [tx("Date of Birth"), localizeDigitsInText(dob || "-", language)]
       ]
     },
     {
       title: tx("Name Summary"),
-      variant: "summary",
+      variant: "summaryTwoColumn",
       rows: [
-        [tx("Total Letters"), localizeDigitsInText(letterAnalysis?.totalLetters ?? "-", language), ""],
-        [tx("Compound Name Number"), localizeDigitsInText(letterAnalysis?.compoundNameNumber ?? "-", language), ""],
-        [tx("Total Name Number"), localizeDigitsInText(letterAnalysis?.totalNameNumber ?? "-", language), ""],
-        [tx("Total Life Years"), localizeDigitsInText(pairEvents?.totalLifeYears ?? "-", language), ""],
-        [tx("First Name"), letterAnalysis?.firstName || "-", ""],
-        [tx("Last Name"), letterAnalysis?.lastName || "-", ""]
+        [tx("Personality Number"), localizeDigitsInText(loShuGrid?.driverNumber ?? "-", language), tx("Inner Nature")],
+        [tx("Destiny Number"), localizeDigitsInText(loShuGrid?.destinyNumber ?? "-", language), tx("Life Path")],
+        [tx("Zodiac"), localizeDigitsInText(loShuGrid?.zodiacNumber ?? "-", language), loShuGrid?.zodiacSign ? tx(loShuGrid.zodiacSign) : tx("Zodiac Sign")],
+        [tx("NN : Name Number"), localizeDigitsInText(nameChart?.nameNumber ?? letterAnalysis?.totalNameNumber ?? "-", language), `${tx("Compound")}: ${localizeDigitsInText(letterAnalysis?.compoundNameNumber ?? "-", language)}`],
+        [tx("Running Age"), localizeDigitsInText(nameChart?.runningAge ?? "-", language), ""],
+        [tx("Name Age"), localizeDigitsInText(nameChart?.nameAge ?? "-", language), ""]
       ]
     },
     {
-      title: tx("Name Pair Events"),
-      layout: "wide",
+      title: tx("Name Chart"),
       rows: [
-        [tx("Year"), tx("Pair"), tx("Event 1"), tx("Event 2"), tx("Vibration")],
-        ...(pairEvents?.events || []).map((row) => [
-          localizeDigitsInText(row.lifeYear ?? "-", language),
-          row.letterPair,
-          localizeDigitsInText(row.eventOne ?? "-", language),
-          localizeDigitsInText(row.eventTwo ?? "-", language),
-          row.vibration ? tx(row.vibration) : "-"
-        ]),
-        ...(!(pairEvents?.events || []).length ? [[tx("No records found"), "", "", "", ""]] : [])
+        [tx("Particular"), tx("Numbers"), tx("Relation")],
+        [tx("Name Age"), localizeDigitsInText(nameChart?.nameAge || "-", language), "-"],
+        [tx("Running Age"), localizeDigitsInText(nameChart?.runningAge || "-", language), "-"],
+        [tx("First Name Number"), localizeDigitsInText(nameChart?.firstNameNumber || "-", language), "-"],
+        [tx("Name Number"), localizeDigitsInText(nameChart?.nameNumber || "-", language), "-"],
+        [tx("Name Number with Personality"), localizeDigitsInText(nameChart?.nameNumberWithPersonality || "-", language), txRelation(getDisplayRelation(nameChart?.nameNumberWithPersonality, nameChart?.nameNumberPersonalityRelation, nameLetterRelationships), tx)],
+        [tx("Name Number with Destiny"), localizeDigitsInText(nameChart?.nameNumberWithDestiny || "-", language), txRelation(getDisplayRelation(nameChart?.nameNumberWithDestiny, nameChart?.nameNumberDestinyRelation, nameLetterRelationships), tx)],
+        [tx("First Letter with Name Number"), localizeDigitsInText(nameChart?.firstNameLetterWithNameNumber || "-", language), txRelation(getDisplayRelation(nameChart?.firstNameLetterWithNameNumber, nameChart?.firstNameLetterWithNameNumberRelation, nameLetterRelationships), tx)],
+        [tx("Second Letter with Name Number"), localizeDigitsInText(nameChart?.secondNameLetterWithNameNumber || "-", language), txRelation(getDisplayRelation(nameChart?.secondNameLetterWithNameNumber, nameChart?.secondNameLetterWithNameNumberRelation, nameLetterRelationships), tx)],
+        [tx("First Letter with Zodiac Number"), localizeDigitsInText(nameChart?.firstNameLetterWithZodicNumber || "-", language), txRelation(getDisplayRelation(nameChart?.firstNameLetterWithZodicNumber, nameChart?.firstLetterWithZodiacRelation, nameLetterRelationships), tx)],
+        [tx("First and Second Letter Relation"), localizeDigitsInText(nameChart?.firstAndSecondNameLetterNumber || "-", language), txRelation(getDisplayRelation(nameChart?.firstAndSecondNameLetterNumber, nameChart?.firstAndSecondNameLetterRelation, nameLetterRelationships), tx)]
       ]
     },
     {
-      title: tx("Running Age Alphabet"),
-      rows: [
-        [tx("Alphabet"), tx("Period (in year)"), tx("From"), tx("To")],
-        ...(runningAgeAlphabet.length ? runningAgeAlphabet : [{ letter: "-", periodInYear: undefined, fromYear: undefined, toYear: undefined }]).map((row) => [
-          row.letter,
-          localizeDigitsInText(row.periodInYear ?? "-", language),
-          localizeDigitsInText(row.fromYear ?? "-", language),
-          localizeDigitsInText(row.toYear ?? "-", language)
-        ])
-      ]
-    },
-    {
-      title: tx("Name Letter Analysis"),
-      layout: "wide",
-      rows: [
-        [tx("Letter"), ...nameLetterColumns.map((column) => column.letter)],
-        [tx("Chaldean Number"), ...nameLetterColumns.map((column) => localizeDigitsInText(column.chaldeanNumber ?? "-", language))],
-        [tx("Placement"), ...nameLetterColumns.map((column) => localizeDigitsInText(column.positionInFullName ?? "-", language))],
-        ...(!nameLetterColumns.length ? [[tx("No records found")]] : [])
-      ]
-    },
-    {
-      title: tx("Number Frequencies"),
-      rows: [
-        [tx("Frequency"), tx("Numbers")],
-        ...frequencyRows.map((row) => [tx(row.frequency), localizeDigitsInText(row.numbers, language)]),
-        ...(!frequencyRows.length ? [[tx("No records found"), ""]] : [])
-      ]
+      title: tx("Name Number Analysis"),
+      variant: "intro",
+      rows: [[tx("Name Number Analysis")]]
     },
     ...predictionRows.map((row, index) => {
       const title = formatPredictionTitle(row, index);
@@ -755,19 +746,48 @@ function buildNameFrequencyExportSections({
       };
     }),
     {
-      title: tx("Name Chart"),
+      title: tx("Name Letter Analysis"),
+      layout: "wide",
       rows: [
-        [tx("Particular"), tx("Numbers"), tx("Relation")],
-        [tx("Name Age"), localizeDigitsInText(nameChart?.nameAge || "-", language), "-"],
-        [tx("Running Age"), localizeDigitsInText(nameChart?.runningAge || "-", language), "-"],
-        [tx("First Name Number"), localizeDigitsInText(nameChart?.firstNameNumber || "-", language), "-"],
-        [tx("Name Number"), localizeDigitsInText(nameChart?.nameNumber || "-", language), "-"],
-        [tx("Name Number with Personality"), localizeDigitsInText(nameChart?.nameNumberWithPersonality || "-", language), txRelation(getDisplayRelation(nameChart?.nameNumberWithPersonality, nameChart?.nameNumberPersonalityRelation, nameLetterRelationships), tx)],
-        [tx("Name Number with Destiny"), localizeDigitsInText(nameChart?.nameNumberWithDestiny || "-", language), txRelation(getDisplayRelation(nameChart?.nameNumberWithDestiny, nameChart?.nameNumberDestinyRelation, nameLetterRelationships), tx)],
-        [tx("First Letter with Name Number"), localizeDigitsInText(nameChart?.firstNameLetterWithNameNumber || "-", language), txRelation(getDisplayRelation(nameChart?.firstNameLetterWithNameNumber, nameChart?.firstNameLetterWithNameNumberRelation, nameLetterRelationships), tx)],
-        [tx("Second Letter with Name Number"), localizeDigitsInText(nameChart?.secondNameLetterWithNameNumber || "-", language), txRelation(getDisplayRelation(nameChart?.secondNameLetterWithNameNumber, nameChart?.secondNameLetterWithNameNumberRelation, nameLetterRelationships), tx)],
-        [tx("First Letter with Zodiac Number"), localizeDigitsInText(nameChart?.firstNameLetterWithZodicNumber || "-", language), txRelation(getDisplayRelation(nameChart?.firstNameLetterWithZodicNumber, nameChart?.firstLetterWithZodiacRelation, nameLetterRelationships), tx)],
-        [tx("First and Second Letter Relation"), localizeDigitsInText(nameChart?.firstAndSecondNameLetterNumber || "-", language), txRelation(getDisplayRelation(nameChart?.firstAndSecondNameLetterNumber, nameChart?.firstAndSecondNameLetterRelation, nameLetterRelationships), tx)]
+        [tx("Letter"), ...nameLetterColumns.map((column) => column.letter)],
+        [tx("Chaldean Number"), ...nameLetterColumns.map((column) => localizeDigitsInText(column.chaldeanNumber ?? "-", language))],
+        [tx("Placement"), ...nameLetterColumns.map((column) => localizeDigitsInText(column.positionInFullName ?? "-", language))],
+        ...(!nameLetterColumns.length ? [[tx("No records found")]] : [])
+      ]
+    },
+    {
+      title: tx("Letter Number Frequency Chart"),
+      rows: [
+        [tx("Frequency"), tx("Numbers")],
+        ...frequencyRows.map((row) => [tx(row.frequency), localizeDigitsInText(row.numbers, language)]),
+        ...(!frequencyRows.length ? [[tx("No records found"), ""]] : [])
+      ]
+    },
+    {
+      title: tx("Alphabet Age Progression Chart"),
+      rows: [
+        [tx("Alphabet"), tx("Period (in year)"), tx("From"), tx("To")],
+        ...(runningAgeAlphabet.length ? runningAgeAlphabet : [{ letter: "-", periodInYear: undefined, fromYear: undefined, toYear: undefined }]).map((row) => [
+          row.letter,
+          localizeDigitsInText(row.periodInYear ?? "-", language),
+          localizeDigitsInText(row.fromYear ?? "-", language),
+          localizeDigitsInText(row.toYear ?? "-", language)
+        ])
+      ]
+    },
+    {
+      title: tx("Name Letter Pair Vibration"),
+      layout: "wide",
+      rows: [
+        [tx("Year"), tx("Pair"), tx("Running Age (1)"), tx("Running Age (2)"), tx("Vibration")],
+        ...(pairEvents?.events || []).map((row) => [
+          localizeDigitsInText(row.lifeYear ?? "-", language),
+          row.letterPair,
+          localizeDigitsInText(row.eventOne ?? "-", language),
+          localizeDigitsInText(row.eventTwo ?? "-", language),
+          row.vibration ? tx(row.vibration) : "-"
+        ]),
+        ...(!(pairEvents?.events || []).length ? [[tx("No records found"), "", "", "", ""]] : [])
       ]
     }
   ];
@@ -844,7 +864,7 @@ function NameChartRow({ cells, header = false, relation }: { cells: string[]; he
   );
 }
 
-async function loadNameLetterRelationships(data: NameFrequencyNameChartResponse) {
+export async function loadNameLetterRelationships(data: NameFrequencyNameChartResponse) {
   const pairs = [
     data.nameNumberWithPersonality,
     data.nameNumberWithDestiny,
@@ -919,35 +939,36 @@ const styles = StyleSheet.create({
   lastRow: { borderBottomWidth: 0 },
   infoLabel: { flex: 1, borderRightWidth: 1, borderRightColor: "#d6d6d6", color: "#000", fontSize: 13, lineHeight: 16, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 6, paddingVertical: 5 },
   infoValue: { flex: 1.35, color: "#000", fontSize: 13, lineHeight: 16, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 6, paddingVertical: 5 },
-  summaryTable: { borderWidth: 1, borderColor: "#d6d6d6", borderRadius: 6, backgroundColor: "#fff", overflow: "hidden" },
-  summaryRow: { minHeight: 58, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#d6d6d6" },
-  summaryCell: { flex: 1, minWidth: 0, alignItems: "center", justifyContent: "center", paddingHorizontal: 4, paddingVertical: 6 },
+  summaryTable: { gap: spacing.md },
+  summaryRow: { minHeight: 68, flexDirection: "row", gap: spacing.md },
+  summaryCell: { flex: 1, minWidth: 0, minHeight: 68, borderWidth: 2, borderColor: "#5ee56a", borderRadius: 10, backgroundColor: "#fffdf8", alignItems: "center", justifyContent: "center", paddingHorizontal: 6, paddingVertical: 6 },
   cellRightBorder: { borderRightWidth: 1, borderRightColor: "#d6d6d6" },
-  summaryLabel: { color: "#777", fontSize: 10, lineHeight: 14, fontWeight: "800", textAlign: "center" },
-  summaryValue: { color: "#136a28", fontSize: 13, lineHeight: 18, fontWeight: "700", textAlign: "center", marginTop: 3 },
+  summaryLabel: { color: "#707070", fontSize: 12, lineHeight: 15, fontWeight: "800", textAlign: "center" },
+  summaryValue: { color: "#008b20", fontSize: 24, lineHeight: 29, fontWeight: "900", textAlign: "center", marginTop: 2 },
+  summaryNote: { color: "#676767", fontSize: 8, lineHeight: 10, fontWeight: "700", textAlign: "center", marginTop: 1 },
   tablePanel: { borderWidth: 1, borderColor: "#d6d6d6", borderRadius: 6, backgroundColor: "#fff", overflow: "hidden" },
-  tableTitle: { borderBottomWidth: 1, borderBottomColor: "#d6d6d6", color: "#000", fontSize: 15, lineHeight: 18, fontWeight: "700", textAlign: "left", paddingHorizontal: 12, paddingVertical: 8 },
-  numberFrequencyTitle: { color: "black", fontSize: 15, lineHeight: 22, fontWeight: "800", textAlign: "left", paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8 },
-  letterAnalysisTitle: { color: "black", fontSize: 15, lineHeight: 24, fontWeight: "700", textAlign: "left", paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8,borderBottomWidth: 1, borderBottomColor: "#d6d6d6" },
+  tableTitle: { borderBottomWidth: 1, borderBottomColor: "#d6d6d6", color: "#000", fontSize: 16, lineHeight: 20, fontWeight: "800", textAlign: "center", paddingHorizontal: 12, paddingVertical: 9 },
+  numberFrequencyTitle: { color: "black", fontSize: 16, lineHeight: 24, fontWeight: "800", textAlign: "center", paddingHorizontal: 12, paddingTop: 9, paddingBottom: 9 },
+  letterAnalysisTitle: { color: "black", fontSize: 16, lineHeight: 25, fontWeight: "800", textAlign: "center", paddingHorizontal: 12, paddingTop: 8, paddingBottom: 9,borderBottomWidth: 1, borderBottomColor: "#d6d6d6" },
   wideTable: { width: "100%" },
   compactTable: { width: "100%" },
-  tableRow: { minHeight: 31, flexDirection: "row" },
-  tableCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
-  tableHeadCell: { backgroundColor: "#354f82",color:"white", fontSize: 12, lineHeight: 15, fontWeight: "700" },
+  tableRow: { minHeight: 37, flexDirection: "row" },
+  tableCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "800", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 6 },
+  tableHeadCell: { backgroundColor: "#354f82",color:"white", fontSize: 14, lineHeight: 18, fontWeight: "900" },
   nameChartTable: { width: "100%" },
-  nameChartRow: { minHeight: 36, flexDirection: "row" },
-  nameChartCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
+  nameChartRow: { minHeight: 43, flexDirection: "row" },
+  nameChartCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "800", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 6 },
   nameChartParticularCell: { flex: 1.45 },
   nameChartNumberCell: { flex: 0.95 },
   enemyRelationCell: { color: "#d71920" },
   lastCell: { borderRightWidth: 0 },
   emptyCell: { flex: 1, color: "#777" },
   letterAnalysisTable: { alignSelf: "flex-start" },
-  letterAnalysisRow: { minHeight: 27, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#8c8c8c" },
-  letterAnalysisLabel: { width: 108, borderRightWidth: 1, borderRightColor: "#8c8c8c", backgroundColor: "#354f82", color: "#fff", fontSize: 11, lineHeight: 14, fontWeight: "500", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 4 },
+  letterAnalysisRow: { minHeight: 32, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#8c8c8c" },
+  letterAnalysisLabel: { width: 130, borderRightWidth: 1, borderRightColor: "#8c8c8c", backgroundColor: "#354f82", color: "#fff", fontSize: 13, lineHeight: 17, fontWeight: "800", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
   letterAnalysisLabelHeader: { fontWeight: "800" },
-  letterAnalysisCell: { width: 38, borderRightWidth: 1, borderRightColor: "#8c8c8c", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 4 },
-  letterAnalysisHeadCell: { fontWeight: "800" },
+  letterAnalysisCell: { width: 46, borderRightWidth: 1, borderRightColor: "#8c8c8c", color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
+  letterAnalysisHeadCell: { fontWeight: "900" },
   runningAgePanel: {
     borderWidth: 1,
     borderColor: "#d6d6d6",
@@ -955,11 +976,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     overflow: "hidden"
   },
-  runningAgeTitle: { borderBottomWidth: 1, borderBottomColor: "#d6d6d6", color: "#000", fontSize: 15, lineHeight: 20, fontWeight: "800", textAlign: "left", paddingHorizontal: 12, paddingVertical: 7 },
-  runningAgeHeaderRow: { minHeight: 34, flexDirection: "row", backgroundColor: "#354f82" },
-  runningAgeRow: { minHeight: 32, flexDirection: "row" },
-  runningAgeHeadCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#fff", fontSize: 13, lineHeight: 15, fontWeight: "800", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 3, paddingVertical: 5 },
-  runningAgeCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 13, lineHeight: 16, fontWeight: "600", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
+  runningAgeTitle: { borderBottomWidth: 1, borderBottomColor: "#d6d6d6", color: "#000", fontSize: 16, lineHeight: 22, fontWeight: "800", textAlign: "center", paddingHorizontal: 12, paddingVertical: 8 },
+  runningAgeHeaderRow: { minHeight: 41, flexDirection: "row", backgroundColor: "#354f82" },
+  runningAgeRow: { minHeight: 38, flexDirection: "row" },
+  runningAgeHeadCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#fff", fontSize: 16, lineHeight: 18, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 6 },
+  runningAgeCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d6d6d6", color: "#000", fontSize: 16, lineHeight: 19, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 6 },
+  nameNumberAnalysisHeading: { backgroundColor: "#ffc6d9", color: "#000", fontSize: 16, lineHeight: 20, fontWeight: "800", textAlign: "center", paddingHorizontal: 10, paddingVertical: 9, marginBottom: spacing.sm },
   predictionCard: { borderWidth: 1, borderColor: "#8f8f78", borderRadius: 3, backgroundColor: "#fffff8", overflow: "hidden" },
   predictionRow: { minHeight: 34, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#8f8f78" },
   predictionBodyRow: { minHeight: 58, flexDirection: "row" },

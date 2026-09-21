@@ -5,7 +5,7 @@
     "scheme": "apsaraastro",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/logo_apsara.png",
+    "icon": "./src/assets/apsra-astro-logo.png",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "**/*"
@@ -30,7 +30,7 @@
         "INTERNET"
       ],
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/logo_apsara.png",
+        "foregroundImage": "./src/assets/apsra-astro-logo.png",
         "backgroundColor": "#fff7e8"
       }
     },

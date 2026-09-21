@@ -25,11 +25,15 @@ const drawerItems: [string, IconName, boolean, () => void][] = [
   ["Remedy", "flower", false, () => {}],
   ["Store", "shopping", false, () => {}],
   ["Customer Care", "headset", false, () => {}],
-  ["Setting", "cog", false, () => {}]
+  ["About Us", "information", true, () => router.push("/(drawer)/about-us")],
+  ["Privacy Policy", "shield-lock", true, () => router.push("/(drawer)/privacy-policy")],
+  ["Terms & Conditions", "file-document-check", true, () => router.push("/(drawer)/terms-and-conditions")],
+  ["Setting", "cog", true, () => router.push("/(drawer)/settings")]
 ];
 
 export function AstrologerSideDrawer({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const user = useAuthStore((state) => state.user);
+  const roles = useAuthStore((state) => state.roles);
   const signOut = useAuthStore((state) => state.signOut);
   const { t } = useTranslation();
   const name = useMemo(() => {
@@ -41,10 +45,11 @@ export function AstrologerSideDrawer({ visible, onClose }: { visible: boolean; o
     return profile?.mobileNo || profile?.mobileNumber || profile?.phone || "1231231236";
   }, [user]);
   const initial = name.trim().charAt(0).toUpperCase() || "A";
+  const profileRoute = roles.includes("ROLE_ASTROLOGER") ? "/astrologer/profile-me" : "/(drawer)/(tabs)/profile";
 
   const openProfile = () => {
     onClose();
-    router.push("/astrologer/profile-me");
+    router.push(profileRoute as never);
   };
 
   const handleLogout = async () => {
@@ -111,6 +116,8 @@ export function AstrologerBottomNav({ active = "home", respectSafeArea = false }
   const insets = useSafeAreaInsets();
   const bottomInset = respectSafeArea ? insets.bottom : 0;
   const { t } = useTranslation();
+  const roles = useAuthStore((state) => state.roles);
+  const profileRoute = roles.includes("ROLE_ASTROLOGER") ? "/astrologer/profile-me" : "/(drawer)/(tabs)/profile";
 
   return (
     <View style={[styles.bottomNav, { height: 56 + bottomInset, paddingBottom: bottomInset }]}>
@@ -118,7 +125,7 @@ export function AstrologerBottomNav({ active = "home", respectSafeArea = false }
       <NavItem icon="chat" label={t("Chat")} active={active === "chat"} />
       <NavItem icon="phone" label={t("Call")} active={active === "call"} />
       <NavItem icon="flower" label={t("Remedy")} active={active === "remedy"} />
-      <NavItem icon="account" label={t("Profile")} active={active === "profile"} onPress={() => router.push("/astrologer/profile-me")} />
+      <NavItem icon="account" label={t("Profile")} active={active === "profile"} onPress={() => router.push(profileRoute as never)} />
     </View>
   );
 }

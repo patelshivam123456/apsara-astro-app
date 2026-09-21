@@ -13,8 +13,8 @@ import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
 import {
   GeoLocationPlace,
+  generateKundaliReport,
   getGeolocationPlaces,
-  getKundaliBasicDetails,
   KundaliBasicPayload
 } from "@/services/kundali.service";
 import { useKundaliStore } from "@/store/kundali.store";
@@ -127,11 +127,11 @@ export function KundaliPdfScreen() {
 
     try {
       setSubmitting(true);
-      const response = await getKundaliBasicDetails(payload);
+      const response = await generateKundaliReport(payload);
       setResult(response, payload);
       router.push("/kundali-pdf-result");
     } catch (error) {
-      setSubmitError(getApiErrorMessage(error, "Unable to fetch Kundali basic details"));
+      setSubmitError(getApiErrorMessage(error, "Unable to fetch Kundali details"));
     } finally {
       setSubmitting(false);
     }

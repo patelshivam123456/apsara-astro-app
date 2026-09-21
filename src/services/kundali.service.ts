@@ -174,6 +174,18 @@ export type KundaliBasicResponse = {
   basicAstroDetails?: KundaliBasicAstroDetails;
 };
 
+export type KundaliReportResponse = Record<string, unknown>;
+
+export type KundaliCombinedResponse = {
+  basic?: KundaliBasicResponse;
+  horoscopeCharts?: KundaliReportResponse;
+  dasha?: KundaliReportResponse;
+  kp?: KundaliReportResponse;
+  bhinnashtakvarga?: KundaliReportResponse;
+  yogas?: KundaliReportResponse;
+  dosha?: KundaliReportResponse;
+};
+
 export async function getGeolocationPlaces(birthPlace: string) {
   const query = new URLSearchParams({ birthPlace });
   const response = await astroApi.get<ApiResponse<GeoLocationPlace[]>>(`${ENDPOINTS.geolocation}?${query.toString()}`);
@@ -191,8 +203,43 @@ export async function getKundaliBasicDetails(payload: KundaliBasicPayload) {
   return ((response as unknown as ApiResponse<KundaliBasicResponse>).data || response) as KundaliBasicResponse;
 }
 
+export async function generateKundaliReport(payload: KundaliBasicPayload) {
+  const headers = {
+    Accept: "*/*",
+    "Content-Type": "application/json"
+  };
+
+  const [
+    basicResponse,
+    horoscopeChartsResponse,
+    dashaResponse,
+    kpResponse,
+    bhinnashtakvargaResponse,
+    yogasResponse,
+    doshaResponse
+  ] = await Promise.all([
+    astroApi.post<ApiResponse<KundaliBasicResponse>>(ENDPOINTS.kundaliBasic, payload, { headers }),
+    astroApi.post<ApiResponse<KundaliReportResponse>>(ENDPOINTS.kundaliHoroscopeCharts, payload, { headers }),
+    astroApi.post<ApiResponse<KundaliReportResponse>>(ENDPOINTS.kundaliDasha, payload, { headers }),
+    astroApi.post<ApiResponse<KundaliReportResponse>>(ENDPOINTS.kundaliKp, payload, { headers }),
+    astroApi.post<ApiResponse<KundaliReportResponse>>(ENDPOINTS.kundaliBhinnashtakvarga, payload, { headers }),
+    astroApi.post<ApiResponse<KundaliReportResponse>>(ENDPOINTS.kundaliYogas, payload, { headers }),
+    astroApi.post<ApiResponse<KundaliReportResponse>>(ENDPOINTS.kundaliDosha, payload, { headers })
+  ]);
+
+  return {
+    basic: ((basicResponse as unknown as ApiResponse<KundaliBasicResponse>).data || basicResponse) as KundaliBasicResponse,
+    horoscopeCharts: ((horoscopeChartsResponse as unknown as ApiResponse<KundaliReportResponse>).data || horoscopeChartsResponse) as KundaliReportResponse,
+    dasha: ((dashaResponse as unknown as ApiResponse<KundaliReportResponse>).data || dashaResponse) as KundaliReportResponse,
+    kp: ((kpResponse as unknown as ApiResponse<KundaliReportResponse>).data || kpResponse) as KundaliReportResponse,
+    bhinnashtakvarga: ((bhinnashtakvargaResponse as unknown as ApiResponse<KundaliReportResponse>).data || bhinnashtakvargaResponse) as KundaliReportResponse,
+    yogas: ((yogasResponse as unknown as ApiResponse<KundaliReportResponse>).data || yogasResponse) as KundaliReportResponse,
+    dosha: ((doshaResponse as unknown as ApiResponse<KundaliReportResponse>).data || doshaResponse) as KundaliReportResponse
+  };
+}
+
 export async function generateMatchMakingPdf(payload: MatchMakingPdfPayload) {
-  const [othersResponse, horoscopeChartsResponse] = await Promise.all([
+  const [othersResponse, horoscopeChartsResponse, p1DashaResponse, p2DashaResponse] = await Promise.all([
     astroApi.post<ApiResponse<MatchMakingReportResponse>>(ENDPOINTS.matchMakingOthers, payload, {
       headers: {
         Accept: "*/*",
@@ -204,13 +251,81 @@ export async function generateMatchMakingPdf(payload: MatchMakingPdfPayload) {
         Accept: "*/*",
         "Content-Type": "application/json"
       }
-    })
+    }),
+    fetchMatchPersonDasha(toKundaliPayload(payload, "p1")),
+    fetchMatchPersonDasha(toKundaliPayload(payload, "p2"))
   ]);
 
+  const others = ((othersResponse as unknown as ApiResponse<MatchMakingReportResponse>).data || othersResponse) as MatchMakingReportResponse;
+
   return {
-    others: ((othersResponse as unknown as ApiResponse<MatchMakingReportResponse>).data || othersResponse) as MatchMakingReportResponse,
+    others: enrichMatchMakingVimshottari(others, p1DashaResponse, p2DashaResponse),
     horoscopeCharts: ((horoscopeChartsResponse as unknown as ApiResponse<MatchMakingReportResponse>).data || horoscopeChartsResponse) as MatchMakingReportResponse
   };
+}
+
+async function fetchMatchPersonDasha(payload: KundaliBasicPayload) {
+  try {
+    const response = await astroApi.post<ApiResponse<KundaliReportResponse>>(ENDPOINTS.kundaliDasha, payload, {
+      headers: {
+        Accept: "*/*",
+        "Content-Type": "application/json"
+      }
+    });
+    return ((response as unknown as ApiResponse<KundaliReportResponse>).data || response) as KundaliReportResponse;
+  } catch {
+    return null;
+  }
+}
+
+function toKundaliPayload(payload: MatchMakingPdfPayload, person: "p1" | "p2"): KundaliBasicPayload {
+  const prefix = person === "p1" ? "p1" : "p2";
+  return {
+    fullName: payload[`${prefix}FullName`],
+    day: payload[`${prefix}Day`],
+    month: payload[`${prefix}Month`],
+    year: payload[`${prefix}Year`],
+    hour: payload[`${prefix}Hour`],
+    min: payload[`${prefix}Min`],
+    sec: payload[`${prefix}Sec`],
+    gender: payload[`${prefix}Gender`],
+    place: payload[`${prefix}Place`],
+    latitude: payload[`${prefix}Latitude`],
+    longitude: payload[`${prefix}Longitude`],
+    timeZone: payload[`${prefix}TimeZone`],
+    language: payload.language || payload.languageCode || "en"
+  };
+}
+
+function enrichMatchMakingVimshottari(
+  others: MatchMakingReportResponse,
+  p1Dasha: KundaliReportResponse | null,
+  p2Dasha: KundaliReportResponse | null
+): MatchMakingReportResponse {
+  const current = isPlainRecord(others.vimshottariDasha) ? others.vimshottariDasha : {};
+  const p1 = extractPratyantarDasha(p1Dasha) || current.p1;
+  const p2 = extractPratyantarDasha(p2Dasha) || current.p2;
+  if (!p1 && !p2) return others;
+
+  return {
+    ...others,
+    vimshottariDasha: {
+      ...current,
+      ...(p1 ? { p1 } : {}),
+      ...(p2 ? { p2 } : {})
+    }
+  };
+}
+
+function extractPratyantarDasha(value: KundaliReportResponse | null): unknown {
+  if (!isPlainRecord(value)) return null;
+  const data = isPlainRecord(value.data) ? value.data : value;
+  const dashas = isPlainRecord(data.dashas) ? data.dashas : data;
+  return dashas.pratyantarDasha || dashas.pratyantar_dasha || null;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 export async function generateLegacyMatchMakingPdf(payload: unknown) {

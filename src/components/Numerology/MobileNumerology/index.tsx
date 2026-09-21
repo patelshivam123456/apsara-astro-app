@@ -136,11 +136,6 @@ export function MobileNumerologyScreen() {
           personBGender={personBGender}
         />
 
-        <NumerologyExportButton
-          title={`${tx("Mobile Numerology")} - ${fullName}`}
-          fileName={`mobile-numerology-${fullName}`}
-          sections={() => buildMobileNumerologyExportSections({ dob, fullName, language, mobileNumber, report, t })}
-        />
         <SectionTitle title={tx("Mobile Numerology")} />
         <DetailsTable report={report} fallbackFullName={fullName} fallbackDob={dob} fallbackMobileNumber={mobileNumber} tx={tx} />
         <NumberCards report={report} tx={tx} />
@@ -150,6 +145,13 @@ export function MobileNumerologyScreen() {
         <LastDigitsTable report={report} tx={tx} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
+      <NumerologyExportButton
+        blink
+        fixed
+        title={`${tx("Mobile Numerology")} - ${fullName}`}
+        fileName={`mobile-numerology-${fullName}`}
+        sections={() => buildMobileNumerologyExportSections({ dob, fullName, language, mobileNumber, report, t })}
+      />
       <AstrologerBottomNav active="home" respectSafeArea />
     </SafeAreaView>
   );
@@ -190,10 +192,10 @@ function DetailsTable({
 function NumberCards({ report, tx }: { report: MobileNumerologyResponse | null; tx: (text: string) => string }) {
   const { language } = useTranslation();
   const cards = [
-    { label: tx("Personality Number"), value: report?.personalityNumber, note: `${tx("Compound")}: ${report?.mobileCompoundTotal ?? "-"}` },
-    { label: tx("Destiny Number"), value: report?.destinyNumber, note: `${tx("Lo Shu Grid")}: ${report?.destinyNumber ?? "-"}` },
-    { label: tx("Name Number"), value: report?.nameNumber, note: `${tx("Compound")}: ${report?.compoundNameNumber ?? "-"}` },
-    { label: tx("Zodiac"), value: report?.zodiacNumber, note: report?.normalizedName || "-" }
+    { label: tx("Personality Number"), value: report?.personalityNumber, note: tx("P") },
+    { label: tx("Destiny Number"), value: report?.destinyNumber, note: tx("D") },
+    { label: tx("Name Number"), value: report?.nameNumber, note: tx("NN") },
+    { label: tx("Zodiac"), value: report?.zodiacNumber, note: tx("Z") }
   ];
 
   return (
@@ -235,7 +237,7 @@ function RelationshipTable({ report, tx }: { report: MobileNumerologyResponse | 
     <View style={styles.panel}>
       <SectionTitle title={tx("Relationship with MT")} />
       <View style={styles.table}>
-        <TableRow cells={[tx("Particular"), tx("Number"), tx("Relation")]} header />
+        <TableRow cells={[tx("Particular"), tx("Number"), tx("Relation")]} columnFlexes={[1.65, 0.9, 1.1]} header />
         {rows.map((row) => (
           <TableRow
             key={row.label}
@@ -244,6 +246,7 @@ function RelationshipTable({ report, tx }: { report: MobileNumerologyResponse | 
               localizeDigitsInText(`${row.source ?? "-"} - ${mt}`, language),
               tx(formatRelation(row.relation))
             ]}
+            columnFlexes={[1.65, 0.9, 1.1]}
           />
         ))}
       </View>
@@ -259,7 +262,7 @@ function PairAnalysisTable({ pairs, tx }: { pairs: MobileNumerologyPair[]; tx: (
       <SectionTitle title={tx("Pair Analysis in Mobile Number")} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.pairTable}>
-          <TableRow cells={[tx("Pair"), tx("Vibration"), tx("Traits")]} header />
+          <TableRow cells={[tx("Pair"), tx("Vibration"), tx("Traits")]} columnFlexes={[0.8, 1.35, 2.85]} header />
           {pairs.map((pair, index) => (
             <TableRow
               key={`${pair.position || index}-${pair.originalPair || pair.calculatedPair || index}`}
@@ -268,10 +271,11 @@ function PairAnalysisTable({ pairs, tx }: { pairs: MobileNumerologyPair[]; tx: (
                 pair.vibration ? tx(pair.vibration) : "-",
                 pair.coreTraits ? tx(pair.coreTraits) : "-"
               ]}
+              columnFlexes={[0.8, 1.35, 2.85]}
               large
             />
           ))}
-          {!pairs.length ? <TableRow cells={[tx("No records found"), "", ""]} /> : null}
+          {!pairs.length ? <TableRow cells={[tx("No records found"), "", ""]} columnFlexes={[0.8, 1.35, 2.85]} /> : null}
         </View>
       </ScrollView>
     </View>
@@ -292,9 +296,9 @@ function LastDigitsTable({ report, tx }: { report: MobileNumerologyResponse | nu
     <View style={styles.panel}>
       <SectionTitle title={tx("Last Four Digits Analysis")} />
       <View style={styles.table}>
-        <TableRow cells={[tx("Placement"), tx("Number")]} header />
+        <TableRow cells={[tx("Placement"), tx("Number")]} columnFlexes={[2.2, 0.8]} header tall />
         {rows.map((row) => (
-          <TableRow key={row.label} cells={[row.label, localizeDigitsInText(row.value ?? "-", language)]} />
+          <TableRow key={row.label} cells={[row.label, localizeDigitsInText(row.value ?? "-", language)]} columnFlexes={[2.2, 0.8]} tall />
         ))}
       </View>
     </View>
@@ -310,17 +314,31 @@ function InfoRow({ label, value, last = false }: { label: string; value: string;
   );
 }
 
-function TableRow({ cells, header = false, large = false }: { cells: (string | number)[]; header?: boolean; large?: boolean }) {
+function TableRow({
+  cells,
+  columnFlexes,
+  header = false,
+  large = false,
+  tall = false
+}: {
+  cells: (string | number)[];
+  columnFlexes?: number[];
+  header?: boolean;
+  large?: boolean;
+  tall?: boolean;
+}) {
   return (
-    <View style={[styles.tableRow, large && styles.largeTableRow]}>
+    <View style={[styles.tableRow, large && styles.largeTableRow, tall && styles.tallTableRow]}>
       {cells.map((cell, index) => (
         <Text
           key={`${cell}-${index}`}
           style={[
             styles.tableCell,
+            columnFlexes?.[index] ? { flex: columnFlexes[index] } : null,
             header && styles.tableHeadCell,
             large && styles.largeTableCell,
-            index === 2 && styles.traitsCell,
+            tall && styles.tallTableCell,
+            large && index === 2 && styles.traitsCell,
             index === cells.length - 1 && styles.lastCell
           ]}
           numberOfLines={large && index === 2 ? 6 : 2}
@@ -349,6 +367,10 @@ function buildTranslationTexts(report: MobileNumerologyResponse | null) {
     "Destiny Number",
     "Name Number",
     "Zodiac",
+    "P",
+    "D",
+    "NN",
+    "Z",
     "Compound",
     "Lo Shu Grid",
     "MT : Mobile Number Single Digit Sum",
@@ -490,7 +512,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     gap: spacing.sm
   },
-  headerTitle: { flex: 1, minWidth: 0, color: colors.ink, fontWeight: "700", fontSize: 12, lineHeight: 19, textAlign: "center" },
+  headerTitle: { flex: 1, minWidth: 0, color: colors.ink, fontWeight: "700", fontSize: 14, lineHeight: 23, textAlign: "center" },
   scroll: { flex: 1 },
   content: {
     alignSelf: "center",
@@ -510,7 +532,7 @@ const styles = StyleSheet.create({
     borderColor: "#39a853",
     borderRadius: 5,
     backgroundColor: "#bff2c6",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
@@ -519,10 +541,10 @@ const styles = StyleSheet.create({
   sectionTitleText: {
     width: "100%",
     color: "#145c24",
-    fontSize: 18,
-    lineHeight: 28,
+    fontSize: 22,
+    lineHeight: 34,
     fontWeight: "900",
-    textAlign: "left",
+    textAlign: "center",
     writingDirection: "ltr",
     includeFontPadding: true
   },
@@ -540,8 +562,8 @@ const styles = StyleSheet.create({
   },
   infoRow: { minHeight: 35, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#d7d7d7" },
   lastRow: { borderBottomWidth: 0 },
-  infoLabel: { flex: 1, borderRightWidth: 1, borderRightColor: "#d7d7d7", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
-  infoValue: { flex: 1.45, color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
+  infoLabel: { flex: 1, borderRightWidth: 1, borderRightColor: "#d7d7d7", color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
+  infoValue: { flex: 1.45, color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
   numberGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   numberCard: {
     width: "48.5%",
@@ -557,9 +579,9 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3
   },
-  numberCardLabel: { color: "#000", fontSize: 11, lineHeight: 14, fontWeight: "800", textAlign: "center" },
-  numberCardValue: { color: "#000", fontSize: 24, lineHeight: 29, fontWeight: "900", textAlign: "center", marginTop: 3 },
-  numberCardNote: { color: "#000", fontSize: 9, lineHeight: 12, fontWeight: "600", textAlign: "center", marginTop: 2 },
+  numberCardLabel: { color: "#000", fontSize: 13, lineHeight: 17, fontWeight: "800", textAlign: "center" },
+  numberCardValue: { color: "#000", fontSize: 29, lineHeight: 35, fontWeight: "900", textAlign: "center", marginTop: 3 },
+  numberCardNote: { color: "#000", fontSize: 11, lineHeight: 14, fontWeight: "600", textAlign: "center", marginTop: 2 },
   singleDigitCard: {
     minHeight: 56,
     borderRadius: 6,
@@ -574,8 +596,8 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3
   },
-  singleDigitLabel: { color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "800", textAlign: "center" },
-  singleDigitValue: { color: "#000", fontSize: 22, lineHeight: 27, fontWeight: "900", textAlign: "center" },
+  singleDigitLabel: { color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "800", textAlign: "center" },
+  singleDigitValue: { color: "#000", fontSize: 26, lineHeight: 32, fontWeight: "900", textAlign: "center" },
   panel: {
     gap: spacing.sm,
     borderRadius: 6,
@@ -591,10 +613,12 @@ const styles = StyleSheet.create({
   pairTable: { width: 520, borderWidth: 1, borderColor: "#d7d7d7", borderRadius: 5, backgroundColor: "#fff", overflow: "hidden" },
   tableRow: { minHeight: 34, flexDirection: "row" },
   largeTableRow: { minHeight: 78 },
-  tableCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d7d7d7", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
-  tableHeadCell: { backgroundColor: "#fff", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "900" },
-  largeTableCell: { fontSize: 11, lineHeight: 14, fontWeight: "700" },
-  traitsCell: { flex: 2.65, textAlign: "left" },
+  tallTableRow: { minHeight: 41 },
+  tableCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d7d7d7", color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
+  tableHeadCell: { backgroundColor: "#fff", color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "900" },
+  largeTableCell: { fontSize: 13, lineHeight: 17, fontWeight: "700" },
+  tallTableCell: { fontSize: 17, lineHeight: 22, paddingHorizontal: 5, paddingVertical: 6 },
+  traitsCell: { textAlign: "left" },
   lastCell: { borderRightWidth: 0 },
-  validation: { color: colors.danger, fontSize: 12, fontWeight: "800", lineHeight: 17 }
+  validation: { color: colors.danger, fontSize: 14, fontWeight: "800", lineHeight: 20 }
 });

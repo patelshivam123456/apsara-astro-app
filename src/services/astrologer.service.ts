@@ -9,7 +9,8 @@ export async function getAstrologers() {
 
 export async function getAstrologerById(publicId: string) {
   const astrologers = await getAstrologers();
-  return astrologers.find((item) => item.publicId === publicId);
+  const decodedId = decodeURIComponent(publicId);
+  return astrologers.find((item) => item.publicId === decodedId || item.userId === decodedId || item.email === decodedId);
 }
 
 export async function getAstrologerProfile() {
