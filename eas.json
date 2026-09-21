@@ -47,10 +47,13 @@
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://apsraastro.com",
-        "EXPO_PUBLIC_ASTRO_API_URL": "https://apsraastro.com"
+        "EXPO_PUBLIC_API_URL": "https://staging.apsraastro.in",
+        "EXPO_PUBLIC_ASTRO_API_URL": "https://staging.apsraastro.in"
       },
-      "autoIncrement": true
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   },
   "submit": {
