@@ -500,6 +500,10 @@ async function buildMobileNumerologyExportSections({
   ];
 }
 
+function scaleText(value: number) {
+  return Number((value * 0.97).toFixed(2));
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
   header: {
@@ -512,7 +516,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     gap: spacing.sm
   },
-  headerTitle: { flex: 1, minWidth: 0, color: colors.ink, fontWeight: "700", fontSize: 14, lineHeight: 23, textAlign: "center" },
+  headerTitle: { flex: 1, minWidth: 0, color: colors.ink, fontWeight: "500", fontSize: 14, lineHeight: scaleText(23), textAlign: "center" },
   scroll: { flex: 1 },
   content: {
     alignSelf: "center",
@@ -541,9 +545,9 @@ const styles = StyleSheet.create({
   sectionTitleText: {
     width: "100%",
     color: "#145c24",
-    fontSize: 22,
-    lineHeight: 34,
-    fontWeight: "900",
+    fontSize: 17,
+    lineHeight: scaleText(34),
+    fontWeight: "700",
     textAlign: "center",
     writingDirection: "ltr",
     includeFontPadding: true
@@ -562,8 +566,8 @@ const styles = StyleSheet.create({
   },
   infoRow: { minHeight: 35, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#d7d7d7" },
   lastRow: { borderBottomWidth: 0 },
-  infoLabel: { flex: 1, borderRightWidth: 1, borderRightColor: "#d7d7d7", color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "900", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
-  infoValue: { flex: 1.45, color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
+  infoLabel: { flex: 1, borderRightWidth: 1, borderRightColor: "#d7d7d7", color: "#000", fontSize: scaleText(14), lineHeight: scaleText(18), fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
+  infoValue: { flex: 1.45, color: "#000", fontSize: scaleText(14), lineHeight: scaleText(18), fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 5, paddingVertical: 5 },
   numberGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   numberCard: {
     width: "48.5%",
@@ -579,9 +583,9 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3
   },
-  numberCardLabel: { color: "#000", fontSize: 13, lineHeight: 17, fontWeight: "800", textAlign: "center" },
-  numberCardValue: { color: "#000", fontSize: 29, lineHeight: 35, fontWeight: "900", textAlign: "center", marginTop: 3 },
-  numberCardNote: { color: "#000", fontSize: 11, lineHeight: 14, fontWeight: "600", textAlign: "center", marginTop: 2 },
+  numberCardLabel: { color: "#000", fontSize: scaleText(13), lineHeight: scaleText(17), fontWeight: "700", textAlign: "center" },
+  numberCardValue: { color: "#000", fontSize: scaleText(29), lineHeight: scaleText(35), fontWeight: "700", textAlign: "center", marginTop: 3 },
+  numberCardNote: { color: "#000", fontSize: scaleText(11), lineHeight: scaleText(14), fontWeight: "600", textAlign: "center", marginTop: 2 },
   singleDigitCard: {
     minHeight: 56,
     borderRadius: 6,
@@ -596,8 +600,8 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3
   },
-  singleDigitLabel: { color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "800", textAlign: "center" },
-  singleDigitValue: { color: "#000", fontSize: 26, lineHeight: 32, fontWeight: "900", textAlign: "center" },
+  singleDigitLabel: { color: "#000", fontSize: scaleText(14), lineHeight: scaleText(18), fontWeight: "700", textAlign: "center" },
+  singleDigitValue: { color: "#000", fontSize: scaleText(26), lineHeight: scaleText(32), fontWeight: "700", textAlign: "center" },
   panel: {
     gap: spacing.sm,
     borderRadius: 6,
@@ -614,11 +618,11 @@ const styles = StyleSheet.create({
   tableRow: { minHeight: 34, flexDirection: "row" },
   largeTableRow: { minHeight: 78 },
   tallTableRow: { minHeight: 41 },
-  tableCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d7d7d7", color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
-  tableHeadCell: { backgroundColor: "#fff", color: "#000", fontSize: 14, lineHeight: 18, fontWeight: "900" },
-  largeTableCell: { fontSize: 13, lineHeight: 17, fontWeight: "700" },
-  tallTableCell: { fontSize: 17, lineHeight: 22, paddingHorizontal: 5, paddingVertical: 6 },
+  tableCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#d7d7d7", color: "#000", fontSize: scaleText(14), lineHeight: scaleText(18), fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 5 },
+  tableHeadCell: { backgroundColor: "#354f82",color:"white", fontSize: 12, lineHeight: scaleText(18), fontWeight: "700" },
+  largeTableCell: { fontSize: 12, lineHeight: scaleText(17), fontWeight: "700" },
+  tallTableCell: { fontSize: 14, lineHeight: scaleText(22), paddingHorizontal: 5, paddingVertical: 6 },
   traitsCell: { textAlign: "left" },
   lastCell: { borderRightWidth: 0 },
-  validation: { color: colors.danger, fontSize: 14, fontWeight: "800", lineHeight: 20 }
+  validation: { color: colors.danger, fontSize: scaleText(14), fontWeight: "700", lineHeight: scaleText(20) }
 });

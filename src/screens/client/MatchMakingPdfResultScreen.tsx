@@ -232,13 +232,42 @@ function OthersSectionContent({ title, value }: { title: string; value: unknown 
   const columns = otherSectionColumns[sectionType];
   if (columns) {
     if (sectionType === "vimshottaridasha") {
-      const table = buildVimshottariTable(value);
-      return <SingleDataTable columns={table.columns} rows={table.rows} />;
+      return <VimshottariDashaContent value={value} />;
     }
     return <SingleDataTable columns={columns} rows={buildSectionRows(value, columns, sectionType)} />;
   }
 
   return <ReportValue label={title} value={value} />;
+}
+
+function VimshottariDashaContent({ value }: { value: unknown }) {
+  const pair = getPersonPair(value);
+  if (pair) {
+    return <PersonPairDashaTabs first={pair.p1} second={pair.p2} />;
+  }
+
+  const table = buildVimshottariTable(value);
+  return table.rows.length ? <SingleDataTable columns={table.columns} rows={table.rows} /> : <ReportValue label="Vimshottari Dasha" value={value} />;
+}
+
+function PersonPairDashaTabs({ first, second }: { first: Record<string, unknown>; second: Record<string, unknown> }) {
+  const [activePerson, setActivePerson] = useState<"p1" | "p2">("p1");
+  const value = activePerson === "p1" ? first : second;
+  const table = buildVimshottariTable(value);
+
+  return (
+    <View style={styles.valueGroup}>
+      <View style={styles.personTabs}>
+        <Pressable style={[styles.personTab, activePerson === "p1" && styles.personTabActive]} onPress={() => setActivePerson("p1")}>
+          <Text style={[styles.personTabText, activePerson === "p1" && styles.personTabTextActive]}>Person 1</Text>
+        </Pressable>
+        <Pressable style={[styles.personTab, activePerson === "p2" && styles.personTabActive]} onPress={() => setActivePerson("p2")}>
+          <Text style={[styles.personTabText, activePerson === "p2" && styles.personTabTextActive]}>Person 2</Text>
+        </Pressable>
+      </View>
+      {table.rows.length ? <SingleDataTable columns={table.columns} rows={table.rows} /> : <ReportValue label={activePerson === "p1" ? "Person 1" : "Person 2"} value={value} />}
+    </View>
+  );
 }
 
 function PersonPairTabs({ first, second }: { first: Record<string, unknown>; second: Record<string, unknown> }) {
@@ -262,13 +291,12 @@ function PersonPairTabs({ first, second }: { first: Record<string, unknown>; sec
 
 function PersonDetailCard({ title, value }: { title: string; value: Record<string, unknown> }) {
   const rows = Object.entries(value)
-    .filter(([, item]) => item !== null && item !== undefined && item !== "")
     .filter(([key, item]) => !isImageEntry(key, item));
 
   return (
     <View style={styles.personDetailCard}>
       <Text style={styles.valueLabel}>{title}</Text>
-      {rows.map(([key, item]) => (
+      {rows.length ? rows.map(([key, item]) => (
         <View key={key} style={styles.detailTile}>
           <Text style={styles.detailLabel}>{formatKey(key)}</Text>
           {Array.isArray(item) || isRecord(item) ? (
@@ -277,7 +305,12 @@ function PersonDetailCard({ title, value }: { title: string; value: Record<strin
             <Text style={styles.detailValue}>{stringifyFlatValue(item)}</Text>
           )}
         </View>
-      ))}
+      )) : (
+        <View style={styles.detailTile}>
+          <Text style={styles.detailLabel}>Details</Text>
+          <Text style={styles.detailValue}>-</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -323,8 +356,6 @@ function buildPlanetTables(value: unknown, columns: string[]) {
 }
 
 function ReportValue({ label, value }: { label?: string; value: unknown }) {
-  if (value === null || value === undefined || value === "") return null;
-
   const images = collectImages(value, label);
   const table = buildSingleSectionTable(value, label);
 
@@ -466,6 +497,13 @@ function TableCellView({ value, width }: { value: TableCell | undefined; width: 
 }
 
 function buildSingleSectionTable(value: unknown, label?: string) {
+  if (isMissingApiValue(value)) {
+    return {
+      columns: ["Details", "Value"],
+      rows: [[formatKey(label || "Value"), "-"]]
+    };
+  }
+
   if (Array.isArray(value) && value.every(isRecord)) {
     const columns = Array.from(new Set(value.flatMap((row) => Object.keys(row).filter((key) => !isImageEntry(key, row[key])))));
     return {
@@ -766,7 +804,7 @@ function getColumnAliases(column: string) {
 
 function cellText(value: TableCell | undefined) {
   if (isImageCell(value)) return value.text;
-  return value || "";
+  return stringifyFlatValue(value);
 }
 
 function isImageCell(value: TableCell | undefined): value is { image?: string; text: string } {
@@ -787,19 +825,21 @@ function getMatchColumnWidth(column: string, values: string[]) {
 }
 
 function flattenKeyValueRows(value: unknown, label: string): string[][] {
-  if (value === null || value === undefined || value === "") return [];
+  if (isMissingApiValue(value)) return [[formatKey(label), "-"]];
   if (typeof value !== "object") return [[formatKey(label), stringifyFlatValue(value)]];
 
   if (Array.isArray(value)) {
-    if (!value.length) return [];
     if (value.every((item) => !isRecord(item) && !Array.isArray(item))) {
       return [[formatKey(label), stringifyFlatValue(value)]];
     }
     return value.flatMap((item, index) => flattenKeyValueRows(item, `${label} ${index + 1}`));
   }
 
+  const displayValue = getDisplayRecordValue(value);
+  if (displayValue !== undefined) return [[formatKey(label), stringifyFlatValue(displayValue)]];
+  if (!isRecord(value)) return [[formatKey(label), stringifyFlatValue(value)]];
+
   return Object.entries(value)
-    .filter(([, item]) => item !== null && item !== undefined && item !== "")
     .filter(([key, item]) => !isImageEntry(key, item))
     .flatMap(([key, item]) => {
       const nextLabel = label === "Value" ? key : `${label} ${key}`;
@@ -820,12 +860,13 @@ function collectImages(value: unknown, label = "Chart"): { label: string; value:
 }
 
 function stringifyFlatValue(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "-";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (isMissingApiValue(value)) return "-";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value).trim() || "-";
   if (Array.isArray(value)) {
-    if (!value.length) return "-";
     return value.map(stringifyFlatValue).filter((item) => item && item !== "-").join(", ") || "-";
   }
+  const displayValue = getDisplayRecordValue(value);
+  if (displayValue !== undefined) return stringifyFlatValue(displayValue);
   if (isRecord(value)) return Object.entries(value)
     .filter(([, item]) => item !== null && item !== undefined && item !== "")
     .filter(([key, item]) => !isImageEntry(key, item))
@@ -833,6 +874,28 @@ function stringifyFlatValue(value: unknown): string {
     .join(", ") || "-";
 
   return String(value);
+}
+
+function isMissingApiValue(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "string") return !value.trim();
+  if (Array.isArray(value)) return value.length === 0;
+  if (isRecord(value)) {
+    return Object.entries(value)
+      .filter(([key, item]) => !isImageEntry(key, item))
+      .every(([, item]) => isMissingApiValue(item));
+  }
+  return false;
+}
+
+function getDisplayRecordValue(value: unknown) {
+  if (!isRecord(value)) return undefined;
+  const entries = Object.entries(value).filter(([, item]) => item !== null && item !== undefined && item !== "");
+  if (entries.length === 1 && normalizeSectionKey(entries[0][0]) === "value") return entries[0][1];
+
+  const valueEntry = entries.find(([key, item]) => normalizeSectionKey(key) === "value" && !Array.isArray(item) && !isRecord(item));
+  const hasLabelEntry = entries.some(([key]) => /^(label|title|name|type|key)$/i.test(key));
+  return valueEntry && hasLabelEntry ? valueEntry[1] : undefined;
 }
 
 function isImageEntry(key: string, value: unknown) {

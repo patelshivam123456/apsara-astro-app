@@ -99,6 +99,7 @@ export function VedicGridScreen() {
         style={[styles.scroll, vedicStyles.screenBackground]}
         contentContainerStyle={[styles.resultContent, vedicStyles.contentBackground]}
         stickyHeaderIndices={[0]}
+        nestedScrollEnabled
         showsVerticalScrollIndicator={false}
       >
         <NumerologyCalculationTabs
@@ -367,8 +368,6 @@ export async function buildVedicExportSections({
     fetchDashaExportRows(reportDob),
     fetchPratyantarExportRows(reportDob)
   ]);
-  const dashaExportRows = limitExportRows(dashaRows, 80);
-  const pratyantarExportRows = limitExportRows(pratyantarRows, 120);
   const translationMap = await translateUniqueTexts([
     "Master Vedic Grid",
     "Vedic number placement showing core numbers, zodiac influence, and active grid energy.",
@@ -486,41 +485,30 @@ export async function buildVedicExportSections({
       : []),
     {
       title: tx("Mahadasha & Antardasha Chart"),
+      layout: "wide",
       rows: [
         [tx("From"), tx("To"), tx("Maha Dasha"), tx("Antar Dasha")],
-        ...dashaExportRows.rows.map((row) => [
+        ...dashaRows.map((row) => [
           localizeDigitsInText(compactDate(row.fromDate), language),
           localizeDigitsInText(compactDate(row.toDate), language),
           localizeDigitsInText(row.mahadashaNumber ?? "-", language),
           localizeDigitsInText(row.antardashaNumber ?? "-", language)
-        ]),
-        ...(dashaExportRows.remaining > 0
-          ? [[`${localizeDigitsInText(dashaExportRows.remaining, language)} more rows`, "Open the app for complete chart", "", ""]]
-          : [])
+        ])
       ]
     },
     {
       title: tx("Pratyantar Dasha Chart"),
+      layout: "wide",
       rows: [
         [tx("From"), tx("To"), tx("Pratyantar Dasha")],
-        ...pratyantarExportRows.rows.map((row) => [
+        ...pratyantarRows.map((row) => [
           localizeDigitsInText(compactDate(row.fromDate, true), language),
           localizeDigitsInText(compactDate(row.toDate, true), language),
           localizeDigitsInText(row.pratyantarDashaNumber ?? "-", language)
-        ]),
-        ...(pratyantarExportRows.remaining > 0
-          ? [[`${localizeDigitsInText(pratyantarExportRows.remaining, language)} more rows`, "Open the app for complete chart", ""]]
-          : [])
+        ])
       ]
     }
   ];
-}
-
-function limitExportRows<T>(rows: T[], limit: number) {
-  return {
-    rows: rows.slice(0, limit),
-    remaining: Math.max(0, rows.length - limit)
-  };
 }
 
 type DashaExportRow = {
@@ -537,11 +525,11 @@ type PratyantarExportRow = {
   toDate: string;
   pratyantarDashaNumber?: number;
   startTimestamp: number;
+  endTimestamp: number;
 };
 
 const maxDashaToDate = new Date(2060, 11, 31);
 const pratyantarDefaultYears = 10;
-const pratyantarInitialFromDate = new Date(2021, 0, 1);
 
 async function fetchDashaExportRows(dateOfBirth?: string) {
   const dobDate = normalizeDate(dateOfBirth);
@@ -553,13 +541,25 @@ async function fetchDashaExportRows(dateOfBirth?: string) {
 async function fetchPratyantarExportRows(dateOfBirth?: string) {
   const dobDate = normalizeDate(dateOfBirth);
   if (!dobDate) return [];
-  const fromDate = compareDates(pratyantarInitialFromDate, dobDate) < 0 ? dobDate : pratyantarInitialFromDate;
-  const response = await getPratyantarDasha(formatDisplayDate(dobDate), formatDisplayDate(fromDate), pratyantarDefaultYears);
+  const fromDates: Date[] = [];
+  let fromDate = dobDate;
+
+  while (compareDates(fromDate, maxDashaToDate) <= 0) {
+    fromDates.push(fromDate);
+    fromDate = addYears(fromDate, pratyantarDefaultYears);
+  }
+
+  const responses = await Promise.all(
+    fromDates.map((date) => getPratyantarDasha(formatDisplayDate(dobDate), formatDisplayDate(date), pratyantarDefaultYears))
+  );
+
   return mergePratyantarRows(
-    response
+    responses
+      .flat()
       .map(mapPratyantarRow)
       .filter((row) => row.fromDate || row.toDate)
-      .filter((row) => Number.isFinite(row.startTimestamp) && row.startTimestamp >= dobDate.getTime())
+      .filter((row) => Number.isFinite(row.startTimestamp) && Number.isFinite(row.endTimestamp))
+      .filter((row) => row.startTimestamp <= maxDashaToDate.getTime() && row.endTimestamp >= dobDate.getTime())
   );
 }
 
@@ -599,11 +599,13 @@ function mapPratyantarRow(item: PratyantarDashaItem, index: number): PratyantarE
   const fromDate = normalizeApiDate(item.effectiveStartDate || item.birthdayDate);
   const toDate = normalizeApiDate(item.effectiveEndDate || item.birthdayDate);
   const startDate = parseDisplayDate(fromDate);
+  const endDate = parseDisplayDate(toDate);
   return {
     fromDate,
     toDate,
     pratyantarDashaNumber: item.pratyantarDashaNumber,
-    startTimestamp: startDate?.getTime() ?? NaN
+    startTimestamp: startDate?.getTime() ?? NaN,
+    endTimestamp: endDate?.getTime() ?? NaN
   };
 }
 
@@ -656,6 +658,10 @@ function compactDate(value: string, shortYear = false) {
 
 function compareDates(a: Date, b: Date) {
   return stripTime(a).getTime() - stripTime(b).getTime();
+}
+
+function addYears(date: Date, years: number) {
+  return new Date(date.getFullYear() + years, date.getMonth(), date.getDate());
 }
 
 function stripTime(date: Date) {

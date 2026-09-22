@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ScrollView } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -10,15 +10,12 @@ import {
   getAstrologerPrediction,
   getDivineMeta,
   getDivinePrediction,
-  hasPredictionEntries
 } from "@/components/horoscope_comp/helpers";
 import { HoroscopeHeader } from "@/components/horoscope_comp/HoroscopeHeader";
 import { HoroscopeHero } from "@/components/horoscope_comp/HoroscopeHero";
 import { HoroscopePeriodPicker } from "@/components/horoscope_comp/HoroscopePeriodPicker";
-import { HoroscopeTabs } from "@/components/horoscope_comp/HoroscopeTabs";
 import { PredictionPanel } from "@/components/horoscope_comp/PredictionPanel";
 import { horoscopeStyles as styles } from "@/components/horoscope_comp/styles";
-import { ActiveHoroscopeTab } from "@/components/horoscope_comp/types";
 import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
 import { getHoroscope, HoroscopePeriod, HoroscopeSign } from "@/services/horoscope.service";
@@ -28,7 +25,6 @@ export function HoroscopeScreen() {
   const [selectedSign, setSelectedSign] = useState<HoroscopeSign>("virgo");
   const [selectedPeriod, setSelectedPeriod] = useState<HoroscopePeriod>("daily");
   const [periodOpen, setPeriodOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<ActiveHoroscopeTab>("astrologer");
 
   const handleSelectSign = useCallback((sign: HoroscopeSign) => {
     setSelectedSign(sign);
@@ -54,20 +50,20 @@ export function HoroscopeScreen() {
   const divine = horoscope.data?.divine?.data;
   const astrologerPrediction = getAstrologerPrediction(astrology);
   const divinePrediction = getDivinePrediction(divine, selectedPeriod);
-  const hasDivine = hasPredictionEntries(divinePrediction);
-
-  useEffect(() => {
-    if (horoscope.isLoading) return;
-    if (activeTab === "divine" && !hasDivine) {
-      setActiveTab("astrologer");
-    }
-  }, [activeTab, hasDivine, horoscope.isLoading]);
+  const prediction = divinePrediction || astrologerPrediction;
+  const meta = getDivineMeta(divine) || getAstrologerMeta(astrology);
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
       <HoroscopeHeader />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator>
+        <HoroscopeHero
+          selectedPeriodLabel={selectedPeriodLabel}
+          selectedSign={selectedSign}
+          onSelectSign={handleSelectSign}
+        />
+
         <HoroscopePeriodPicker
           open={periodOpen}
           selectedPeriodLabel={selectedPeriodLabel}
@@ -76,33 +72,15 @@ export function HoroscopeScreen() {
           onSelectPeriod={handleSelectPeriod}
         />
 
-        <HoroscopeHero
-          selectedPeriodLabel={selectedPeriodLabel}
-          selectedSign={selectedSign}
-          onSelectSign={handleSelectSign}
-        />
-
-        <HoroscopeTabs
-          activeTab={activeTab}
-          hasDivine={hasDivine}
-          onChangeTab={setActiveTab}
-        />
-
         {horoscope.isLoading ? (
           <LoadingState label="Loading horoscope" />
         ) : horoscope.isError ? (
           <ErrorState message={getApiErrorMessage(horoscope.error, "Unable to load horoscope")} onRetry={() => horoscope.refetch()} />
-        ) : activeTab === "astrologer" ? (
-          <PredictionPanel
-            title={`${t("Astrologer")} ${t("Reading")}`}
-            meta={getAstrologerMeta(astrology)}
-            prediction={astrologerPrediction}
-          />
         ) : (
           <PredictionPanel
-            title={`${t("Divine")} ${t("Reading")}`}
-            meta={getDivineMeta(divine)}
-            prediction={divinePrediction}
+            title={t(selectedPeriodLabel)}
+            meta={meta}
+            prediction={prediction}
             colorCodes={divine?.special?.lucky_color_codes}
             percentages={divine?.special?.horoscope_percentage}
           />

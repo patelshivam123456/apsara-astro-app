@@ -65,7 +65,7 @@ export function PratyantarDashaChart({ dateOfBirth }: { dateOfBirth?: string }) 
   const tableMaxHeight = Math.min(430, Math.round(height * 0.46));
   const tableBodyHeight = isInitialLoading || initialError || validationMessage
     ? 130
-    : Math.min(tableMaxHeight, Math.max(rowHeight, rows.length * rowHeight + loadingIndicatorHeight(isLoadingPrevious || !!previousError) + loadingIndicatorHeight(isLoadingNext || !!nextError)));
+    : tableMaxHeight;
 
   const loadRange = useCallback(async (fromDate: Date, direction: LoadDirection) => {
     if (!dobDate) return;
@@ -133,12 +133,18 @@ export function PratyantarDashaChart({ dateOfBirth }: { dateOfBirth?: string }) 
     lastContentHeightRef.current = 0;
     lastScrollTopRef.current = 0;
     pendingPrependRef.current = false;
-    setRanges([]);
-    setInitialError("");
-    setPreviousError("");
-    setNextError("");
-    if (!dobDate) return;
-    loadRange(getInitialFromDate(dobDate), "initial");
+
+    const frame = requestAnimationFrame(() => {
+      setRanges([]);
+      setInitialError("");
+      setPreviousError("");
+      setNextError("");
+      if (dobDate) {
+        void loadRange(getInitialFromDate(dobDate), "initial");
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, [dobDate, dobKey, loadRange]);
 
   const loadPreviousRange = useCallback(() => {
@@ -170,6 +176,10 @@ export function PratyantarDashaChart({ dateOfBirth }: { dateOfBirth?: string }) 
   };
 
   const onContentSizeChange = (_width: number, contentHeight: number) => {
+    if (contentHeight <= tableBodyHeight + scrollThreshold && !isLoadingNext && !nextError) {
+      loadNextRange();
+    }
+
     if (!pendingPrependRef.current) {
       lastContentHeightRef.current = contentHeight;
       return;
@@ -218,6 +228,8 @@ export function PratyantarDashaChart({ dateOfBirth }: { dateOfBirth?: string }) 
               onScroll={onScroll}
               onContentSizeChange={onContentSizeChange}
               scrollEventThrottle={80}
+              style={styles.tableScroll}
+              contentContainerStyle={styles.tableScrollContent}
             >
               <RangeStatus
                 loading={isLoadingPrevious}
@@ -394,10 +406,6 @@ function mergePratyantarRows(nextRows: PratyantarRow[]) {
   return Array.from(unique.values());
 }
 
-function loadingIndicatorHeight(visible: boolean) {
-  return visible ? 44 : 0;
-}
-
 function compactDate(value: string) {
   const parsed = parseDisplayDate(value);
   if (!parsed) return value;
@@ -433,6 +441,8 @@ const styles = StyleSheet.create({
   subHeaderText: { color: "#000", fontSize: 12, fontWeight: "900", textAlign: "center" },
   stackedHeaderCell: { alignItems: "center", justifyContent: "center", paddingHorizontal: 2 },
   tableBody: { backgroundColor: "#efefef" },
+  tableScroll: { flex: 1 },
+  tableScrollContent: { flexGrow: 1 },
   tableState: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.md },
   loadingText: { marginTop: spacing.sm, color: "#375c34", fontWeight: "900" },
   rangeStatus: { minHeight: 44, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.sm, paddingVertical: 6, backgroundColor: "#efefef" },
