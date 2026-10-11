@@ -17,6 +17,7 @@ export default function RootLayout() {
         <Stack.Screen name="subscription-plan" />
         <Stack.Screen name="payment-success" />
         <Stack.Screen name="payment-failed" />
+        <Stack.Screen name="change-password" />
         <Stack.Screen name="kundali-pdf" />
         <Stack.Screen name="kundali-pdf-result" />
         <Stack.Screen name="match-making-pdf" />

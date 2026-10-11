@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Avatar, Badge, Button, Chip, IconButton, Text } from "react-native-paper";
 
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import {
   AstrologerFilterModal,
   defaultAstrologerFilters,
@@ -21,6 +22,7 @@ import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 import { useAstrologers } from "@/hooks/useAstrologers";
 import { Astrologer } from "@/types/api";
+import { getAstrologerProfileImage } from "@/utils/astrologerProfileImage";
 
 function getName(astrologer: Astrologer) {
   return astrologer.displayName || astrologer.fullName || [astrologer.firstName, astrologer.lastName].filter(Boolean).join(" ") || "Apsara Expert";
@@ -52,6 +54,13 @@ export function AstrologerListScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.fixedHeader}>
+        <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
+        <Text style={styles.headerTitle}>{t("Astrologers")}</Text>
+        <View style={styles.headerActions}>
+          <LanguageSelector />
+        </View>
+      </View>
       <FlatList
         style={styles.list}
         contentContainerStyle={styles.content}
@@ -62,17 +71,15 @@ export function AstrologerListScreen() {
         onRefresh={() => query.refetch()}
         ListHeaderComponent={(
           <View style={styles.top}>
-            <View style={styles.header}>
-              <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
-              <Text variant="titleLarge" style={styles.title}>{t("Astrologers")}</Text>
+            <View style={styles.resultHeader}>
+              <View>
+                <Text style={styles.resultTitle}>{filtered.length} {t(filtered.length === 1 ? "astrologer" : "astrologers")}</Text>
+                <Text style={styles.resultMuted}>{t("Showing matching experts")}</Text>
+              </View>
               <View style={styles.filterIconWrap}>
                 <IconButton icon="tune-variant" mode="contained-tonal" size={21} onPress={() => setFilterVisible(true)} />
                 {activeFilterCount ? <Badge style={styles.filterBadge}>{activeFilterCount}</Badge> : null}
               </View>
-            </View>
-            <View style={styles.resultHeader}>
-              <Text style={styles.resultTitle}>{filtered.length} {t(filtered.length === 1 ? "astrologer" : "astrologers")}</Text>
-              <Text style={styles.resultMuted}>{t("Showing matching experts")}</Text>
             </View>
           </View>
         )}
@@ -96,6 +103,7 @@ function AstrologerResultCard({ astrologer }: { astrologer: Astrologer }) {
   const skills = getSkills(astrologer);
   const years = astrologer.yearsOfExperience || "5";
   const initials = name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const profileImage = getAstrologerProfileImage(astrologer);
   const routeId = getAstrologerRouteId(astrologer);
   const openDetails = () => {
     if (routeId) router.push(`/astrologers/${routeId}`);
@@ -106,7 +114,11 @@ function AstrologerResultCard({ astrologer }: { astrologer: Astrologer }) {
     <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]} onPress={openDetails}>
       <View style={styles.cardTop}>
         <View style={styles.avatarWrap}>
-          <Avatar.Text size={72} label={initials || "AA"} style={styles.avatar} labelStyle={styles.avatarLabel} />
+          {profileImage ? (
+            <Avatar.Image size={72} source={{ uri: profileImage }} style={styles.avatarImage} />
+          ) : (
+            <Avatar.Text size={72} label={initials || "AA"} style={styles.avatar} labelStyle={styles.avatarLabel} />
+          )}
           <View style={[styles.onlineDot, { backgroundColor: astrologer.isOnline === false ? "#9a9a9a" : colors.success }]} />
         </View>
         <View style={styles.cardInfo}>
@@ -134,8 +146,9 @@ const styles = StyleSheet.create({
   list: { flex: 1 },
   content: { padding: spacing.md, paddingBottom: 96, gap: spacing.md },
   top: { gap: spacing.md },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  title: { color: colors.ink, fontWeight: "900", fontSize: 19, lineHeight: 24, textAlign: "center" },
+  fixedHeader: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, gap: spacing.sm, backgroundColor: colors.cream, borderBottomWidth: 1, borderBottomColor: "#f0dfae", zIndex: 40 },
+  headerTitle: { flex: 1, minWidth: 0, color: colors.blue, fontSize: 16, lineHeight: 20, fontWeight: "900", textAlign: "center" },
+  headerActions: { width: 72, flexDirection: "row", justifyContent: "flex-end", zIndex: 45 },
   filterIconWrap: { width: 70, alignItems: "flex-end", justifyContent: "center" },
   filterBadge: { position: "absolute", top: 2, right: 0, backgroundColor: colors.danger },
   resultHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.sm },
@@ -158,6 +171,7 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: "row", gap: spacing.md, alignItems: "center" },
   avatarWrap: { width: 88, alignItems: "center" },
   avatar: { backgroundColor: colors.ink },
+  avatarImage: { backgroundColor: colors.surface },
   avatarLabel: { color: colors.lime, fontSize: 24, fontWeight: "900" },
   onlineDot: { width: 15, height: 15, borderRadius: 8, marginTop: spacing.sm, borderWidth: 2, borderColor: colors.surface },
   cardInfo: { flex: 1, minWidth: 0, gap: spacing.sm },

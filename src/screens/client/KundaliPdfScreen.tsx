@@ -13,7 +13,7 @@ import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
 import {
   GeoLocationPlace,
-  generateKundaliReport,
+  generateVerifiedKundaliReport,
   getGeolocationPlaces,
   KundaliBasicPayload
 } from "@/services/kundali.service";
@@ -127,8 +127,8 @@ export function KundaliPdfScreen() {
 
     try {
       setSubmitting(true);
-      const response = await generateKundaliReport(payload);
-      setResult(response, payload);
+      const response = await generateVerifiedKundaliReport(payload);
+      setResult(response.report, response.request);
       router.push("/kundali-pdf-result");
     } catch (error) {
       setSubmitError(getApiErrorMessage(error, "Unable to fetch Kundali details"));
@@ -415,7 +415,7 @@ function pad2(value: number) {
 
 function normalizeNumberField(value: string) {
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? String(parsed) : value.trim();
+  return Number.isFinite(parsed) ? pad2(parsed) : value.trim();
 }
 
 function getPayloadTimeZone() {

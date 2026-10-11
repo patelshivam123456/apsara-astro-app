@@ -22,9 +22,12 @@ function createClient(baseURL: string) {
   });
 
   client.interceptors.request.use(async (config) => {
-    const token = await getAccessToken();
+    const [token, refreshToken] = await Promise.all([getAccessToken(), getRefreshToken()]);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (refreshToken) {
+      config.headers["x-refresh-token"] = refreshToken;
     }
     return config;
   });

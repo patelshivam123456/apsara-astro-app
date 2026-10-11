@@ -8,7 +8,6 @@ import { useTranslation } from "@/context/LanguageContext";
 import { useAuthStore } from "@/store/auth.store";
 
 const drawerItems = [
-  ["(tabs)", "Home", "home"],
   ["language", "Language", "translate"],
   ["my-horoscope", "My Horoscope", "zodiac-aries"],
   ["numerology", "Numerology", "numeric"],
@@ -36,12 +35,15 @@ export default function DrawerLayout() {
 
   return (
     <Drawer
+      drawerContent={() => null}
       screenOptions={{
+        headerShown: false,
+        swipeEnabled: false,
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: colors.ink,
         drawerActiveTintColor: colors.amber,
         drawerInactiveTintColor: colors.cocoa,
-        drawerStyle: { backgroundColor: colors.cream },
+        drawerStyle: { width: 0, backgroundColor: colors.cream },
         headerRight: () => <LanguageSelector />,
         headerRightContainerStyle: { paddingRight: 12 },
       }}
@@ -52,7 +54,7 @@ export default function DrawerLayout() {
           name={name}
           options={{
             title: t(title),
-            headerShown: !customHeaderScreens.has(name),
+            headerShown: false,
             drawerIcon: ({ color, size }) => (
               <MaterialCommunityIcons
                 name={icon as keyof typeof MaterialCommunityIcons.glyphMap}

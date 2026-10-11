@@ -24,21 +24,21 @@ export async function updateClientProfile(profile: ClientProfile) {
     dateOfBirth: profile.dateOfBirth || "",
     timeOfBirth: profile.timeOfBirth || "",
     placeOfBirth: profile.placeOfBirth || "",
-    countryOfBirth: "",
-    dateOfDeath: "",
-    timeOfDeath: "",
-    dateOfJoining: "",
-    timeOfJoining: "",
+    countryOfBirth: profile.countryOfBirth || "",
+    dateOfDeath: profile.dateOfDeath || "",
+    timeOfDeath: profile.timeOfDeath || "",
+    dateOfJoining: profile.dateOfJoining || "",
+    timeOfJoining: profile.timeOfJoining || "",
     religion: profile.religion || "",
-    caste: "",
-    gotra: "",
+    caste: profile.caste || "",
+    gotra: profile.gotra || "",
     motherTongue: profile.motherTongue || "",
     language: profile.language || "",
-    fatherName: "",
-    motherName: "",
-    spouseName: "",
-    spouseRelationship: "",
-    childName: ""
+    fatherName: profile.fatherName || "",
+    motherName: profile.motherName || "",
+    spouseName: profile.spouseName || "",
+    spouseRelationship: profile.spouseRelationship || "",
+    childName: profile.childName || ""
   });
 }
 

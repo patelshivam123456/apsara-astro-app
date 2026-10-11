@@ -5,6 +5,7 @@ import { Avatar, Button, Chip, Text } from "react-native-paper";
 import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 import { Astrologer } from "@/types/api";
+import { getAstrologerProfileImage } from "@/utils/astrologerProfileImage";
 
 type Props = {
   astrologer: Astrologer;
@@ -25,6 +26,7 @@ function getName(astrologer: Astrologer) {
 export function AstrologerCard({ astrologer, onChat, onCall, onView }: Props) {
   const { t } = useTranslation();
   const name = getName(astrologer);
+  const profileImage = getAstrologerProfileImage(astrologer);
   const skills = Array.isArray(astrologer.expertise)
     ? astrologer.expertise.join(", ")
     : astrologer.specialization || astrologer.expertise || "Astrology";
@@ -41,7 +43,11 @@ export function AstrologerCard({ astrologer, onChat, onCall, onView }: Props) {
     <Pressable style={styles.card} onPress={onView}>
       <View style={styles.top}>
         <View>
-          <Avatar.Text size={58} label={initials || "AA"} style={styles.avatar} labelStyle={styles.avatarLabel} />
+          {profileImage ? (
+            <Avatar.Image size={58} source={{ uri: profileImage }} style={styles.avatarImage} />
+          ) : (
+            <Avatar.Text size={58} label={initials || "AA"} style={styles.avatar} labelStyle={styles.avatarLabel} />
+          )}
           <View style={[styles.statusDot, { backgroundColor: astrologer.isOnline === false ? "#a0a0a0" : colors.success }]} />
         </View>
         <View style={styles.info}>
@@ -74,6 +80,7 @@ const styles = StyleSheet.create({
   },
   top: { flexDirection: "row", gap: spacing.md },
   avatar: { backgroundColor: colors.ink },
+  avatarImage: { backgroundColor: colors.surface },
   avatarLabel: { color: colors.lime },
   statusDot: {
     position: "absolute",

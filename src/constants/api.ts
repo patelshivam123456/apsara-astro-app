@@ -1,26 +1,30 @@
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || "https://staging.apsraastro.in";
+  process.env.EXPO_PUBLIC_API_URL || "https://staging-api.apsraastro.com";
 
 export const ASTRO_API_BASE_URL =
-  process.env.EXPO_PUBLIC_ASTRO_API_URL || "https://staging.apsraastro.in";
+  process.env.EXPO_PUBLIC_ASTRO_API_URL || "https://staging-api.apsraastro.com";
 
 export const TRANSACTION_API_BASE_URL =
-  process.env.EXPO_PUBLIC_TRANSACTION_API_URL || "https://staging.apsraastro.com";
+  process.env.EXPO_PUBLIC_TRANSACTION_API_URL || "https://staging-api.apsraastro.com";
 
 export const ENDPOINTS = {
   login: "/authorization/auth/login",
+  signUp: "/authorization/auth/sign-up",
   createUser: "/authorization/auth/create-user",
   astrologerRegistration: "/authorization/auth/astrologer-registration",
+  astrologerRegistrationOtpProcess: "/authorization/auth/astrologer-registration-otp-process",
   forgotPassword: "/authorization/auth/forgot-password",
   resetPassword: "/authorization/auth/reset-password",
   updatePassword: "/authorization/auth/update-password",
   refreshToken: "/authorization/auth/refresh-token",
   logout: "/authorization/auth/logout",
-  clientProfile: "/authorization/client/profile-me",
-  updateClientProfile: "/authorization/client/update-profile-data",
+  clientProfile: "https://staging.apsraastro.in/api/proxy/authorization/client/profile-me",
+  updateClientProfile: "https://staging.apsraastro.in/api/proxy/authorization/client/update-profile-data",
   deleteClientProfile: "/authorization/client/delete-profile-data",
-  astrologerProfile: "https://staging.apsraastro.in/api/proxy/authorization/astrologer/profile-me",
+  astrologerProfile: "/authorization/astrologer/profile-me",
+  updateAstrologerProfile: "https://staging.apsraastro.in/api/proxy/authorization/astrologer/update-profile-data",
   astrologerClients: "/authorization/astrologer/clients",
+  downloadFile: "/authorization/file/download-file",
   astrologers: "/authorization/info/get-all-astrologers",
   loShuGrid: "/astrology-services/home-page/lo-shu-grid",
   vedicGrid: "/astrology-services/home-page/vedic-grid",
@@ -31,7 +35,7 @@ export const ENDPOINTS = {
   chaldeanNameLetterAnalysisChart: "/astrology-services/home-page/api/numerology/chaldean/name-letter-analysis-chart",
   nameFrequencyNameChart: "/astrology-services/home-page/api/numerology/name-frequency/name-chart",
   compatibilityGrid: "/astrology-services/numerology/match-making/compatibility-grid",
-  mobileNumerology: "https://staging.apsraastro.in/astrology-services/numerology/mobile/analysis-report",
+  mobileNumerology: "/astrology-services/numerology/mobile/analysis-report",
   dashaCalculation: "/astrology-services/home-page/numerology/dasha-calculation",
   pratyantarDasha: "/astrology-services/home-page/numerology/pratyantar-dasha",
   personalityDestinyDetails: "/astrology-services/home-page/personality-destiny-details",
@@ -45,17 +49,20 @@ export const ENDPOINTS = {
   monthlyHoroscope: "/astrology-services/third-party/monthly-horoscope",
   yearlyHoroscope: "/astrology-services/third-party/yearly-horoscope",
   geolocation: "/astrology-services/home-page/get-geolocation",
+  kundaliVerify: "https://staging.apsraastro.in/api/astro-proxy/astrology-services/kundali/v1/verify",
   kundaliBasic: "/astrology-services/kundali/v1/basic",
-  kundaliYogas: "https://staging.apsraastro.com/astrology-services/kundali/v1/yogas",
-  kundaliDosha: "https://staging.apsraastro.com/astrology-services/kundali/v1/dosha",
-  kundaliBhinnashtakvarga: "https://staging.apsraastro.com/astrology-services/kundali/v1/bhinnashtakvarga",
-  kundaliHoroscopeCharts: "https://staging.apsraastro.com/astrology-services/kundali/v1/horoscope-charts",
-  kundaliKp: "https://staging.apsraastro.com/astrology-services/kundali/v1/kp",
-  kundaliDasha: "https://staging.apsraastro.com/astrology-services/kundali/v1/dasha",
+  kundaliYogas: "/astrology-services/kundali/v1/yogas",
+  kundaliDosha: "/astrology-services/kundali/v1/dosha",
+  kundaliBhinnashtakvarga: "/astrology-services/kundali/v1/bhinnashtakvarga",
+  kundaliHoroscopeCharts: "/astrology-services/kundali/v1/horoscope-charts",
+  kundaliKp: "/astrology-services/kundali/v1/kp",
+  kundaliDasha: "/astrology-services/kundali/v1/dasha",
+  kundaliJaimini: "https://staging.apsraastro.in/api/astro-proxy/astrology-services/kundali/v1/jaimini",
+  kundaliPdf: "/astrology-services/kundali/v1/pdf",
   paymentInitiate: "/transactions/payment/v1/initiate",
   paymentAcknowledge: "/transactions/payment/v1/payment-acknowledge",
   matchMakingPdf: "/astrology-services/third-party/match-making-pdf",
-  matchMakingOthers: "/api/astro-proxy/astrology-services/match-making/v1/others",
-  matchMakingHoroscopeCharts: "/api/astro-proxy/astrology-services/match-making/v1/horoscope-charts",
+  matchMakingOthers: "/astrology-services/match-making/v1/others",
+  matchMakingHoroscopeCharts: "/astrology-services/match-making/v1/horoscope-charts",
   basicAstroDetails: "/astrology-services/third-party/basic-astro-details"
 } as const;

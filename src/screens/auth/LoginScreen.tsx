@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Image, StyleSheet, View } from "react-native";
+import { Image, StyleSheet, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
-import { Button, HelperText, Snackbar, Text, TextInput } from "react-native-paper";
+import { Button, Dialog, HelperText, Portal, Snackbar, Text, TextInput } from "react-native-paper";
 import { z } from "zod";
 
 import { Screen } from "@/components/Screen";
@@ -29,6 +29,7 @@ export function LoginScreen() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [sendingReset, setSendingReset] = useState(false);
   const [message, setMessage] = useState("");
+  const [registerChoiceOpen, setRegisterChoiceOpen] = useState(false);
 
   const { control, handleSubmit, formState } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -86,13 +87,13 @@ export function LoginScreen() {
         {/* <Text style={styles.kicker}>APSARAASTRO</Text> */}
 <View>
         <Text variant="headlineSmall" style={styles.mainTitle}>
-          {forgotOpen ? t("Reset Password") : t("Astrologer Login")}
+          {forgotOpen ? t("Reset Password") : t("Welcome back ApsraAstro")}
         </Text>
 
         <Text style={styles.muted}>
           {forgotOpen
             ? t("Enter your registered email to receive reset password instructions.")
-            : t("Access your astrologer workspace.")}
+            : t("Enter your username and password to login")}
         </Text>
         </View>
         </View>
@@ -140,7 +141,7 @@ export function LoginScreen() {
       ) : (
         
         <View style={styles.card}>
-          <Text style={styles.stepLabel}>{t("Login account")}</Text>
+          <Text style={styles.stepLabel}>{t("LOGIN")}</Text>
 
           <Controller
             control={control}
@@ -148,7 +149,7 @@ export function LoginScreen() {
             render={({ field, fieldState }) => (
               <>
                 <TextInput
-                  label={t("Email")}
+                  label={t("Username")}
                   autoCapitalize="none"
                   keyboardType="email-address"
                   value={field.value}
@@ -211,14 +212,46 @@ export function LoginScreen() {
             {t("Forgot Password")}
           </Button>
 
-          <Button mode="outlined" onPress={() => router.push("/(auth)/register")}>
-            {t("Create Astrologer Account")}
-          </Button>
+          <TouchableOpacity style={styles.registerPrompt} onPress={() => setRegisterChoiceOpen(true)}>
+            <Text style={styles.registerPromptText}>
+              {t("Don't have an account?")}{" "}
+              <Text style={styles.registerPromptLink}>{t("Register Now")}</Text>
+            </Text>
+          </TouchableOpacity>
 
         </View>
 
       )}
 </View>
+      <Portal>
+        <Dialog visible={registerChoiceOpen} onDismiss={() => setRegisterChoiceOpen(false)}>
+          <Dialog.Title>{t("Choose Registration Type")}</Dialog.Title>
+          <Dialog.Content>
+            <View style={styles.choiceList}>
+              <Button
+                mode="contained"
+                style={styles.primaryBtn}
+                labelStyle={styles.primaryBtnText}
+                onPress={() => {
+                  setRegisterChoiceOpen(false);
+                  router.push({ pathname: "/(auth)/register", params: { type: "astrologer" } });
+                }}
+              >
+                {t("Register as an Astrologer")}
+              </Button>
+              <Button
+                mode="outlined"
+                onPress={() => {
+                  setRegisterChoiceOpen(false);
+                  router.push({ pathname: "/(auth)/register", params: { type: "client" } });
+                }}
+              >
+                {t("Register as a Client")}
+              </Button>
+            </View>
+          </Dialog.Content>
+        </Dialog>
+      </Portal>
       <Snackbar visible={!!message} onDismiss={() => setMessage("")} duration={3500}>
         {t(message)}
       </Snackbar>
@@ -299,5 +332,27 @@ content: {
   primaryBtnText: {
     color: "#111",
     fontWeight: "900"
+  },
+
+  registerPrompt: {
+    alignItems: "center",
+    paddingVertical: 4
+  },
+
+  registerPromptText: {
+    color: colors.cocoa,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center"
+  },
+
+  registerPromptLink: {
+    color: "#b94717",
+    fontSize: 12,
+    fontWeight: "900"
+  },
+
+  choiceList: {
+    gap: spacing.md
   }
 });

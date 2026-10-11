@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Button, Text } from "react-native-paper";
 
-import { Screen } from "@/components/Screen";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { colors, spacing } from "@/constants/theme";
 import {
   orderedSubscriptionPlanIds,
@@ -119,15 +120,15 @@ export default function SubscriptionPlanScreen() {
   };
 
   return (
-    <Screen>
-      <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={() => router.replace(homeRoute)}>
-          <MaterialCommunityIcons name="arrow-left" size={22} color={colors.ink} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Subscription Plan</Text>
-        <View style={styles.headerSpacer} />
+    <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
+      <View style={styles.fixedHeader}>
+        <Button mode="text" icon="arrow-left" compact onPress={() => router.replace(homeRoute)}>Back</Button>
+        <Text style={styles.headerTitle} numberOfLines={1}>Subscription Plan</Text>
+        <View style={styles.headerActions}>
+          <LanguageSelector />
+        </View>
       </View>
-
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.hero}>
         <View style={styles.heroCopy}>
           <Text style={styles.kicker}>Apsra Astro Premium</Text>
@@ -232,7 +233,8 @@ export default function SubscriptionPlanScreen() {
         <TrustItem icon="lock-check" label="100% Secure Payments" />
         <TrustItem icon="headset" label="Dedicated Support" />
       </View>
-    </Screen>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -268,27 +270,11 @@ function formatDate(value: string) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    width: "100%",
-    alignSelf: "center",
-    minHeight: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  headerTitle: { flex: 1, color: colors.ink, textAlign: "center", fontSize: 18, lineHeight: 23, fontWeight: "900" },
-  headerSpacer: { width: 40 },
+  root: { flex: 1, backgroundColor: colors.cream },
+  fixedHeader: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, gap: spacing.sm, backgroundColor: colors.cream, borderBottomWidth: 1, borderBottomColor: "#f0dfae", zIndex: 40 },
+  headerTitle: { flex: 1, minWidth: 0, color: colors.blue, fontSize: 16, lineHeight: 20, fontWeight: "900", textAlign: "center" },
+  headerActions: { width: 72, flexDirection: "row", justifyContent: "flex-end", zIndex: 45 },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg },
   hero: {
     minHeight: 172,
     borderRadius: 8,

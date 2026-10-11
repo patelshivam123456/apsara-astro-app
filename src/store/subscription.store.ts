@@ -107,6 +107,9 @@ export function buildSubscriptionRecord(params: {
 }
 
 export function getTrialInfo(trial?: TrialRecord) {
+  // Temporarily disabled: keep the 5-day trial logic inactive without removing it.
+  return { trialActive: false, daysRemaining: 0, expired: false };
+  /*
   if (!trial) return { trialActive: false, daysRemaining: 0, expired: true };
 
   const started = new Date(trial.startedAt).getTime();
@@ -119,6 +122,7 @@ export function getTrialInfo(trial?: TrialRecord) {
     daysRemaining,
     expired: now >= ends
   };
+  */
 }
 
 export function isSubscriptionActive(subscription?: SubscriptionRecord) {

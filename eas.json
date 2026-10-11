@@ -6,8 +6,9 @@
   "build": {
     "dev-client": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging.apsraastro.in",
-        "EXPO_PUBLIC_ASTRO_API_URL": "https://staging.apsraastro.in"
+        "EXPO_PUBLIC_API_URL": "https://staging-api.apsraastro.com",
+        "EXPO_PUBLIC_ASTRO_API_URL": "https://staging-api.apsraastro.com",
+        "EXPO_PUBLIC_TRANSACTION_API_URL": "https://staging-api.apsraastro.com"
       },
       "developmentClient": true,
       "distribution": "internal",
@@ -17,8 +18,9 @@
     },
     "development": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging.apsraastro.in",
-        "EXPO_PUBLIC_ASTRO_API_URL": "https://staging.apsraastro.in"
+        "EXPO_PUBLIC_API_URL": "https://staging-api.apsraastro.com",
+        "EXPO_PUBLIC_ASTRO_API_URL": "https://staging-api.apsraastro.com",
+        "EXPO_PUBLIC_TRANSACTION_API_URL": "https://staging-api.apsraastro.com"
       },
       "distribution": "internal",
       "android": {
@@ -31,8 +33,9 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging.apsraastro.in",
-        "EXPO_PUBLIC_ASTRO_API_URL": "https://staging.apsraastro.in"
+        "EXPO_PUBLIC_API_URL": "https://staging-api.apsraastro.com",
+        "EXPO_PUBLIC_ASTRO_API_URL": "https://staging-api.apsraastro.com",
+        "EXPO_PUBLIC_TRANSACTION_API_URL": "https://staging-api.apsraastro.com"
       }
     },
     "preview": {
@@ -41,14 +44,16 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging.apsraastro.in",
-        "EXPO_PUBLIC_ASTRO_API_URL": "https://staging.apsraastro.in"
+        "EXPO_PUBLIC_API_URL": "https://staging-api.apsraastro.com",
+        "EXPO_PUBLIC_ASTRO_API_URL": "https://staging-api.apsraastro.com",
+        "EXPO_PUBLIC_TRANSACTION_API_URL": "https://staging-api.apsraastro.com"
       }
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging.apsraastro.in",
-        "EXPO_PUBLIC_ASTRO_API_URL": "https://staging.apsraastro.in"
+        "EXPO_PUBLIC_API_URL": "https://api.apsraastro.com",
+        "EXPO_PUBLIC_ASTRO_API_URL": "https://api.apsraastro.com",
+        "EXPO_PUBLIC_TRANSACTION_API_URL": "https://api.apsraastro.com"
       },
       "autoIncrement": true,
       "android": {

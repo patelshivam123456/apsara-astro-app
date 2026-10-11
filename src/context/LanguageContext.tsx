@@ -961,7 +961,11 @@ export function LanguageProvider({ children }: PropsWithChildren) {
 export function useTranslation() {
   const context = useContext(LanguageContext);
   if (!context) {
-    throw new Error("useTranslation must be used inside LanguageProvider");
+    return {
+      language: "en" as LanguageCode,
+      setLanguage: () => {},
+      t: (text: string) => text
+    };
   }
   return context;
 }

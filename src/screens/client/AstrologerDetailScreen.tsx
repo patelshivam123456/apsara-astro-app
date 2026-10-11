@@ -1,16 +1,18 @@
-import { StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Avatar, Button, Chip, Text } from "react-native-paper";
 import { useQuery } from "@tanstack/react-query";
 
 import { AstrologerBottomNav } from "@/components/AstrologerNavigation";
-import { Screen } from "@/components/Screen";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { EmptyState, LoadingState } from "@/components/StateViews";
 import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 import { getAstrologerById } from "@/services/astrologer.service";
 import { Astrologer } from "@/types/api";
+import { getAstrologerProfileImage } from "@/utils/astrologerProfileImage";
 
 type DetailRow = {
   label: string;
@@ -36,6 +38,7 @@ function compactRows(rows: DetailRow[]) {
 
 export function AstrologerDetailScreen() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { publicId = "" } = useLocalSearchParams<{ publicId?: string }>();
   const query = useQuery({
     queryKey: ["astrologer", publicId],
@@ -44,11 +47,18 @@ export function AstrologerDetailScreen() {
   });
 
   if (query.isLoading) return <LoadingState label="Loading profile" />;
-  if (!query.data) return <Screen><EmptyState title="Astrologer not found" /></Screen>;
+  if (!query.data) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <EmptyState title="Astrologer not found" />
+      </SafeAreaView>
+    );
+  }
 
   const astro = query.data;
   const name = getName(astro, t("Apsara Expert"));
   const initials = name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const profileImage = getAstrologerProfileImage(astro);
   const languages = splitValues(astro.language || astro.languagesKnown);
   const expertise = splitValues(astro.expertise);
   const modes = splitValues(astro.consultationModes);
@@ -89,45 +99,55 @@ export function AstrologerDetailScreen() {
 
   return (
     <View style={styles.root}>
-      <Screen>
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
-            <Text variant="titleMedium" style={styles.headerTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t("Astrologer")}</Text>
-            <View style={styles.headerSpacer} />
+      <SafeAreaView edges={["top"]} style={styles.headerSafe}>
+        <View style={styles.fixedHeader}>
+          <Button mode="text" icon="arrow-left" compact onPress={() => router.back()}>{t("Back")}</Button>
+          <Text style={styles.headerTitle} numberOfLines={1}>{t("Astrologer")}</Text>
+          <View style={styles.headerActions}>
+            <LanguageSelector />
           </View>
-          <View style={styles.hero}>
-            <View style={styles.heroTop}>
-              <View>
-                <Avatar.Text label={initials || "AA"} size={92} style={styles.avatar} labelStyle={styles.avatarLabel} />
-                <View style={[styles.statusDot, { backgroundColor: astro.isOnline === false ? "#9a9a9a" : colors.success }]} />
-              </View>
-              <View style={styles.heroInfo}>
-                <Text variant="headlineSmall" style={styles.name} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.76}>{name}</Text>
-                <Text style={styles.muted} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.72}>{t(astro.specialization || "Astrology")} • {astro.yearsOfExperience || 5}+ {t("years")}</Text>
-                <View style={styles.heroChips}>
-                  <Chip compact icon="currency-inr" style={styles.priceChip} textStyle={styles.priceText}>₹{astro.pricePerMinute || 25}/min</Chip>
-                  <Chip compact icon={astro.isOnline === false ? "clock-outline" : "check-circle"} style={styles.onlineChip} textStyle={styles.onlineText}>
-                    {t(astro.isOnline === false ? "Offline" : "Online")}
-                  </Chip>
-                </View>
-              </View>
-            </View>
-            <Text style={styles.bio}>{bio}</Text>
-            <View style={styles.actions}>
-              <Button mode="outlined" icon="chat" style={styles.actionButton} contentStyle={styles.actionContent} disabled>{t("Chat")}</Button>
-              <Button mode="contained" icon="phone" style={styles.actionButton} contentStyle={styles.actionContent} disabled>{t("Call")}</Button>
-            </View>
-          </View>
-          <PillSection title="Languages" fallback="Hindi, English" values={languages} />
-          <PillSection title="Expertise" fallback="Astrology" values={expertise.length ? expertise : splitValues(astro.specialization)} />
-          <PillSection title="Consultation Modes" fallback="Chat, Call" values={modes} />
-          <DetailSection title="Profile Details" icon="account-star" rows={profileRows} />
-          <DetailSection title="Contact & Location" icon="map-marker-radius" rows={contactRows} />
-          <DetailSection title="Background" icon="school" rows={backgroundRows} />
-          <DetailSection title="Documents" icon="file-check" rows={documentRows} />
         </View>
-      </Screen>
+      </SafeAreaView>
+      <ScrollView
+        style={styles.scroller}
+        contentContainerStyle={[styles.content, { paddingBottom: 96 + insets.bottom }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.hero}>
+          <View style={styles.heroTop}>
+            <View>
+              {profileImage ? (
+                <Avatar.Image source={{ uri: profileImage }} size={110} style={styles.avatarImage} />
+              ) : (
+                <Avatar.Text label={initials || "AA"} size={110} style={styles.avatar} labelStyle={styles.avatarLabel} />
+              )}
+              <View style={[styles.statusDot, { backgroundColor: astro.isOnline === false ? "#9a9a9a" : colors.success }]} />
+            </View>
+            <View style={styles.heroInfo}>
+              <Text style={styles.name} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{name}</Text>
+              <Text style={styles.muted} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t(astro.specialization || "Astrology")} • {astro.yearsOfExperience || 5}+ {t("years")}</Text>
+              <View style={styles.heroChips}>
+                <Chip compact icon="currency-inr" style={styles.priceChip} textStyle={styles.priceText}>₹{astro.pricePerMinute || 25}/min</Chip>
+                <Chip compact icon={astro.isOnline === false ? "clock-outline" : "check-circle"} style={styles.onlineChip} textStyle={styles.onlineText}>
+                  {t(astro.isOnline === false ? "Offline" : "Online")}
+                </Chip>
+              </View>
+            </View>
+          </View>
+          <Text style={styles.bio}>{bio}</Text>
+          <View style={styles.actions}>
+            <Button mode="outlined" icon="chat" style={styles.actionButton} contentStyle={styles.actionContent} disabled>{t("Chat")}</Button>
+            <Button mode="contained" icon="phone" style={styles.actionButton} contentStyle={styles.actionContent} disabled>{t("Call")}</Button>
+          </View>
+        </View>
+        <PillSection title="Languages" fallback="Hindi, English" values={languages} />
+        <PillSection title="Expertise" fallback="Astrology" values={expertise.length ? expertise : splitValues(astro.specialization)} />
+        <PillSection title="Consultation Modes" fallback="Chat, Call" values={modes} />
+        <DetailSection title="Profile Details" icon="account-star" rows={profileRows} />
+        <DetailSection title="Contact & Location" icon="map-marker-radius" rows={contactRows} />
+        <DetailSection title="Background" icon="school" rows={backgroundRows} />
+        <DetailSection title="Documents" icon="file-check" rows={documentRows} />
+      </ScrollView>
       <AstrologerBottomNav active="home" respectSafeArea />
     </View>
   );
@@ -172,62 +192,65 @@ function DetailSection({ icon, rows, title }: { icon: keyof typeof MaterialCommu
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  content: { paddingBottom: 100, gap: spacing.md },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
-  headerTitle: { flex: 1, minWidth: 0, fontSize: 19, fontWeight: "900", color: colors.ink, textAlign: "center", lineHeight: 24 },
-  headerSpacer: { width: 70 },
+  root: { flex: 1, backgroundColor: colors.cream },
+  scroller: { flex: 1 },
+  content: { padding: spacing.lg, gap: spacing.md },
+  headerSafe: { backgroundColor: colors.cream, borderBottomWidth: 1, borderBottomColor: "#f0dfae", zIndex: 40 },
+  fixedHeader: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, gap: spacing.sm, backgroundColor: colors.cream },
+  headerTitle: { flex: 1, minWidth: 0, color: colors.blue, fontSize: 16, lineHeight: 20, fontWeight: "900", textAlign: "center" },
+  headerActions: { width: 72, flexDirection: "row", justifyContent: "flex-end", zIndex: 45 },
   hero: {
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
+    backgroundColor: "#fffdf8",
+    borderRadius: 10,
     padding: spacing.lg,
-    gap: spacing.md,
+    gap: spacing.lg,
     shadowColor: "#6b5309",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 2
   },
-  heroTop: { flexDirection: "row", gap: spacing.md, alignItems: "center" },
-  heroInfo: { flex: 1, minWidth: 0, gap: spacing.sm },
+  heroTop: { flexDirection: "row", gap: spacing.lg, alignItems: "center" },
+  heroInfo: { flex: 1, minWidth: 0, gap: spacing.sm, justifyContent: "center" },
   avatar: { backgroundColor: colors.ink },
-  avatarLabel: { color: colors.lime, fontWeight: "900" },
+  avatarImage: { backgroundColor: colors.surface },
+  avatarLabel: { color: colors.lime, fontSize: 40, fontWeight: "900" },
   statusDot: {
     position: "absolute",
-    right: 2,
-    bottom: 2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.surface
+    right: 3,
+    bottom: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 3,
+    borderColor: "#fffdf8"
   },
-  name: { color: colors.ink, fontWeight: "900", lineHeight: 31 },
-  muted: { color: colors.cocoa, fontWeight: "700", lineHeight: 20 },
-  heroChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  priceChip: { backgroundColor: "#e8ddf8" },
-  priceText: { color: colors.ink, fontSize: 15, fontWeight: "900" },
-  onlineChip: { backgroundColor: "#f2ffe9" },
-  onlineText: { color: colors.success, fontSize: 12, fontWeight: "900" },
+  name: { color: colors.ink, fontSize: 27, lineHeight: 33, fontWeight: "900" },
+  muted: { color: colors.cocoa, fontSize: 16, lineHeight: 22, fontWeight: "900" },
+  heroChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, alignItems: "center" },
+  priceChip: { alignSelf: "flex-start", backgroundColor: "#e8ddf8", borderRadius: 22 },
+  priceText: { color: colors.ink, fontSize: 17, fontWeight: "900" },
+  onlineChip: { alignSelf: "flex-start", backgroundColor: "#f2ffe9", borderRadius: 22 },
+  onlineText: { color: colors.success, fontSize: 15, fontWeight: "900" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  bio: { color: colors.cocoa, fontSize: 14, lineHeight: 22 },
+  bio: { color: colors.cocoa, fontSize: 17, lineHeight: 28 },
   actions: { flexDirection: "row", gap: spacing.md },
-  actionButton: { flex: 1, borderRadius: 28 },
-  actionContent: { minHeight: 44 },
+  actionButton: { flex: 1, borderRadius: 30 },
+  actionContent: { minHeight: 54 },
   section: {
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    padding: spacing.md,
-    gap: spacing.sm
+    backgroundColor: "#fffdf8",
+    borderRadius: 10,
+    padding: spacing.lg,
+    gap: spacing.md
   },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  sectionTitle: { color: colors.ink, fontSize: 15, lineHeight: 19, fontWeight: "900" },
-  detailChip: { backgroundColor: "#fffbd8", borderWidth: 1, borderColor: colors.border },
-  detailChipText: { color: colors.ink, fontSize: 12, fontWeight: "800" },
+  sectionTitle: { color: colors.ink, fontSize: 20, lineHeight: 25, fontWeight: "900" },
+  detailChip: { backgroundColor: "#fffbd8", borderWidth: 1, borderColor: colors.border, borderRadius: 24 },
+  detailChipText: { color: colors.ink, fontSize: 15, fontWeight: "900" },
   detailRows: { borderTopWidth: 1, borderTopColor: colors.border },
   detailRow: {
     flexDirection: "row",

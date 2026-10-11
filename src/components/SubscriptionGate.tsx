@@ -35,17 +35,20 @@ export function SubscriptionGate({ children }: PropsWithChildren) {
   const trialInfo = getTrialInfo(trial);
   const subscriptionActive = isSubscriptionActive(subscription);
   const routeExempt = exemptRoutes.some((route) => pathname === route || pathname.startsWith("/(auth)"));
-  const shouldBlock = Boolean(
-    isAuthLoaded &&
-      isLoggedIn &&
-      userPublicId &&
-      !routeExempt &&
-      !trialInfo.trialActive &&
-      !subscriptionActive
-  );
+  // Temporarily disabled: do not block the app behind the 5-day trial/subscription popup.
+  const shouldBlock = false;
+  // const shouldBlock = Boolean(
+  //   isAuthLoaded &&
+  //     isLoggedIn &&
+  //     userPublicId &&
+  //     !routeExempt &&
+  //     !trialInfo.trialActive &&
+  //     !subscriptionActive
+  // );
 
   useEffect(() => {
-    if (isLoggedIn && userPublicId) ensureTrial(userPublicId);
+    // Temporarily disabled: do not start the 5-day free trial automatically.
+    // if (isLoggedIn && userPublicId) ensureTrial(userPublicId);
   }, [ensureTrial, isLoggedIn, userPublicId]);
 
   return (

@@ -22,6 +22,7 @@ import { useTranslation } from "@/context/LanguageContext";
 import { useAstrologers } from "@/hooks/useAstrologers";
 import { useAuthStore } from "@/store/auth.store";
 import { Astrologer } from "@/types/api";
+import { getAstrologerProfileImage } from "@/utils/astrologerProfileImage";
 import { getUserPublicId } from "@/utils/user";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -315,13 +316,18 @@ function ExpertRow({ astrologers }: { astrologers: Astrologer[] }) {
           {page.map((astrologer, index) => {
             const name = getExpertName(astrologer);
             const experience = astrologer.yearsOfExperience;
+            const profileImage = getAstrologerProfileImage(astrologer);
             const routeId = encodeURIComponent(astrologer.publicId || astrologer.userId || astrologer.email || "");
             const openExpert = () => router.push(routeId ? `/astrologers/${routeId}` : "/astrologers");
             return (
             <Pressable key={astrologer.publicId || astrologer.email || `${name}-${pageIndex}-${index}`} style={({ pressed }) => [styles.expertCard, { width: cardWidth }, pressed && styles.expertCardPressed]} onPress={openExpert}>
-              <View style={styles.expertAvatar}>
-                <Text style={styles.expertAvatarText}>{getExpertInitial(astrologer)}</Text>
-              </View>
+              {profileImage ? (
+                <Image source={{ uri: profileImage }} resizeMode="cover" style={styles.expertAvatarImage} />
+              ) : (
+                <View style={styles.expertAvatar}>
+                  <Text style={styles.expertAvatarText}>{getExpertInitial(astrologer)}</Text>
+                </View>
+              )}
               <Text style={styles.expertName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{name}</Text>
               <Text style={styles.expertRole} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{t(astrologer.specialization || "Astrologer")}</Text>
               <View style={styles.expertMetaRow}>
@@ -462,6 +468,7 @@ const styles = StyleSheet.create({
   },
   expertCardPressed: { opacity: 0.86, transform: [{ scale: 0.98 }] },
   expertAvatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: colors.gold, backgroundColor: "#fff4ce", alignItems: "center", justifyContent: "center", marginBottom: spacing.xs },
+  expertAvatarImage: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: colors.gold, backgroundColor: "#fff4ce", marginBottom: spacing.xs },
   expertAvatarText: { color: colors.ink, fontSize: 22, lineHeight: 27, fontWeight: "900" },
   expertName: { width: "100%", minHeight: 20, textAlign: "center", fontSize: 13, lineHeight: 17, color: colors.ink, fontWeight: "900" },
   expertRole: { width: "100%",  marginTop: 2, textAlign: "center", fontSize: 10, lineHeight: 13, color: colors.cocoa, fontWeight: "700" },

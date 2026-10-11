@@ -1,25 +1,27 @@
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Button, Text } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { EmptyState } from "@/components/StateViews";
 import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
-import { generateKundaliReport, KundaliBasicAstroDetails, KundaliPlanet, KundaliReportResponse } from "@/services/kundali.service";
+import { downloadVerifiedKundaliPdf, generateVerifiedKundaliReport, KundaliBasicAstroDetails, KundaliPlanet, KundaliReportResponse } from "@/services/kundali.service";
 import { useKundaliStore } from "@/store/kundali.store";
 
-const tabs = ["Basic", "Horoscope Charts", "Dasha", "KP", "Bhinnashtakvarga", "Yogas", "Dosha"] as const;
+const tabs = ["Basic", "Horoscope Charts", "Dasha", "Jaimini", "KP", "Bhinnashtakvarga", "Yogas", "Dosha"] as const;
 type KundaliTab = typeof tabs[number];
 
 const reportKeys: Record<Exclude<KundaliTab, "Basic">, keyof NonNullable<ReturnType<typeof useKundaliStore.getState>["result"]>> = {
   "Horoscope Charts": "horoscopeCharts",
   Dasha: "dasha",
+  Jaimini: "jaimini",
   KP: "kp",
   Bhinnashtakvarga: "bhinnashtakvarga",
   Yogas: "yogas",
@@ -28,12 +30,14 @@ const reportKeys: Record<Exclude<KundaliTab, "Basic">, keyof NonNullable<ReturnT
 
 export function KundaliPdfResultScreen() {
   const { language, t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const result = useKundaliStore((state) => state.result);
   const request = useKundaliStore((state) => state.request);
   const setResult = useKundaliStore((state) => state.setResult);
   const [activeTab, setActiveTab] = useState<KundaliTab>("Basic");
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const basic = result?.basic;
   const details = basic?.basicAstroDetails;
@@ -50,10 +54,10 @@ export function KundaliPdfResultScreen() {
         if (!mounted) return null;
         setRefreshing(true);
         setRefreshError("");
-        return generateKundaliReport(nextRequest);
+        return generateVerifiedKundaliReport(nextRequest);
       })
       .then((response) => {
-        if (mounted && response) setResult(response, nextRequest);
+        if (mounted && response) setResult(response.report, response.request);
       })
       .catch((error) => {
         if (mounted) setRefreshError(getApiErrorMessage(error, "Unable to fetch Kundali details for selected language"));
@@ -67,6 +71,26 @@ export function KundaliPdfResultScreen() {
     };
   }, [language, request, setResult]);
 
+  const downloadPdf = async () => {
+    if (!request) {
+      Alert.alert(t("Download PDF"), t("Please create a Kundali first."));
+      return;
+    }
+
+    try {
+      setDownloadingPdf(true);
+      const response = await downloadVerifiedKundaliPdf({ ...request, language });
+      setResult(result || {}, response.request);
+      const fileName = `${safeFileName(response.request.fullName || "kundali")}-kundali.pdf`;
+      await savePdfToDownloads(fileName, response.fileBase64);
+      Alert.alert(t("Download PDF"), t("PDF downloaded successfully."));
+    } catch (error) {
+      Alert.alert(t("Download PDF"), t(getApiErrorMessage(error, "Unable to download PDF file.")));
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
       <View style={styles.header}>
@@ -79,7 +103,11 @@ export function KundaliPdfResultScreen() {
         <LanguageSelector />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: 116 + insets.bottom }]}
+        stickyHeaderIndices={[1]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.hero}>
           <Text variant="headlineSmall" style={styles.title} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
             {details?.full_name ? `${details.full_name}'s ${t("Kundali")}` : t("Kundali")}
@@ -87,13 +115,15 @@ export function KundaliPdfResultScreen() {
           <Text style={styles.subtitle}>{formatBirthLine(details, request)}</Text>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-          {tabs.map((tab) => (
-            <Pressable key={tab} style={[styles.tab, activeTab === tab && styles.tabActive]} onPress={() => setActiveTab(tab)}>
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{t(tab)}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+        <View style={styles.tabsSticky}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
+            {tabs.map((tab) => (
+              <Pressable key={tab} style={[styles.tab, activeTab === tab && styles.tabActive]} onPress={() => setActiveTab(tab)}>
+                <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{t(tab)}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
 
         {refreshing ? <Text style={styles.muted}>{t("Loading response for selected language")}</Text> : null}
         {refreshError ? <Text style={styles.errorText}>{t(refreshError)}</Text> : null}
@@ -109,8 +139,40 @@ export function KundaliPdfResultScreen() {
           <KundaliReportTab title={activeTab} value={result[reportKeys[activeTab]]} />
         )}
       </ScrollView>
+      <SafeAreaView edges={["bottom"]} style={styles.downloadBar}>
+        <Button
+          mode="contained"
+          icon="file-pdf-box"
+          loading={downloadingPdf}
+          disabled={downloadingPdf || !request}
+          onPress={downloadPdf}
+          style={styles.downloadButton}
+          contentStyle={styles.downloadContent}
+        >
+          {t("Download Kundali PDF")}
+        </Button>
+      </SafeAreaView>
     </SafeAreaView>
   );
+}
+
+async function savePdfToDownloads(fileName: string, fileBase64: string) {
+  const initialUri = FileSystem.StorageAccessFramework.getUriForDirectoryInRoot("Download");
+  const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
+  if (!permissions.granted) throw new Error("Storage permission is required to download PDF.");
+
+  const destinationUri = await FileSystem.StorageAccessFramework.createFileAsync(
+    permissions.directoryUri,
+    fileName,
+    "application/pdf"
+  );
+  await FileSystem.StorageAccessFramework.writeAsStringAsync(destinationUri, fileBase64, {
+    encoding: FileSystem.EncodingType.Base64
+  });
+}
+
+function safeFileName(value: string) {
+  return value.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "kundali";
 }
 
 function KundaliReportTab({ title, value }: { title: KundaliTab; value?: KundaliReportResponse }) {
@@ -119,6 +181,7 @@ function KundaliReportTab({ title, value }: { title: KundaliTab; value?: Kundali
 
   if (!value) return <EmptyState title={`No ${title} result`} description="Please create a Kundali first." />;
   if (title === "Dasha") return <DashaReport value={reportValue} />;
+  if (title === "Jaimini") return <JaiminiReport value={reportValue} />;
 
   const sections =
     title === "Yogas"
@@ -151,6 +214,46 @@ function KundaliReportTab({ title, value }: { title: KundaliTab; value?: Kundali
   );
 }
 
+function JaiminiReport({ value }: { value: unknown }) {
+  const { t } = useTranslation();
+  const source = isRecord(value) && isRecord(value.jaimini) ? value.jaimini : value;
+  const karakamshaChart = findNamedImage(source, ["karakamsha"]);
+  const swamsaChart = findNamedImage(source, ["swamsa", "swamsha"]);
+  const row = buildJaiminiTableRow(source);
+  const hasTableValue = row.some((item) => item !== "-");
+
+  if (!karakamshaChart && !swamsaChart && !hasTableValue) {
+    return <EmptyState title="No Jaimini result" description="Please create a Kundali first." />;
+  }
+
+  return (
+    <>
+      {karakamshaChart ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{t("Karakamsha Chart")}</Text>
+          <RemoteImage value={karakamshaChart} />
+        </View>
+      ) : null}
+
+      {swamsaChart ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{t("Swamsa Chart")}</Text>
+          <RemoteImage value={swamsaChart} />
+        </View>
+      ) : null}
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>{t("Jaimini Details")}</Text>
+        <DataTable
+          columns={["Atmakaraka", "Swamsha Sign No.", "Swamsha Sign", "Lagnamsha Sign No.", "Lagnamsha Sign"]}
+          forceScroll
+          rows={[row]}
+        />
+      </View>
+    </>
+  );
+}
+
 function InfoCard({ rows, title }: { rows: { label: string; value?: string | number }[]; title: string }) {
   const { t } = useTranslation();
   return (
@@ -168,47 +271,102 @@ function InfoCard({ rows, title }: { rows: { label: string; value?: string | num
 
 function PlanetaryPositions({ planets }: { planets: KundaliPlanet[] }) {
   const { t } = useTranslation();
+  const columns = getPlanetColumns(planets);
+  const tableWidth = getPlanetTableWidth(columns);
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{t("Planetary Positions")}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.planetTable}>
-          <PlanetRow cells={[t("Planet"), t("Sign"), t("Degree"), t("Nakshatra"), t("House"), t("Type")]} header />
+      <ScrollView horizontal nestedScrollEnabled directionalLockEnabled showsHorizontalScrollIndicator>
+        <View style={[styles.planetTable, { width: tableWidth }]}>
+          <View style={styles.planetRow}>
+            {columns.map((column, index) => (
+              <Text
+                key={`planet-head-${column}`}
+                style={[
+                  styles.planetCell,
+                  styles.planetHeadCell,
+                  { width: getPlanetColumnWidth(column) },
+                  column === "name" && styles.planetNameCell,
+                  index === columns.length - 1 && styles.lastCell
+                ]}
+              >
+                {t(formatKey(column))}
+              </Text>
+            ))}
+          </View>
           {planets.map((planet, index) => (
             <View key={`${planet.name || "planet"}-${index}`} style={styles.planetRow}>
-              <View style={[styles.planetCell, styles.planetNameCell]}>
-                {planet.image ? <Image source={{ uri: planet.image }} style={styles.planetIcon} /> : null}
-                <Text style={styles.planetNameText} numberOfLines={1}>{planet.name_lan || planet.name || "-"}</Text>
-              </View>
-              <PlanetCell value={planet.sign} />
-              <PlanetCell value={planet.longitude} />
-              <PlanetCell value={planet.nakshatra} />
-              <PlanetCell value={planet.house} />
-              <PlanetCell value={planet.type || "-"} last />
+              {columns.map((column, columnIndex) => (
+                column === "name" ? (
+                  <View key={`${planet.name || "planet"}-${column}`} style={[styles.planetCell, styles.planetNameCell, { width: getPlanetColumnWidth(column) }]}>
+                    {planet.image ? <Image source={{ uri: planet.image }} style={styles.planetIcon} /> : null}
+                    <Text style={styles.planetNameText} numberOfLines={1}>{planet.name_lan || planet.name || "-"}</Text>
+                  </View>
+                ) : (
+                  <PlanetCell key={`${planet.name || "planet"}-${column}`} column={column} value={formatPlanetValue(planet, column)} last={columnIndex === columns.length - 1} />
+                )
+              ))}
             </View>
           ))}
-          {!planets.length ? <PlanetRow cells={[t("No records found"), "", "", "", "", ""]} /> : null}
+          {!planets.length ? (
+            <View style={styles.planetRow}>
+              <Text style={[styles.planetCell, styles.lastCell, { width: tableWidth }]}>{t("No records found")}</Text>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </View>
   );
 }
 
-function PlanetRow({ cells, header = false }: { cells: string[]; header?: boolean }) {
-  return (
-    <View style={styles.planetRow}>
-      {cells.map((cell, index) => (
-        <Text key={`${cell}-${index}`} style={[styles.planetCell, header && styles.planetHeadCell, index === 0 && styles.planetNameCell, index === cells.length - 1 && styles.lastCell]}>
-          {cell}
-        </Text>
-      ))}
-    </View>
-  );
+function getPlanetColumns(planets: KundaliPlanet[]) {
+  const preferred = [
+    "name",
+    "name_lan",
+    "full_degree",
+    "speed",
+    "is_retro",
+    "is_combusted",
+    "longitude",
+    "sign",
+    "sign_no",
+    "rashi_lord",
+    "nakshatra",
+    "nakshatra_pada",
+    "nakshatra_no",
+    "nakshatra_lord",
+    "sub_lord",
+    "awastha",
+    "karakamsha",
+    "house",
+    "type",
+    "lord_of"
+  ];
+  const responseKeys = Array.from(new Set(planets.flatMap((planet) => Object.keys(planet).filter((key) => key !== "image"))));
+  const ordered = preferred.filter((key) => responseKeys.includes(key));
+  const remaining = responseKeys.filter((key) => !ordered.includes(key));
+  return ordered.length || remaining.length ? [...ordered, ...remaining] : ["name"];
 }
 
-function PlanetCell({ last = false, value }: { last?: boolean; value?: string | number }) {
+function formatPlanetValue(planet: KundaliPlanet, column: string) {
+  const value = (planet as Record<string, unknown>)[column];
+  return stringifyValue(value) || "-";
+}
+
+function getPlanetColumnWidth(column: string) {
+  if (column === "name") return 154;
+  if (["full_degree", "speed", "longitude", "rashi_lord", "nakshatra", "nakshatra_lord", "sub_lord", "awastha", "karakamsha", "lord_of"].includes(column)) return 142;
+  if (["is_retro", "is_combusted", "nakshatra_pada", "nakshatra_no", "sign_no"].includes(column)) return 116;
+  return 108;
+}
+
+function getPlanetTableWidth(columns: string[]) {
+  return columns.reduce((total, column) => total + getPlanetColumnWidth(column), 0);
+}
+
+function PlanetCell({ column, last = false, value }: { column: string; last?: boolean; value?: string | number }) {
   return (
-    <Text style={[styles.planetCell, last && styles.lastCell]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.62}>
+    <Text style={[styles.planetCell, { width: getPlanetColumnWidth(column) }, last && styles.lastCell]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.62}>
       {value ?? "-"}
     </Text>
   );
@@ -636,6 +794,66 @@ function buildHoroscopeChartSections(value: unknown): ReportSection[] {
     });
 }
 
+function buildJaiminiTableRow(value: unknown) {
+  return [
+    findFieldValue(value, ["atmakaraka", "atmakarak", "atma karaka", "atma karak"]),
+    findFieldValue(value, ["swamsha sign no", "swamsa sign no", "swamsha sign number", "swamsa sign number", "swamsha sign_no", "swamsa sign_no"]),
+    findFieldValue(value, ["swamsha sign", "swamsa sign", "swamsha rashi", "swamsa rashi"]),
+    findFieldValue(value, ["lagnamsha sign no", "lagnamsa sign no", "lagnamsha sign number", "lagnamsa sign number", "lagnamsha sign_no", "lagnamsa sign_no"]),
+    findFieldValue(value, ["lagnamsha sign", "lagnamsa sign", "lagnamsha rashi", "lagnamsa rashi"])
+  ];
+}
+
+function findNamedImage(value: unknown, nameParts: string[]) {
+  const image = findNestedValue(value, (key, item) => {
+    const normalizedKey = normalizeLookupKey(key);
+    const matchesName = nameParts.some((part) => normalizedKey.includes(normalizeLookupKey(part)));
+    if (!matchesName) return false;
+    if (typeof item === "string") return isImageValue(item, key);
+    return Boolean(getImageFromRecord(item));
+  });
+
+  if (typeof image === "string") return image;
+  return getImageFromRecord(image);
+}
+
+function findFieldValue(value: unknown, aliases: string[]) {
+  const normalizedAliases = aliases.map(normalizeLookupKey);
+  const found = findNestedValue(value, (key, item) => {
+    if (item === null || item === undefined || item === "") return false;
+    const normalizedKey = normalizeLookupKey(key);
+    return normalizedAliases.includes(normalizedKey);
+  });
+  return stringifyValue(found) || "-";
+}
+
+function findNestedValue(value: unknown, predicate: (key: string, item: unknown) => boolean, depth = 0): unknown {
+  if (!isRecord(value) || depth > 7) return undefined;
+
+  for (const [key, item] of Object.entries(value)) {
+    if (predicate(key, item)) return item;
+  }
+
+  for (const item of Object.values(value)) {
+    if (isRecord(item)) {
+      const found = findNestedValue(item, predicate, depth + 1);
+      if (found !== undefined) return found;
+    }
+    if (Array.isArray(item)) {
+      for (const child of item) {
+        const found = findNestedValue(child, predicate, depth + 1);
+        if (found !== undefined) return found;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeLookupKey(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
 function collectYogaRows(value: unknown): YogaReportRow[] {
   if (Array.isArray(value)) return value.flatMap((item) => collectYogaRows(item));
   if (!isRecord(value)) return [];
@@ -1012,10 +1230,11 @@ const styles = StyleSheet.create({
   header: { minHeight: 58, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
   headerAction: { width: 86, marginLeft: -8 },
   headerTitle: { flex: 1, color: colors.ink, fontWeight: "800", textAlign: "center" },
-  content: { paddingBottom: spacing.xxl, gap: spacing.lg },
+  content: { gap: spacing.lg },
   hero: { alignItems: "center", paddingHorizontal: spacing.lg, paddingTop: spacing.xl, gap: spacing.xs },
   title: { color: colors.amber, fontWeight: "900", lineHeight: 31, textAlign: "center" },
   subtitle: { color: colors.cocoa, fontSize: 12, lineHeight: 17, textAlign: "center" },
+  tabsSticky: { backgroundColor: "#fbfbef", zIndex: 20 },
   tabs: { minHeight: 58, paddingHorizontal: spacing.lg, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border, alignItems: "center", gap: spacing.md },
   tab: { minWidth: 140, minHeight: 38, borderRadius: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.md },
   tabActive: { borderWidth: 1, borderColor: colors.lime, backgroundColor: "#ffffb8" },
@@ -1067,8 +1286,21 @@ const styles = StyleSheet.create({
   planetIcon: { width: 22, height: 22, borderRadius: 11 },
   planetNameText: { color: colors.ink, fontSize: 12, lineHeight: 16, fontWeight: "800" },
   lastCell: { borderRightWidth: 0 },
-  reportImage: { width: "100%", height: 320, borderRadius: 8, backgroundColor: "#fff", borderWidth: 1, borderColor: colors.border },
+  reportImage: { width: "100%", height: 320, borderRadius: 8, backgroundColor: "#fff" },
   muted: { marginHorizontal: spacing.lg, color: colors.cocoa },
   mutedInline: { color: colors.cocoa },
-  errorText: { marginHorizontal: spacing.lg, color: colors.danger, fontWeight: "700" }
+  errorText: { marginHorizontal: spacing.lg, color: colors.danger, fontWeight: "700" },
+  downloadBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border
+  },
+  downloadButton: { borderRadius: 8, backgroundColor: colors.amber },
+  downloadContent: { minHeight: 52 }
 });

@@ -1,3 +1,5 @@
-import { HomeScreen } from "@/screens/client/HomeScreen";
+import { Redirect } from "expo-router";
 
-export default HomeScreen;
+export default function ClientTabsIndex() {
+  return <Redirect href="/(drawer)/(tabs)/profile" />;
+}
