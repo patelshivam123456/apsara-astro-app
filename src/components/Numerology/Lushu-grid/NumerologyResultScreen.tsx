@@ -279,7 +279,14 @@ function getLoShuArrowPredictionRows(value: unknown): LoShuArrowPredictionRow[] 
         status: getLoShuArrowStatus(item, prediction)
       };
     })
+    .filter((row) => !isZeroCompletionPercentage(row.completionPercentage))
     .filter((row) => row.arrowType || row.prediction);
+}
+
+function isZeroCompletionPercentage(value: unknown) {
+  if (value === null || value === undefined) return false;
+  const numericValue = Number(String(value).replace("%", "").trim());
+  return Number.isFinite(numericValue) && numericValue === 0;
 }
 
 function normalizeLoShuArrowPredictionItems(value: unknown): NumerologyPredictionItem[] {

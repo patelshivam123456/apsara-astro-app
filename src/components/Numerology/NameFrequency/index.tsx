@@ -261,13 +261,16 @@ function SummaryGrid({ rows }: { rows: { label: string; value?: string | number;
 function PairEventsTable({ data }: { data: ChaldeanNamePairEventsResponse | null }) {
   const { language, t } = useTranslation();
   const rows = data?.events?.length ? data.events : [];
+  const columnFlexes = [0.7, 0.72, 1.22, 1.22, 1.5];
 
   return (
     <View style={styles.tablePanel}>
-      <Text style={styles.tableTitle}>{t("Name Letter Pair Vibration")}</Text>
+      <Text style={styles.tableTitle}>{t("Name Pair Analysis")}</Text>
       <View style={styles.wideTable}>
         <TableRow
           cells={[t("Year"), t("Pair"), t("Running Age (1)"), t("Running Age (2)"), t("Vibration")]}
+          columnFlexes={columnFlexes}
+          noWrapLastColumn
           header
         />
         {rows.map((row, index) => (
@@ -280,6 +283,8 @@ function PairEventsTable({ data }: { data: ChaldeanNamePairEventsResponse | null
               localizeDigitsInText(row.eventTwo ?? "-", language),
               row.vibration || "-"
             ]}
+            columnFlexes={columnFlexes}
+            noWrapLastColumn
           />
         ))}
         {!rows.length ? <EmptyTableRow label={t("No records found")} /> : null}
@@ -625,7 +630,7 @@ export function buildNameFrequencyExportSections({
     "Compound",
     "Inner Nature",
     "Life Path",
-    "Name Letter Pair Vibration",
+    "Name Pair Analysis",
     "Year",
     "Pair",
     "Running Age (1)",
@@ -776,7 +781,7 @@ export function buildNameFrequencyExportSections({
       ]
     },
     {
-      title: tx("Name Letter Pair Vibration"),
+      title: tx("Name Pair Analysis"),
       layout: "wide",
       rows: [
         [tx("Year"), tx("Pair"), tx("Running Age (1)"), tx("Running Age (2)"), tx("Vibration")],
@@ -813,20 +818,38 @@ function LetterAnalysisRow({ label, values, header = false, last = false }: { la
   );
 }
 
-function TableRow({ cells, header = false }: { cells: (string | number)[]; header?: boolean }) {
+function TableRow({
+  cells,
+  columnFlexes,
+  header = false,
+  noWrapLastColumn = false
+}: {
+  cells: (string | number)[];
+  columnFlexes?: number[];
+  header?: boolean;
+  noWrapLastColumn?: boolean;
+}) {
   return (
     <View style={styles.tableRow}>
-      {cells.map((cell, index) => (
-        <Text
-          key={`${cell}-${index}`}
-          style={[styles.tableCell, header && styles.tableHeadCell, index === cells.length - 1 && styles.lastCell]}
-          numberOfLines={2}
-          adjustsFontSizeToFit
-          minimumFontScale={0.62}
-        >
-          {cell}
-        </Text>
-      ))}
+      {cells.map((cell, index) => {
+        const lastColumn = index === cells.length - 1;
+        return (
+          <Text
+            key={`${cell}-${index}`}
+            style={[
+              styles.tableCell,
+              columnFlexes?.[index] ? { flex: columnFlexes[index] } : null,
+              header && styles.tableHeadCell,
+              lastColumn && styles.lastCell
+            ]}
+            numberOfLines={noWrapLastColumn && lastColumn ? 1 : 2}
+            adjustsFontSizeToFit
+            minimumFontScale={noWrapLastColumn && lastColumn ? 0.54 : 0.62}
+          >
+            {cell}
+          </Text>
+        );
+      })}
     </View>
   );
 }
