@@ -8,11 +8,12 @@ import { decodeAccessToken, extractAccessToken, normalizeRoles, stripAuthFields 
 export const CLIENT_ROLE_ID = 2;
 export const ASTROLOGER_ROLE = "ROLE_ASTROLOGER";
 
-export type LoginPayload = { username: string; password: string };
+export type LoginPayload = { username: string; password?: string; channel?: "email" | "mobileNo"; otp?: string };
 
 export type ClientRegisterPayload = {
   username: string;
-  password: string;
+  channel: "email" | "mobileNo";
+  password?: string;
   otp: string;
   firstName: string;
   middleName?: string;
@@ -56,7 +57,9 @@ export type AstrologerRegisterPayload = {
 
 export type AstrologerRegistrationOtpPayload = {
   step: "generate" | "validate";
+  channel: "email" | "mobileNo";
   email: string;
+  mobileNo: string;
   otp?: string;
 };
 
@@ -135,18 +138,23 @@ export async function login(payload: LoginPayload) {
   return { response, accessToken, claims };
 }
 
+export async function generateOtp(username: string, channel: "email" | "mobileNo") {
+  return api.post<ApiResponse>("/authorization/auth/generate-otp", { username: username.trim(), channel });
+}
+
 function buildClientRegisterBody(payload: ClientRegisterPayload) {
   return {
     username: payload.username.trim(),
-    password: payload.password,
+    ...(payload.channel === "email" ? { password: payload.password || "" } : {}),
     otp: payload.otp.trim(),
+    channel: payload.channel,
     roleId: CLIENT_ROLE_ID,
     clientDto: {
       publicId: "",
       firstName: payload.firstName.trim(),
       middleName: payload.middleName?.trim() || "",
       lastName: payload.lastName?.trim() || "",
-      email: payload.username.trim(),
+      email: payload.channel === "email" ? payload.username.trim() : "",
       phone: payload.phone.trim(),
       otp: payload.otp.trim(),
       gender: payload.gender.trim(),
@@ -182,13 +190,23 @@ export async function initiateClientSignup(payload: Omit<ClientRegisterPayload, 
 }
 
 export async function registerClient(payload: ClientRegisterPayload) {
-  return api.post<ApiResponse>(ENDPOINTS.createUser, buildClientRegisterBody(payload));
+  const response = await api.post<ApiResponse>(ENDPOINTS.createUser, buildClientRegisterBody(payload));
+  const accessToken = extractAccessToken(response);
+  const refreshToken = (response as { refreshToken?: string; data?: { refreshToken?: string } })?.refreshToken ||
+    (response as { data?: { refreshToken?: string } })?.data?.refreshToken || null;
+  if (accessToken) {
+    await setSecureToken(accessToken, refreshToken);
+    await setStoredClaims(decodeAccessToken(accessToken));
+  }
+  return { response, accessToken, claims: decodeAccessToken(accessToken) };
 }
 
 export async function processAstrologerRegistrationOtp(payload: AstrologerRegistrationOtpPayload) {
   return api.post<ApiResponse>(ENDPOINTS.astrologerRegistrationOtpProcess, {
     step: payload.step,
+    channel: payload.channel,
     email: payload.email.trim(),
+    mobileNo: payload.mobileNo.trim(),
     otp: payload.otp?.trim() || ""
   });
 }
@@ -291,6 +309,17 @@ function getResponseMessage(data: unknown) {
   return value?.errorDescription || value?.message || value?.error || "";
 }
 
+function unwrapProfile<T extends Record<string, unknown>>(value: unknown): T {
+  let current = value as Record<string, unknown> | null;
+  const profileKeys = ["client", "clientDto", "clientProfile", "clientDetails", "profile", "profileData", "userProfile", "userDetails", "astrologer", "user", "result", "data", "content"];
+  for (let depth = 0; depth < 4 && current && typeof current === "object"; depth += 1) {
+    const nested = profileKeys.map((key) => current?.[key]).find((item) => item && typeof item === "object" && !Array.isArray(item));
+    if (!nested) break;
+    current = nested as Record<string, unknown>;
+  }
+  return (current || {}) as T;
+}
+
 export async function forgotPassword(username: string) {
   return api.post<ApiResponse>(ENDPOINTS.forgotPassword, null, { params: { username } });
 }
@@ -339,7 +368,7 @@ export async function loadSessionProfile(claims: unknown) {
       success: (response as unknown as ApiResponse<Astrologer>)?.success,
       hasData: !!(response as unknown as ApiResponse<Astrologer>)?.data
     });
-    return stripAuthFields((response as ApiResponse<Astrologer>)?.data || {}) as Astrologer;
+    return stripAuthFields(unwrapProfile<Astrologer>((response as ApiResponse<Astrologer>)?.data)) as Astrologer;
   }
 
   const response = await api.get<ApiResponse<ClientProfile>>(ENDPOINTS.clientProfile);
@@ -347,5 +376,5 @@ export async function loadSessionProfile(claims: unknown) {
     success: (response as unknown as ApiResponse<ClientProfile>)?.success,
     hasData: !!(response as unknown as ApiResponse<ClientProfile>)?.data
   });
-  return stripAuthFields((response as ApiResponse<ClientProfile>)?.data || {}) as ClientProfile;
+  return stripAuthFields(unwrapProfile<ClientProfile>((response as ApiResponse<ClientProfile>)?.data)) as ClientProfile;
 }

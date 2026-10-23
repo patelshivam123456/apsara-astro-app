@@ -25,13 +25,22 @@ export function normalizeRoles(value: unknown): string[] {
 }
 
 export function extractAccessToken(payload: unknown): string | null {
-  const response = payload as {
-    accessToken?: string;
-    token?: string;
-    data?: { accessToken?: string; token?: string };
-  };
-
-  return response?.accessToken || response?.token || response?.data?.accessToken || response?.data?.token || null;
+  const tokenKeys = ["accessToken", "access_token", "token"];
+  const queue: Array<{ value: unknown; depth: number }> = [{ value: payload, depth: 0 }];
+  const seen = new Set<object>();
+  while (queue.length) {
+    const { value, depth } = queue.shift()!;
+    if (!value || typeof value !== "object" || seen.has(value as object)) continue;
+    seen.add(value as object);
+    const record = value as Record<string, unknown>;
+    for (const key of tokenKeys) if (typeof record[key] === "string" && record[key]) return record[key] as string;
+    if (depth < 4) {
+      for (const child of Object.values(record)) {
+        if (child && typeof child === "object") queue.push({ value: child, depth: depth + 1 });
+      }
+    }
+  }
+  return null;
 }
 
 export function stripAuthFields<T extends Record<string, unknown>>(value: T | null | undefined) {

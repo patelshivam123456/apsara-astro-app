@@ -34,15 +34,17 @@ const drawerItems: [string, IconName, boolean, () => void][] = [
 export function AstrologerSideDrawer({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const user = useAuthStore((state) => state.user);
   const roles = useAuthStore((state) => state.roles);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const signOut = useAuthStore((state) => state.signOut);
   const { t } = useTranslation();
   const name = useMemo(() => {
-    const profile = user as { firstName?: string; displayName?: string; fullName?: string } | null;
-    return profile?.displayName || profile?.fullName || profile?.firstName || "Ananya";
-  }, [user]);
+    const profile = user as { firstName?: string; lastName?: string; displayName?: string; fullName?: string; email?: string } | null;
+    const emailName = profile?.email?.split("@")[0]?.replace(/[._-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+    return profile?.displayName || profile?.fullName || [profile?.firstName, profile?.lastName].filter(Boolean).join(" ") || emailName || (isLoggedIn ? "Client" : "Guest");
+  }, [isLoggedIn, user]);
   const mobile = useMemo(() => {
     const profile = user as { mobileNo?: string; mobileNumber?: string; phone?: string } | null;
-    return profile?.mobileNo || profile?.mobileNumber || profile?.phone || "1231231236";
+    return profile?.mobileNo || profile?.mobileNumber || profile?.phone || "";
   }, [user]);
   const initial = name.trim().charAt(0).toUpperCase() || "A";
   const profileRoute = roles.includes("ROLE_ASTROLOGER") ? "/astrologer/profile-me" : "/(drawer)/(tabs)/profile";
@@ -68,13 +70,13 @@ export function AstrologerSideDrawer({ visible, onClose }: { visible: boolean; o
           contentContainerStyle={styles.drawerContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.drawerHead}>
+          {isLoggedIn ? <View style={styles.drawerHead}>
             <Pressable style={styles.drawerAvatar} onPress={openProfile}>
               <Text style={styles.drawerAvatarText}>{initial}</Text>
             </Pressable>
             <Pressable style={styles.drawerTitle} onPress={openProfile}>
               <Text style={styles.drawerName}>{name}</Text>
-              <Text style={styles.phoneText}>+91 {mobile}</Text>
+              {!!mobile && <Text style={styles.phoneText}>+91 {mobile}</Text>}
             </Pressable>
             <Pressable onPress={openProfile} style={styles.editBtn}>
               <MaterialCommunityIcons name="pencil" size={18} color="#111" />
@@ -82,7 +84,7 @@ export function AstrologerSideDrawer({ visible, onClose }: { visible: boolean; o
             <Pressable onPress={onClose} style={styles.closeBtn}>
               <MaterialCommunityIcons name="close" size={20} color="#111" />
             </Pressable>
-          </View>
+          </View> : null}
           {drawerItems.map(([label, icon, enabled, action]) => (
             <Pressable
               key={label}
@@ -97,10 +99,13 @@ export function AstrologerSideDrawer({ visible, onClose }: { visible: boolean; o
               <Text style={styles.drawerText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.76}>{t(label)}</Text>
             </Pressable>
           ))}
-          <Pressable style={styles.drawerItem} onPress={handleLogout}>
+          {isLoggedIn ? <Pressable style={styles.drawerItem} onPress={handleLogout}>
             <MaterialCommunityIcons name="logout" size={21} color="#111" />
             <Text style={styles.drawerText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.76}>{t("Logout")}</Text>
-          </Pressable>
+          </Pressable> : <Pressable style={styles.drawerItem} onPress={() => { onClose(); router.push("/(auth)/login"); }}>
+            <MaterialCommunityIcons name="login" size={21} color="#111" />
+            <Text style={styles.drawerText}>{t("Login")}</Text>
+          </Pressable>}
         </ScrollView>
       </View>
     </View>

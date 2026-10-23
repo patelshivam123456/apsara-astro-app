@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
@@ -10,6 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 import { colors, spacing } from "@/constants/theme";
+import { OtpVerificationDialog } from "@/components/OtpVerificationDialog";
 import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
 import {
@@ -18,6 +19,7 @@ import {
   registerAstrologer,
   registerClient
 } from "@/services/auth.service";
+import { useAuthStore } from "@/store/auth.store";
 
 type Step = 1 | 2;
 type UploadAsset = {
@@ -53,6 +55,8 @@ function AstrologerRegisterScreen() {
   const [otpOpen, setOtpOpen] = useState(false);
   const [otp, setOtp] = useState("");
   const [emailVerified, setEmailVerified] = useState(false);
+  const [mobileVerified, setMobileVerified] = useState(false);
+  const [verificationChannel, setVerificationChannel] = useState<"email" | "mobileNo">("email");
   const [registeredPublicId, setRegisteredPublicId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -116,6 +120,12 @@ function AstrologerRegisterScreen() {
     setRegisteredPublicId("");
   };
 
+  const changeMobile = (value: string) => {
+    setMobileNo(value.replace(/\D/g, "").slice(0, 10));
+    setMobileVerified(false);
+    setRegisteredPublicId("");
+  };
+
   const lookupPincode = async (value: string) => {
     const next = value.replace(/\D/g, "").slice(0, 6);
     setPincode(next);
@@ -152,17 +162,28 @@ function AstrologerRegisterScreen() {
     setList(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
   };
 
-  const sendOtp = async () => {
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+  const sendOtp = async (channel: "email" | "mobileNo" = verificationChannel) => {
+    if (channel === "email" && !/^\S+@\S+\.\S+$/.test(email.trim())) {
       showError("Enter a valid email address.");
+      return;
+    }
+    if (channel === "mobileNo" && !/^\d{10}$/.test(mobileNo.trim())) {
+      showError("Mobile number must be 10 digits.");
       return;
     }
 
     try {
       setOtpSending(true);
-      await processAstrologerRegistrationOtp({ step: "generate", email });
+      setVerificationChannel(channel);
+      setOtp("");
+      await processAstrologerRegistrationOtp({
+        step: "generate",
+        channel,
+        email: channel === "email" ? email.trim() : "",
+        mobileNo: channel === "mobileNo" ? mobileNo.trim() : ""
+      });
       setOtpOpen(true);
-      showMessage("OTP sent to your email.");
+      showMessage(channel === "email" ? "OTP sent to your email." : "OTP sent to your mobile number.");
     } catch (err) {
       showError(getApiErrorMessage(err, "Unable to send OTP"));
     } finally {
@@ -178,11 +199,18 @@ function AstrologerRegisterScreen() {
 
     try {
       setOtpVerifying(true);
-      await processAstrologerRegistrationOtp({ step: "validate", email, otp });
-      setEmailVerified(true);
+      await processAstrologerRegistrationOtp({
+        step: "validate",
+        channel: verificationChannel,
+        email: verificationChannel === "email" ? email.trim() : "",
+        mobileNo: verificationChannel === "mobileNo" ? mobileNo.trim() : "",
+        otp
+      });
+      if (verificationChannel === "email") setEmailVerified(true);
+      else setMobileVerified(true);
       setOtpOpen(false);
       setOtp("");
-      showMessage("Email verified.");
+      showMessage(verificationChannel === "email" ? "Email verified." : "Mobile number verified.");
     } catch (err) {
       showError(getApiErrorMessage(err, "OTP verification failed"));
     } finally {
@@ -192,10 +220,9 @@ function AstrologerRegisterScreen() {
 
   const validateBasic = () => {
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) return "Enter a valid email address.";
-    if (!emailVerified) return "Please verify your email first.";
+    if (!emailVerified || !mobileVerified) return "Please verify both your email and mobile number first.";
     if (!fullName.trim()) return "Full name is required.";
     if (!displayName.trim()) return "Display name is required.";
-    if (!/^[0-9]{10}$/.test(mobileNo.trim())) return "Mobile number must be 10 digits.";
     if (!gender.trim()) return "Gender is required.";
     if (!dateOfBirth.trim()) return "Date of birth is required.";
     if (!isValidRegistrationBirthDate(dateOfBirth)) return "Date of birth must be between 1950 and today.";
@@ -392,32 +419,17 @@ function AstrologerRegisterScreen() {
       </KeyboardAwareScrollView>
 
       <Portal>
-        <Dialog visible={otpOpen} dismissable={false}>
-          <Dialog.Title>{t("Enter OTP")}</Dialog.Title>
-          <Dialog.Content>
-            <Text style={styles.muted}>
-              {t("We sent a 6 digit code to")} {email.trim()}.
-            </Text>
-            <OtpBoxes value={otp} onChange={setOtp} disabled={otpVerifying} />
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button
-              onPress={() => {
-                setOtpOpen(false);
-                setOtp("");
-              }}
-              disabled={otpVerifying}
-            >
-              {t("Cancel")}
-            </Button>
-            <Button onPress={sendOtp} disabled={otpSending || otpVerifying}>
-              {t("Resend OTP")}
-            </Button>
-            <Button mode="contained" loading={otpVerifying} onPress={verifyOtp} style={styles.dialogPrimaryBtn}>
-              {t("Submit")}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
+        <OtpVerificationDialog
+          visible={otpOpen}
+          recipient={verificationChannel === "email" ? email.trim() : mobileNo.trim()}
+          value={otp}
+          onChange={setOtp}
+          loading={otpVerifying}
+          resendLoading={otpSending}
+          onResend={() => sendOtp(verificationChannel)}
+          onCancel={() => { setOtpOpen(false); setOtp(""); }}
+          onSubmit={verifyOtp}
+        />
         <RegistrationSuccessDialog
           visible={successRedirect.visible}
           countdown={successRedirect.countdown}
@@ -435,7 +447,7 @@ function AstrologerRegisterScreen() {
   );
 
   function renderBasicStep() {
-    const basicFieldsDisabled = !emailVerified;
+    const basicFieldsDisabled = !emailVerified || !mobileVerified;
 
     return (
       <View style={styles.section}>
@@ -454,9 +466,9 @@ function AstrologerRegisterScreen() {
           />
           <Button
             mode="contained"
-            loading={otpSending}
-            disabled={emailVerified}
-            onPress={sendOtp}
+            loading={otpSending && verificationChannel === "email"}
+            disabled={emailVerified || otpSending || otpVerifying}
+            onPress={() => sendOtp("email")}
             style={styles.verifyBtn}
             labelStyle={styles.verifyBtnText}
           >
@@ -465,18 +477,35 @@ function AstrologerRegisterScreen() {
         </View>
         {emailVerified ? <Text style={styles.successText}>{t("Email verified")}</Text> : null}
 
+        <View style={styles.emailRow}>
+          <TextInput
+            label={t("Mobile Number *")}
+            value={mobileNo}
+            onChangeText={changeMobile}
+            disabled={mobileVerified || otpOpen || otpSending || otpVerifying}
+            keyboardType="phone-pad"
+            maxLength={10}
+            mode="outlined"
+            theme={inputTheme}
+            style={[styles.input, styles.emailInput]}
+            right={mobileVerified ? <TextInput.Icon icon="check-circle" color={colors.success} /> : undefined}
+          />
+          <Button
+            mode="contained"
+            loading={otpSending && verificationChannel === "mobileNo"}
+            disabled={mobileVerified || otpSending || otpVerifying}
+            onPress={() => sendOtp("mobileNo")}
+            style={styles.verifyBtn}
+            labelStyle={styles.verifyBtnText}
+          >
+            {mobileVerified ? t("Verified") : t("Verify")}
+          </Button>
+        </View>
+        {mobileVerified ? <Text style={styles.successText}>{t("Mobile number verified")}</Text> : null}
+
         <View style={styles.twoColumns}>
           <AppInput t={t} inputTheme={inputTheme} disabled={basicFieldsDisabled} label="Full Name *" value={fullName} onChangeText={setFullName} />
           <AppInput t={t} inputTheme={inputTheme} disabled={basicFieldsDisabled} label="Display Name *" value={displayName} onChangeText={setDisplayName} />
-          <AppInput
-            t={t}
-            inputTheme={inputTheme}
-            disabled={basicFieldsDisabled}
-            label="Mobile Number *"
-            value={mobileNo}
-            onChangeText={(value) => setMobileNo(value.replace(/\D/g, "").slice(0, 10))}
-            keyboardType="phone-pad"
-          />
           <View style={styles.field}>
             <TouchableOpacity
               disabled={basicFieldsDisabled}
@@ -683,6 +712,7 @@ function ClientRegisterScreen() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [signupChannel, setSignupChannel] = useState<"email" | "mobileNo">("email");
   const [mobileNo, setMobileNo] = useState("");
   const [password, setPassword] = useState("");
   const [secure, setSecure] = useState(true);
@@ -693,7 +723,7 @@ function ClientRegisterScreen() {
   const [verifying, setVerifying] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const successRedirect = useLoginSuccessRedirect("/(auth)/login");
+  const acceptSignupSession = useAuthStore((state) => state.acceptSignupSession);
 
   const inputTheme = useMemo(
     () => ({
@@ -708,12 +738,13 @@ function ClientRegisterScreen() {
   };
 
   const getPayload = (nextOtp: string) => ({
-    username: email,
-    password,
+    username: signupChannel === "email" ? email : mobileNo,
+    channel: signupChannel,
+    password: signupChannel === "email" ? password : "",
     otp: nextOtp,
     firstName,
     lastName,
-    phone: mobileNo,
+    phone: signupChannel === "mobileNo" ? mobileNo : "",
     gender: "",
     dateOfBirth: "",
     placeOfBirth: ""
@@ -722,9 +753,9 @@ function ClientRegisterScreen() {
   const validate = () => {
     if (!firstName.trim()) return "First name is required.";
     if (!lastName.trim()) return "Last name is required.";
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return "Enter a valid email address.";
-    if (!/^[0-9]{10}$/.test(mobileNo.trim())) return "Mobile number must be 10 digits.";
-    if (!isStrongClientPassword(password)) return "Password must start with a capital letter and include a number and special character.";
+    if (signupChannel === "email" && !/^\S+@\S+\.\S+$/.test(email.trim())) return "Enter a valid email address.";
+    if (signupChannel === "mobileNo" && !/^[0-9]{10}$/.test(mobileNo.trim())) return "Mobile number must be 10 digits.";
+    if (signupChannel === "email" && !isStrongClientPassword(password)) return "Password must start with a capital letter and include a number and special character.";
     if (!captchaChecked) return "Please confirm I'm not a robot.";
     return "";
   };
@@ -757,9 +788,18 @@ function ClientRegisterScreen() {
 
     try {
       setVerifying(true);
-      await registerClient(getPayload(otp));
+      const result = await registerClient(getPayload(otp));
       setOtpOpen(false);
-      successRedirect.open();
+      if (result.accessToken) {
+        await acceptSignupSession(result.accessToken, result.claims, {
+          firstName,
+          lastName,
+          email: signupChannel === "email" ? email.trim() : "",
+          mobileNo: signupChannel === "mobileNo" ? mobileNo : "",
+          phone: signupChannel === "mobileNo" ? mobileNo : ""
+        });
+        router.replace("/astrologer");
+      } else showError("Account created, but no access token was returned. Please log in.");
     } catch (err) {
       showError(getApiErrorMessage(err, "OTP verification failed"));
     } finally {
@@ -783,6 +823,14 @@ function ClientRegisterScreen() {
               {t("Welcome ApsraAstro")}
             </Text>
             <Text style={styles.muted}>{t("Create your account and start your journey.")}</Text>
+            <View style={styles.channelChoices}>
+              <Pressable accessibilityRole="button" onPress={() => setSignupChannel("email")} style={[styles.channelChoice, signupChannel === "email" && styles.channelChoiceActive]}>
+                <Text numberOfLines={2} adjustsFontSizeToFit style={[styles.channelChoiceText, signupChannel === "email" && styles.channelChoiceTextActive]}>{t("Signup with email")}</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={() => setSignupChannel("mobileNo")} style={[styles.channelChoice, signupChannel === "mobileNo" && styles.channelChoiceActive]}>
+                <Text numberOfLines={2} adjustsFontSizeToFit style={[styles.channelChoiceText, signupChannel === "mobileNo" && styles.channelChoiceTextActive]}>{t("Signup with Mobile")}</Text>
+              </Pressable>
+            </View>
             <Button
               mode="outlined"
               style={styles.changeTypeBtn}
@@ -796,30 +844,30 @@ function ClientRegisterScreen() {
           <View style={styles.clientForm}>
             <ClientInput label="Enter Your First Name *" value={firstName} onChangeText={setFirstName} theme={inputTheme} />
             <ClientInput label="Enter Your Last Name *" value={lastName} onChangeText={setLastName} theme={inputTheme} />
-            <ClientInput
+            {signupChannel === "email" ? <ClientInput
               label="Enter Your Email *"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
               theme={inputTheme}
-            />
-            <ClientInput
-              label="Enter Your Mobile Number"
+            /> : <ClientInput
+              label="Enter Your Mobile Number *"
               value={mobileNo}
               onChangeText={(value: string) => setMobileNo(value.replace(/\D/g, "").slice(0, 10))}
               keyboardType="phone-pad"
+              maxLength={10}
               theme={inputTheme}
-            />
-            <ClientInput
+            />}
+            {signupChannel === "email" ? <ClientInput
               label="Create Your Password *"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={secure}
               theme={inputTheme}
               right={<TextInput.Icon icon={secure ? "eye" : "eye-off"} onPress={() => setSecure((value) => !value)} />}
-            />
-            <Text style={styles.muted}>{t("First letter capital, include a number and special character. Example: Apsra@123")}</Text>
+            /> : null}
+            {signupChannel === "email" ? <Text style={styles.muted}>{t("First letter capital, include a number and special character. Example: Apsra@123")}</Text> : null}
 
             <TouchableOpacity style={styles.captchaBox} onPress={() => setCaptchaChecked((value) => !value)}>
               <Checkbox status={captchaChecked ? "checked" : "unchecked"} />
@@ -847,44 +895,14 @@ function ClientRegisterScreen() {
       </KeyboardAwareScrollView>
 
       <Portal>
-        <Dialog visible={otpOpen} dismissable={false} style={styles.otpDialog}>
-          <Dialog.Content>
-            <Text style={styles.otpBrand}>
-              {t("ApsraAstro")} {t("Verification")}
-            </Text>
-            <Text variant="titleLarge" style={styles.sectionTitle}>{t("OTP Verification")}</Text>
-            <Text style={styles.muted}>
-              {t("Enter the OTP sent to")} <Text style={styles.otpEmail}>{email.trim()}</Text>
-            </Text>
-            <OtpBoxes value={otp} onChange={setOtp} disabled={verifying} />
-            <Text style={styles.otpHelp}>{t("Didn't get OTP or try other username?")}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button
-              onPress={() => {
-                setOtpOpen(false);
-                setOtp("");
-              }}
-              disabled={verifying}
-            >
-              {t("Cancel")}
-            </Button>
-            <Button
-              mode="contained"
-              loading={verifying}
-              disabled={verifying}
-              onPress={verifyOtp}
-              style={styles.dialogPrimaryBtn}
-              labelStyle={styles.primaryBtnText}
-            >
-              {t("Submit")}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-        <RegistrationSuccessDialog
-          visible={successRedirect.visible}
-          countdown={successRedirect.countdown}
-          onLogin={successRedirect.goToLogin}
+        <OtpVerificationDialog
+          visible={otpOpen}
+          recipient={(signupChannel === "email" ? email : mobileNo).trim()}
+          value={otp}
+          onChange={setOtp}
+          loading={verifying}
+          onCancel={() => { setOtpOpen(false); setOtp(""); }}
+          onSubmit={verifyOtp}
         />
       </Portal>
 
@@ -970,78 +988,6 @@ function RegistrationSuccessDialog({
         </Button>
       </Dialog.Actions>
     </Dialog>
-  );
-}
-
-function OtpBoxes({
-  value,
-  onChange,
-  disabled
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  disabled?: boolean;
-}) {
-  const refs = useRef<Array<React.ComponentRef<typeof TextInput> | null>>([]);
-  const digits = value.padEnd(6, " ").slice(0, 6).split("");
-
-  const updateDigit = (index: number, text: string) => {
-    const numeric = text.replace(/\D/g, "");
-    const nextDigits = value.padEnd(6, " ").slice(0, 6).split("");
-
-    if (numeric.length > 1) {
-      const pasted = numeric.slice(0, 6);
-      const nextValue =
-        pasted.length === 6
-          ? pasted
-          : [
-              ...nextDigits.slice(0, index),
-              ...pasted.split(""),
-              ...nextDigits.slice(index + pasted.length)
-            ]
-              .join("")
-              .replace(/\s/g, "")
-              .slice(0, 6);
-      onChange(nextValue);
-      refs.current[Math.min(index + pasted.length, 5)]?.focus();
-      return;
-    }
-
-    nextDigits[index] = numeric || " ";
-    onChange(nextDigits.join("").replace(/\s/g, ""));
-
-    if (numeric && index < 5) refs.current[index + 1]?.focus();
-  };
-
-  const handleBackspace = (index: number, key: string) => {
-    if (key !== "Backspace") return;
-    if (digits[index].trim()) return;
-    if (index > 0) refs.current[index - 1]?.focus();
-  };
-
-  return (
-    <View style={styles.otpBoxRow}>
-      {digits.map((digit, index) => (
-        <TextInput
-          key={index}
-          ref={(ref: React.ComponentRef<typeof TextInput> | null) => {
-            refs.current[index] = ref;
-          }}
-          value={digit.trim()}
-          onChangeText={(text) => updateDigit(index, text)}
-          onKeyPress={({ nativeEvent }) => handleBackspace(index, nativeEvent.key)}
-          keyboardType="number-pad"
-          textContentType="oneTimeCode"
-          autoComplete="sms-otp"
-          importantForAutofill="yes"
-          disabled={disabled}
-          mode="outlined"
-          style={styles.otpBox}
-          contentStyle={styles.otpBoxContent}
-          outlineStyle={styles.otpBoxOutline}
-        />
-      ))}
-    </View>
   );
 }
 
@@ -1551,6 +1497,11 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.sm
   },
+  channelChoices: { flexDirection: "row", gap: 8, width: "100%" },
+  channelChoice: { flex: 1, minWidth: 0, minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 28, paddingHorizontal: 5, alignItems: "center", justifyContent: "center" },
+  channelChoiceActive: { backgroundColor: colors.amber, borderColor: colors.amber },
+  channelChoiceText: { color: colors.cocoa, fontWeight: "700", fontSize: 13, textAlign: "center" },
+  channelChoiceTextActive: { color: colors.surface },
   changeTypeBtn: {
     borderRadius: 18,
     borderColor: "#d8c98a",
@@ -1577,49 +1528,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: "700"
-  },
-  otpDialog: {
-    borderRadius: 12,
-    backgroundColor: "#fffdf8"
-  },
-  otpBrand: {
-    color: colors.ink,
-    fontWeight: "900",
-    marginBottom: spacing.md
-  },
-  otpEmail: {
-    color: "#b6d900",
-    fontWeight: "900"
-  },
-  otpBoxRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 4,
-    marginTop: spacing.md
-  },
-  otpBox: {
-    width: 40,
-    maxWidth: 40,
-    height: 52,
-    backgroundColor: "transparent"
-  },
-  otpBoxContent: {
-    textAlign: "center",
-    textAlignVertical: "center",
-    fontSize: 18,
-    fontWeight: "900",
-    paddingHorizontal: 0,
-    paddingVertical: 0
-  },
-  otpBoxOutline: {
-    borderRadius: 6,
-    borderColor: "#d8c98a"
-  },
-  otpHelp: {
-    color: "#6a6400",
-    fontWeight: "900",
-    marginTop: spacing.md,
-    marginBottom: spacing.sm
   },
   successDialog: {
     borderRadius: 12,

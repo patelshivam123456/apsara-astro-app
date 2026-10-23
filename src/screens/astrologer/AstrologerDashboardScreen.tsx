@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Animated, Image, ImageBackground, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -15,7 +15,6 @@ import {
 } from "@/components/AstrologerFilters";
 import { AstrologerBottomNav, AstrologerSideDrawer } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
-import { LoadingState } from "@/components/StateViews";
 import { SubscriptionStatusCard } from "@/components/SubscriptionStatusCard";
 import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
@@ -58,17 +57,17 @@ export function AstrologerDashboardScreen() {
   const comingSoonOpacity = useRef(new Animated.Value(0)).current;
   const { t } = useTranslation();
   const astrologers = useAstrologers();
-  const isAuthLoaded = useAuthStore((state) => state.isAuthLoaded);
-  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const roles = useAuthStore((state) => state.roles);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const user = useAuthStore((state) => state.user);
   const accessToken = useAuthStore((state) => state.accessToken);
   const userPublicId = getUserPublicId(user, accessToken);
   const name = useMemo(() => {
-    const profile = user as { firstName?: string; displayName?: string; fullName?: string } | null;
-    return profile?.displayName || profile?.fullName || profile?.firstName || "Ananya";
-  }, [user]);
-  const initials = useMemo(() => getUserInitials(user), [user]);
+    const profile = user as { firstName?: string; displayName?: string; fullName?: string; email?: string } | null;
+    const emailName = profile?.email?.split("@")[0]?.replace(/[._-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+    return profile?.displayName || profile?.fullName || [profile?.firstName, (user as { lastName?: string } | null)?.lastName].filter(Boolean).join(" ") || emailName || (isLoggedIn ? "Client" : "Guest");
+  }, [isLoggedIn, user]);
+  const initials = useMemo(() => getUserInitials(user, name), [name, user]);
   const profileRoute = roles.includes("ROLE_ASTROLOGER") ? "/astrologer/profile-me" : "/(drawer)/(tabs)/profile";
   const homeExperts = useMemo(() => {
     const data = astrologers.data?.length ? astrologers.data : fallbackExperts;
@@ -89,18 +88,6 @@ export function AstrologerDashboardScreen() {
       Animated.timing(comingSoonOpacity, { toValue: 0, duration: 900, useNativeDriver: true })
     ]).start(() => setComingSoonService(""));
   };
-
-  useEffect(() => {
-    if (!isAuthLoaded) return;
-    if (!isLoggedIn) {
-      router.replace({ pathname: "/(auth)/login", params: { mode: "astrologer" } });
-      return;
-    }
-  }, [isAuthLoaded, isLoggedIn]);
-
-  if (!isAuthLoaded || !isLoggedIn) {
-    return <LoadingState label="Opening login" />;
-  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -126,7 +113,7 @@ export function AstrologerDashboardScreen() {
           </Pressable> */}
         </View>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.profileCard}>
+          {isLoggedIn ? <View style={styles.profileCard}>
             <View style={styles.profileRow}>
               <Pressable style={styles.avatar} onPress={() => router.push(profileRoute as never)}>
                 <Text style={styles.avatarText}>{initials}</Text>
@@ -142,7 +129,7 @@ export function AstrologerDashboardScreen() {
               <StatPill label={t("Reports")} value="08" />
               <StatPill label={t("Rating")} value="4.8" />
             </View>
-          </View>
+          </View> : null}
 
           {userPublicId ? <SubscriptionStatusCard userPublicId={userPublicId} compact /> : null}
 
@@ -274,7 +261,7 @@ function getExpertName(astrologer: Astrologer) {
   return astrologer.displayName || astrologer.fullName || [astrologer.firstName, astrologer.lastName].filter(Boolean).join(" ") || "Apsara Expert";
 }
 
-function getUserInitials(user: unknown) {
+function getUserInitials(user: unknown, fallbackName: string) {
   const profile = user as { firstName?: string; lastName?: string; displayName?: string; fullName?: string } | null;
   if (profile?.displayName?.trim()) {
     return profile.displayName
@@ -292,8 +279,7 @@ function getUserInitials(user: unknown) {
 
   if (initials) return initials.toUpperCase();
 
-  const name = profile?.fullName || profile?.displayName || "Apsara User";
-  return name
+  return (profile?.fullName || profile?.displayName || fallbackName || "Guest")
     .trim()
     .split(/\s+/)
     .slice(0, 2)

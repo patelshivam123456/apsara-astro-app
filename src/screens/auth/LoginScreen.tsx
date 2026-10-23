@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { Image, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Image, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Controller, useForm } from "react-hook-form";
 import { Button, Dialog, HelperText, Portal, Snackbar, Text, TextInput } from "react-native-paper";
 import { z } from "zod";
 
 import { Screen } from "@/components/Screen";
+import { OtpVerificationDialog } from "@/components/OtpVerificationDialog";
 import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
-import { forgotPassword } from "@/services/auth.service";
+import { forgotPassword, generateOtp } from "@/services/auth.service";
 import { getApiErrorMessage } from "@/services/apiClient";
 import { useAuthStore } from "@/store/auth.store";
 
@@ -30,6 +32,11 @@ export function LoginScreen() {
   const [sendingReset, setSendingReset] = useState(false);
   const [message, setMessage] = useState("");
   const [registerChoiceOpen, setRegisterChoiceOpen] = useState(false);
+  const [loginChannel, setLoginChannel] = useState<"email" | "mobileNo">("email");
+  const [mobileNo, setMobileNo] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpOpen, setOtpOpen] = useState(false);
+  const [mobileSubmitting, setMobileSubmitting] = useState(false);
 
   const { control, handleSubmit, formState } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -47,12 +54,34 @@ export function LoginScreen() {
   const onSubmit = handleSubmit(async (values) => {
     setError("");
     try {
-      await signIn(values.username, values.password);
+      await signIn(values.username, values.password, "email");
       router.replace("/astrologer");
     } catch (err) {
       setError(getApiErrorMessage(err, "Login failed"));
     }
   });
+
+  const submitMobile = async () => {
+    if (!/^\d{10}$/.test(mobileNo)) { setError("Mobile number must be 10 digits."); return; }
+    try {
+      setMobileSubmitting(true);
+      await generateOtp(mobileNo, "mobileNo");
+      setOtpOpen(true);
+      setError("");
+    } catch (err) { setError(getApiErrorMessage(err, "Unable to send OTP")); }
+    finally { setMobileSubmitting(false); }
+  };
+
+  const submitMobileOtp = async () => {
+    if (!/^\d{6}$/.test(otp)) { setError("Enter the 6 digit OTP."); return; }
+    try {
+      setMobileSubmitting(true);
+      await signIn(mobileNo, "", "mobileNo", otp);
+      setOtpOpen(false);
+      router.replace("/astrologer");
+    } catch (err) { setError(getApiErrorMessage(err, "Login failed")); }
+    finally { setMobileSubmitting(false); }
+  };
 
   const sendReset = async () => {
     if (!forgotEmail.trim()) {
@@ -75,6 +104,14 @@ export function LoginScreen() {
   return (
     <Screen>
       <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: spacing.lg, gap: spacing.md }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t("Home")}
+        style={styles.homeButton}
+        onPress={() => router.replace("/astrologer")}
+      >
+        <MaterialCommunityIcons name="home" size={24} color={colors.ink} />
+      </Pressable>
       <View style={styles.topCard}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View style={{ flex: 1, gap: 4,width: "30%" }}>
@@ -143,7 +180,16 @@ export function LoginScreen() {
         <View style={styles.card}>
           <Text style={styles.stepLabel}>{t("LOGIN")}</Text>
 
-          <Controller
+          <View style={styles.channelChoices}>
+            <Pressable accessibilityRole="button" onPress={() => setLoginChannel("email")} style={[styles.channelChoice, loginChannel === "email" && styles.channelChoiceActive]}>
+              <Text numberOfLines={2} adjustsFontSizeToFit style={[styles.channelChoiceText, loginChannel === "email" && styles.channelChoiceTextActive]}>{t("Login with email")}</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => setLoginChannel("mobileNo")} style={[styles.channelChoice, loginChannel === "mobileNo" && styles.channelChoiceActive]}>
+              <Text numberOfLines={2} adjustsFontSizeToFit style={[styles.channelChoiceText, loginChannel === "mobileNo" && styles.channelChoiceTextActive]}>{t("Login with mobile")}</Text>
+            </Pressable>
+          </View>
+
+          {loginChannel === "email" ? <Controller
             control={control}
             name="username"
             render={({ field, fieldState }) => (
@@ -165,9 +211,20 @@ export function LoginScreen() {
                 </HelperText>:null}
               </>
             )}
-          />
+          /> : <TextInput
+            label={t("Mobile Number")}
+            value={mobileNo}
+            onChangeText={(value) => setMobileNo(value.replace(/\D/g, "").slice(0, 10))}
+            keyboardType="phone-pad"
+            maxLength={10}
+            mode="outlined"
+            theme={inputTheme}
+            style={styles.input}
+            outlineStyle={styles.inputOutline}
+            contentStyle={styles.inputContent}
+          />}
 
-          <Controller
+          {loginChannel === "email" ? <Controller
             control={control}
             name="password"
             render={({ field, fieldState }) => (
@@ -194,18 +251,18 @@ export function LoginScreen() {
                 </HelperText>:null}
               </>
             )}
-          />
+          /> : null}
 
           {error ? <HelperText type="error" visible>{t(error)}</HelperText> : null}
 
           <Button
             mode="contained"
-            loading={formState.isSubmitting}
-            onPress={onSubmit}
+            loading={loginChannel === "email" ? formState.isSubmitting : mobileSubmitting}
+            onPress={loginChannel === "email" ? onSubmit : submitMobile}
             style={styles.primaryBtn}
             labelStyle={styles.primaryBtnText}
           >
-            {t("Login")}
+            {loginChannel === "email" ? t("Login") : t("Submit")}
           </Button>
 
           <Button mode="text" onPress={() => setForgotOpen(true)}>
@@ -224,6 +281,15 @@ export function LoginScreen() {
       )}
 </View>
       <Portal>
+        <OtpVerificationDialog
+          visible={otpOpen}
+          recipient={`+91 ${mobileNo}`}
+          value={otp}
+          onChange={setOtp}
+          loading={mobileSubmitting}
+          onCancel={() => { setOtpOpen(false); setOtp(""); }}
+          onSubmit={submitMobileOtp}
+        />
         <Dialog visible={registerChoiceOpen} onDismiss={() => setRegisterChoiceOpen(false)}>
           <Dialog.Title>{t("Choose Registration Type")}</Dialog.Title>
           <Dialog.Content>
@@ -307,10 +373,18 @@ content: {
     gap: spacing.sm
   },
 
+  homeButton: { alignSelf: "flex-end", width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+
   stepLabel: {
     color: "#b94717",
     fontWeight: "900"
   },
+
+  channelChoices: { flexDirection: "row", gap: 8, width: "100%" },
+  channelChoice: { flex: 1, minWidth: 0, minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 28, paddingHorizontal: 5, alignItems: "center", justifyContent: "center" },
+  channelChoiceActive: { backgroundColor: colors.amber, borderColor: colors.amber },
+  channelChoiceText: { color: colors.cocoa, fontWeight: "700", fontSize: 13, textAlign: "center" },
+  channelChoiceTextActive: { color: colors.surface },
 
   input: {
     backgroundColor: "transparent"

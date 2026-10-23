@@ -6,7 +6,7 @@ import { hasCompletedOnboarding } from "@/services/storage";
 import { useAuthStore } from "@/store/auth.store";
 
 export default function Index() {
-  const { isAuthLoaded, isLoggedIn } = useAuthStore();
+  const { isAuthLoaded } = useAuthStore();
   const [checkedOnboarding, setCheckedOnboarding] = useState(false);
 
   useEffect(() => {
@@ -17,12 +17,11 @@ export default function Index() {
         return;
       }
       if (!isAuthLoaded) return;
-      if (!isLoggedIn) router.replace({ pathname: "/(auth)/login", params: { mode: "astrologer" } });
-      else router.replace("/astrologer");
+      router.replace("/astrologer");
     }
 
     route().finally(() => setCheckedOnboarding(true));
-  }, [isAuthLoaded, isLoggedIn]);
+  }, [isAuthLoaded]);
 
   return <LoadingState label={checkedOnboarding ? "Opening ApsraAstro" : "Preparing"} />;
 }

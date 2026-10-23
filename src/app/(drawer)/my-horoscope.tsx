@@ -1,5 +1,6 @@
 import { HoroscopeScreen } from "@/screens/client/HoroscopeScreen";
+import { LoginRequired } from "@/components/LoginRequired";
 
 export default function MyHoroscope() {
-  return <HoroscopeScreen />;
+  return <LoginRequired><HoroscopeScreen /></LoginRequired>;
 }

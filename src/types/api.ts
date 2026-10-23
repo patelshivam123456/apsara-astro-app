@@ -17,6 +17,13 @@ export type TokenClaims = {
   roles?: string[] | string;
   authorities?: string[] | string;
   exp?: number;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  username?: string;
+  phone?: string;
+  mobileNo?: string;
 };
 
 export type ClientProfile = {
