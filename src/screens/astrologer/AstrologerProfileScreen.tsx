@@ -283,8 +283,8 @@ export function AstrologerProfileScreen() {
             </Section>
 
             <Section title="Contact And Address" subtitle="Contact information and service location.">
-              <ProfileInput label="Email" value={data.email || ""} editable={false} />
-              <ProfileInput label="Mobile Number" value={data.mobileNo || data.mobileNumber || data.phone || ""} editable={editing} onChangeText={(value) => setField("mobileNo", value)} />
+              <ProfileInput label="Email" value={data.email || ""} editable={false} grayWhenDisabled />
+              <ProfileInput label="Mobile Number" value={data.mobileNo || data.mobileNumber || data.phone || ""} editable={false} grayWhenDisabled />
               <ProfileInput label="Address" value={data.address || ""} editable={editing} multiline onChangeText={(value) => setField("address", value)} />
               <ProfileInput label="City" value={data.city || ""} editable={editing} onChangeText={(value) => setField("city", value)} />
               <ProfileInput label="State" value={data.state || ""} editable={editing} onChangeText={(value) => setField("state", value)} />
@@ -414,6 +414,7 @@ function ProfileInput({
   editable,
   multiline,
   translateValue,
+  grayWhenDisabled,
   onChangeText
 }: {
   label: string;
@@ -421,6 +422,7 @@ function ProfileInput({
   editable: boolean;
   multiline?: boolean;
   translateValue?: boolean;
+  grayWhenDisabled?: boolean;
   onChangeText?: (value: string) => void;
 }) {
   const { t } = useTranslation();
@@ -435,10 +437,10 @@ function ProfileInput({
       mode="outlined"
       multiline={multiline}
       dense
-      style={[styles.input, multiline && styles.multilineInput]}
+      style={[styles.input, grayWhenDisabled && !editable && styles.disabledInput, multiline && styles.multilineInput]}
       outlineStyle={styles.inputOutline}
-      contentStyle={styles.inputContent}
-      theme={{ colors: { background: "#fffdf8", primary: colors.amber, outline: colors.border } }}
+      contentStyle={[styles.inputContent, grayWhenDisabled && !editable && styles.disabledInputContent]}
+      theme={{ colors: { background: grayWhenDisabled && !editable ? "#eeeeee" : "#fffdf8", primary: colors.amber, outline: colors.border } }}
     />
   );
 }
@@ -684,9 +686,11 @@ const styles = StyleSheet.create({
   sectionSub: { color: colors.cocoa, marginTop: 3, fontSize: 12, lineHeight: 16 },
   sectionBody: { marginTop: spacing.md, gap: spacing.sm },
   input: { backgroundColor: "#fffdf8", minHeight: 48 },
+  disabledInput: { backgroundColor: "#eeeeee" },
   multilineInput: { minHeight: 104 },
   inputOutline: { borderColor: "#f0dfae", borderRadius: 6 },
   inputContent: { color: colors.ink, fontSize: 13, lineHeight: 18 },
+  disabledInputContent: { color: "#777777" },
   addableWrap: { gap: spacing.sm },
   addRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   addInput: { flex: 1, minWidth: 0 },

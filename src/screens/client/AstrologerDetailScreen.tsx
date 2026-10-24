@@ -62,7 +62,6 @@ export function AstrologerDetailScreen() {
   const languages = splitValues(astro.language || astro.languagesKnown);
   const expertise = splitValues(astro.expertise);
   const modes = splitValues(astro.consultationModes);
-  const location = joinValues([astro.city, astro.state, astro.country]);
   const bio = astro.bio || astro.aboutYourself || t("View astrologer details, experience, languages, and consultation options.");
   const profileRows = compactRows([
     { label: "Full Name", value: name },
@@ -71,13 +70,6 @@ export function AstrologerDetailScreen() {
     { label: "Experience", value: `${astro.yearsOfExperience || 5}+ ${t("years")}` },
     { label: "Profile Status", value: astro.profileStatus },
     { label: "Profile Completion", value: astro.profileCompletionPercentage ? `${astro.profileCompletionPercentage}%` : undefined }
-  ]);
-  const contactRows = compactRows([
-    { label: "Email", value: astro.email },
-    { label: "Phone", value: astro.phone || astro.mobileNo || astro.mobileNumber },
-    { label: "Location", value: location },
-    { label: "Address", value: astro.address },
-    { label: "Pin Code", value: astro.pinCode }
   ]);
   const backgroundRows = compactRows([
     { label: "Gender", value: astro.gender },
@@ -144,7 +136,6 @@ export function AstrologerDetailScreen() {
         <PillSection title="Expertise" fallback="Astrology" values={expertise.length ? expertise : splitValues(astro.specialization)} />
         <PillSection title="Consultation Modes" fallback="Chat, Call" values={modes} />
         <DetailSection title="Profile Details" icon="account-star" rows={profileRows} />
-        <DetailSection title="Contact & Location" icon="map-marker-radius" rows={contactRows} />
         <DetailSection title="Background" icon="school" rows={backgroundRows} />
         <DetailSection title="Documents" icon="file-check" rows={documentRows} />
       </ScrollView>

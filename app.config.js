@@ -17,7 +17,7 @@ module.exports = {
     scheme: "apsaraastro",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./src/assets/apsra-astro-logo.png",
+    icon: "./src/assets/app-icon.png",
     userInterfaceStyle: "automatic",
     assetBundlePatterns: ["**/*"],
     plugins: [
@@ -38,7 +38,7 @@ module.exports = {
       package: "com.apsaraastro.mobile",
       permissions: ["INTERNET"],
       adaptiveIcon: {
-        foregroundImage: "./src/assets/apsra-astro-logo.png",
+        foregroundImage: "./src/assets/app-icon.png",
         backgroundColor: "#fff7e8"
       }
     },
