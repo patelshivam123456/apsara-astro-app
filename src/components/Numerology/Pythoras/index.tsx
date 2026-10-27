@@ -133,6 +133,7 @@ export function PythagorasGridScreen() {
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
       <NumerologyExportButton
+        serverPdfPayload={payload}
         blink
         fixed
         title={`${t("Numerology Report")} - ${fullName}`}

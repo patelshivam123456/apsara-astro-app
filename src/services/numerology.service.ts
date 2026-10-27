@@ -1,4 +1,4 @@
-import { ENDPOINTS } from "@/constants/api";
+import { ENDPOINTS, NUMEROLOGY_PDF_BASE_URL } from "@/constants/api";
 import { astroApi } from "@/services/apiClient";
 import { ApiResponse } from "@/types/api";
 
@@ -7,6 +7,13 @@ export type NumerologyPayload = {
   fullName: string;
   gender: string;
 };
+
+export async function getNumerologyPdf(payload: NumerologyPayload) {
+  return astroApi.post<ArrayBuffer>(`${NUMEROLOGY_PDF_BASE_URL}${ENDPOINTS.numerologyPdf}`, payload, {
+    headers: { Accept: "application/pdf", "Content-Type": "application/json" },
+    responseType: "arraybuffer"
+  });
+}
 
 export type LoShuGridResponse = {
   dob?: string;

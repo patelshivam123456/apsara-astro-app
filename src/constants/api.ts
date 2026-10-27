@@ -7,6 +7,10 @@ export const ASTRO_API_BASE_URL =
 export const TRANSACTION_API_BASE_URL =
   process.env.EXPO_PUBLIC_TRANSACTION_API_URL || "https://staging-api.apsraastro.com";
 
+export const NUMEROLOGY_PDF_BASE_URL =
+  process.env.EXPO_PUBLIC_NUMEROLOGY_PDF_BASE_URL ||
+  (API_BASE_URL.includes("staging") ? "https://staging.apsraastro.in" : "https://apsraastro.com");
+
 export const ENDPOINTS = {
   login: "/authorization/auth/login",
   signUp: "/authorization/auth/sign-up",
@@ -36,6 +40,7 @@ export const ENDPOINTS = {
   nameFrequencyNameChart: "/astrology-services/home-page/api/numerology/name-frequency/name-chart",
   compatibilityGrid: "/astrology-services/numerology/match-making/compatibility-grid",
   mobileNumerology: "/astrology-services/numerology/mobile/analysis-report",
+  numerologyPdf: "/api/numerology-pdf",
   dashaCalculation: "/astrology-services/home-page/numerology/dasha-calculation",
   pratyantarDasha: "/astrology-services/home-page/numerology/pratyantar-dasha",
   personalityDestinyDetails: "/astrology-services/home-page/personality-destiny-details",

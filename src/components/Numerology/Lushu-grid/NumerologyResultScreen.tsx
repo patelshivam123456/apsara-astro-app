@@ -172,6 +172,7 @@ export function NumerologyResultScreen() {
         <PersonalYearReading value={personalYear?.personalYear} />
       </ScrollView>
       <NumerologyExportButton
+        serverPdfPayload={{ dob, fullName, gender }}
         blink
         fixed
         title={`${t("Numerology Report")} - ${fullName}`}

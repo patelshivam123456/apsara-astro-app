@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Animated, Platform, Pressable, StyleSheet } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
+import { Asset } from "expo-asset";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
+import { getNumerologyPdf, NumerologyPayload } from "@/services/numerology.service";
 
 export type NumerologyExportRow = (string | number | undefined | null)[];
 
@@ -17,15 +19,23 @@ export type NumerologyExportSection = {
   variant?: "normal" | "intro" | "loShuGrid" | "summary" | "summaryTwoColumn" | "detailButton" | "effects" | "reading" | "details" | "count" | "splitPanel" | "soul" | "repetitionEffects" | "loShuArrows" | "compatibilityPage";
 };
 
+export type NumerologyExportCover = {
+  name: string;
+  dateOfBirth: string;
+  secondName?: string;
+};
+
 type NumerologyExportButtonProps = {
   fileName: string;
   title: string;
   sections: NumerologyExportSection[] | (() => Promise<NumerologyExportSection[]>);
   fixed?: boolean;
   blink?: boolean;
+  serverPdfPayload?: NumerologyPayload;
+  coverPage?: NumerologyExportCover;
 };
 
-export function NumerologyExportButton({ blink, fileName, fixed, sections, title }: NumerologyExportButtonProps) {
+export function NumerologyExportButton({ blink, fileName, fixed, sections, title, serverPdfPayload, coverPage }: NumerologyExportButtonProps) {
   const { t } = useTranslation();
   const [exporting, setExporting] = useState(false);
   const pulse = useMemo(() => new Animated.Value(1), []);
@@ -49,10 +59,40 @@ export function NumerologyExportButton({ blink, fileName, fixed, sections, title
   const exportReport = async () => {
     try {
       setExporting(true);
-      const resolvedSections = typeof sections === "function" ? await sections() : sections;
-      const html = buildPdfHtml(title, resolvedSections);
-      const compactHtml = buildCompactPdfHtml(title, resolvedSections);
       const safeBaseName = fileName.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-|-$/g, "") || "numerology-report";
+      if (serverPdfPayload) {
+        const response = await getNumerologyPdf(serverPdfPayload);
+        const base64 = arrayBufferToBase64(response as ArrayBuffer);
+        const pdfUri = `${FileSystem.cacheDirectory}${safeBaseName}.pdf`;
+        await FileSystem.writeAsStringAsync(pdfUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+        if (Platform.OS === "web") {
+          const blob = new Blob([response as ArrayBuffer], { type: "application/pdf" });
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = `${safeBaseName}.pdf`;
+          anchor.click();
+          URL.revokeObjectURL(url);
+          return;
+        }
+        if (Platform.OS === "android") {
+          const downloaded = await saveBase64PdfToDownloads(base64, `${safeBaseName}.pdf`);
+          if (downloaded) {
+            Alert.alert(t("Download PDF"), t("PDF downloaded successfully."));
+            return;
+          }
+        }
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(pdfUri, { dialogTitle: t("Download PDF"), mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+        } else {
+          Alert.alert(t("Download PDF"), t("PDF generated successfully."));
+        }
+        return;
+      }
+      const resolvedSections = typeof sections === "function" ? await sections() : sections;
+      const coverImages = coverPage ? await loadCoverImages() : undefined;
+      const html = buildPdfHtml(title, resolvedSections, coverPage, coverImages);
+      const compactHtml = buildCompactPdfHtml(title, resolvedSections, coverPage, coverImages);
       const hasWideSection = resolvedSections.some((section) => section.layout === "wide");
 
       if (Platform.OS === "web") {
@@ -60,7 +100,7 @@ export function NumerologyExportButton({ blink, fileName, fixed, sections, title
         return;
       }
 
-      const pdf = await printPdfFile(html, hasWideSection, compactHtml);
+      const pdf = await printPdfFile(html, hasWideSection, compactHtml, Boolean(coverPage));
 
       if (Platform.OS === "android") {
         const downloaded = await saveAndroidPdfToDownloads({
@@ -101,6 +141,65 @@ export function NumerologyExportButton({ blink, fileName, fixed, sections, title
       </Pressable>
     </Animated.View>
   );
+}
+
+async function loadCoverImages() {
+  const [ganesh, mantra, watermark] = await Promise.all([
+    loadBundledPng(require("../../assets/numerology-ganesh-mark.png")),
+    loadBundledPng(require("../../assets/numerology-ganesh-mantra.png")),
+    loadBundledPng(require("../../assets/apsra-astro-logo.png"))
+  ]);
+  return { ganesh, mantra, watermark };
+}
+
+async function loadBundledPng(moduleId: number) {
+  const asset = Asset.fromModule(moduleId);
+  await asset.downloadAsync();
+  if (Platform.OS === "web") return asset.uri;
+  if (!asset.localUri) throw new Error("Unable to load numerology cover image");
+  const base64 = await FileSystem.readAsStringAsync(asset.localUri, { encoding: FileSystem.EncodingType.Base64 });
+  return `data:image/png;base64,${base64}`;
+}
+
+function renderCoverPage(coverPage: NumerologyExportCover, images: Awaited<ReturnType<typeof loadCoverImages>>) {
+  return `<section class="cover-page">
+    <div class="cover-frame"></div>
+    <img class="cover-watermark" src="${images.watermark}" />
+    <img class="cover-ganesh" src="${images.ganesh}" />
+    <img class="cover-mantra" src="${images.mantra}" />
+    <div class="cover-services">PERSONALIZED ASTROLOGY SERVICES</div>
+    <div class="cover-rule"></div>
+    <div class="cover-report-title">NUMEROLOGY REPORT</div>
+    <div class="cover-brand">APSRA ASTRO ☼</div>
+    <div class="cover-name">${escapeHtml(coverPage.name)}</div>
+    ${coverPage.secondName ? `<div class="cover-second-name">with ${escapeHtml(coverPage.secondName)}</div>` : ""}
+    <div class="cover-dob">Date of birth: <strong>${escapeHtml(coverPage.dateOfBirth)}</strong></div>
+  </section>`;
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer);
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let encoded = "";
+  for (let index = 0; index < bytes.length; index += 3) {
+    const first = bytes[index];
+    const second = bytes[index + 1];
+    const third = bytes[index + 2];
+    encoded += alphabet[first >> 2];
+    encoded += alphabet[((first & 3) << 4) | ((second ?? 0) >> 4)];
+    encoded += second === undefined ? "=" : alphabet[((second & 15) << 2) | ((third ?? 0) >> 6)];
+    encoded += third === undefined ? "=" : alphabet[third & 63];
+  }
+  return encoded;
+}
+
+async function saveBase64PdfToDownloads(base64: string, fileName: string) {
+  const initialUri = FileSystem.StorageAccessFramework.getUriForDirectoryInRoot("Download");
+  const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
+  if (!permissions.granted) return false;
+  const destinationUri = await FileSystem.StorageAccessFramework.createFileAsync(permissions.directoryUri, fileName, "application/pdf");
+  await FileSystem.StorageAccessFramework.writeAsStringAsync(destinationUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+  return true;
 }
 
 async function saveAndroidPdfToDownloads({
@@ -174,14 +273,16 @@ async function getPdfBase64({
   return compactPdf.base64;
 }
 
-async function printPdfFile(html: string, hasWideSection: boolean, fallbackHtml: string) {
+async function printPdfFile(html: string, hasWideSection: boolean, fallbackHtml: string, hasCover = false) {
   try {
-    return await Print.printToFileAsync({
-      html,
-      width: hasWideSection ? 792 : 612,
-      height: hasWideSection ? 612 : 792,
-      margins: { top: 24, right: 24, bottom: 24, left: 24 }
-    });
+    return await Print.printToFileAsync(hasCover
+      ? { html }
+      : {
+          html,
+          width: hasWideSection ? 792 : 612,
+          height: hasWideSection ? 612 : 792,
+          margins: { top: 24, right: 24, bottom: 24, left: 24 }
+        });
   } catch (err) {
     console.warn("Retrying PDF generation with default print options", err);
     try {
@@ -193,9 +294,15 @@ async function printPdfFile(html: string, hasWideSection: boolean, fallbackHtml:
   }
 }
 
-function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
+function buildPdfHtml(
+  title: string,
+  sections: NumerologyExportSection[],
+  coverPage?: NumerologyExportCover,
+  coverImages?: Awaited<ReturnType<typeof loadCoverImages>>
+) {
   const hasWideSection = sections.some((section) => section.layout === "wide");
   const body = sections.map(renderSection).join("");
+  const cover = coverPage && coverImages ? renderCoverPage(coverPage, coverImages) : "";
 
   return `<!doctype html>
   <html>
@@ -203,6 +310,7 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
       <meta charset="utf-8" />
       <style>
         @page { margin: 24px; ${hasWideSection ? "size: landscape;" : ""} }
+        ${cover ? "@page cover { size: A4 portrait; margin: 0; }" : ""}
         * { box-sizing: border-box; }
         body {
           margin: 0;
@@ -228,6 +336,120 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
           line-height: 32px;
           font-weight: 900;
           padding: 12px 16px;
+        }
+        .cover-page {
+          page: cover;
+          position: relative;
+          width: 210mm;
+          height: 297mm;
+          margin: 0;
+          overflow: hidden;
+          background: #fff;
+          page-break-after: always;
+          break-after: page;
+          color: #094e6a;
+        }
+        .cover-frame {
+          position: absolute;
+          inset: 14mm;
+          border: 0.7px solid #34704e;
+        }
+        .cover-watermark {
+          position: absolute;
+          width: 82mm;
+          height: 74mm;
+          object-fit: contain;
+          opacity: 0.06;
+          left: 50%;
+          top: 102mm;
+          transform: translateX(-50%);
+        }
+        .cover-ganesh {
+          position: absolute;
+          width: 48mm;
+          height: 46mm;
+          object-fit: contain;
+          left: 50%;
+          top: 46mm;
+          transform: translateX(-50%);
+        }
+        .cover-mantra {
+          position: absolute;
+          width: 38mm;
+          height: 6mm;
+          left: 50%;
+          top: 94mm;
+          transform: translateX(-50%);
+        }
+        .cover-services {
+          position: absolute;
+          top: 106mm;
+          left: 0;
+          width: 100%;
+          text-align: center;
+          color: #094e6a;
+          font-size: 8pt;
+          font-weight: 800;
+          letter-spacing: 1.3px;
+        }
+        .cover-rule {
+          position: absolute;
+          top: 117mm;
+          left: 19mm;
+          right: 19mm;
+          border-top: 0.8px solid #d8a84a;
+        }
+        .cover-report-title {
+          position: absolute;
+          top: 131mm;
+          left: 0;
+          width: 100%;
+          text-align: center;
+          color: #009948;
+          font-size: 22pt;
+          line-height: 1.2;
+          font-weight: 900;
+        }
+        .cover-brand {
+          position: absolute;
+          top: 154mm;
+          left: 0;
+          width: 100%;
+          text-align: center;
+          color: #ffefe0;
+          font-size: 28pt;
+          font-weight: 900;
+          letter-spacing: 2px;
+        }
+        .cover-name {
+          position: absolute;
+          top: 156mm;
+          left: 18mm;
+          right: 18mm;
+          text-align: center;
+          color: #f47c00;
+          font-family: Georgia, serif;
+          font-size: 20pt;
+          font-weight: 800;
+        }
+        .cover-second-name {
+          position: absolute;
+          top: 164mm;
+          left: 18mm;
+          right: 18mm;
+          text-align: center;
+          color: #f47c00;
+          font-size: 10pt;
+          font-weight: 700;
+        }
+        .cover-dob {
+          position: absolute;
+          top: ${coverPage?.secondName ? "172mm" : "168mm"};
+          left: 18mm;
+          right: 18mm;
+          text-align: center;
+          color: #094e6a;
+          font-size: 8pt;
         }
         .card {
           border-radius: 8px;
@@ -805,6 +1027,7 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
       </style>
     </head>
     <body>
+      ${cover}
       <main class="page">
         <h1>${escapeHtml(title)}</h1>
         ${body}
@@ -813,8 +1036,14 @@ function buildPdfHtml(title: string, sections: NumerologyExportSection[]) {
   </html>`;
 }
 
-function buildCompactPdfHtml(title: string, sections: NumerologyExportSection[]) {
+function buildCompactPdfHtml(
+  title: string,
+  sections: NumerologyExportSection[],
+  coverPage?: NumerologyExportCover,
+  coverImages?: Awaited<ReturnType<typeof loadCoverImages>>
+) {
   const body = sections.map(renderCompactSection).join("");
+  const cover = coverPage && coverImages ? renderCoverPage(coverPage, coverImages) : "";
 
   return `<!doctype html>
   <html>
@@ -822,6 +1051,7 @@ function buildCompactPdfHtml(title: string, sections: NumerologyExportSection[])
       <meta charset="utf-8" />
       <style>
         @page { margin: 18px; }
+        ${cover ? "@page cover { size: A4 portrait; margin: 0; }" : ""}
         * { box-sizing: border-box; }
         body {
           margin: 0;
@@ -836,6 +1066,21 @@ function buildCompactPdfHtml(title: string, sections: NumerologyExportSection[])
           line-height: 28px;
           font-weight: 900;
         }
+        .cover-page {
+          page: cover; position: relative; width: 210mm; height: 297mm; margin: 0;
+          overflow: hidden; background: #fff; page-break-after: always; break-after: page; color: #094e6a;
+        }
+        .cover-frame { position: absolute; inset: 14mm; border: 0.7px solid #34704e; }
+        .cover-watermark { position: absolute; width: 82mm; height: 74mm; object-fit: contain; opacity: 0.06; left: 50%; top: 102mm; transform: translateX(-50%); }
+        .cover-ganesh { position: absolute; width: 48mm; height: 46mm; object-fit: contain; left: 50%; top: 46mm; transform: translateX(-50%); }
+        .cover-mantra { position: absolute; width: 38mm; height: 6mm; left: 50%; top: 94mm; transform: translateX(-50%); }
+        .cover-services { position: absolute; top: 106mm; left: 0; width: 100%; text-align: center; color: #094e6a; font-size: 8pt; font-weight: 800; letter-spacing: 1.3px; }
+        .cover-rule { position: absolute; top: 117mm; left: 19mm; right: 19mm; border-top: 0.8px solid #d8a84a; }
+        .cover-report-title { position: absolute; top: 131mm; left: 0; width: 100%; text-align: center; color: #009948; font-size: 22pt; line-height: 1.2; font-weight: 900; }
+        .cover-brand { position: absolute; top: 154mm; left: 0; width: 100%; text-align: center; color: #ffefe0; font-size: 28pt; font-weight: 900; letter-spacing: 2px; }
+        .cover-name { position: absolute; top: 156mm; left: 18mm; right: 18mm; text-align: center; color: #f47c00; font-family: Georgia, serif; font-size: 20pt; font-weight: 800; }
+        .cover-second-name { position: absolute; top: 164mm; left: 18mm; right: 18mm; text-align: center; color: #f47c00; font-size: 10pt; font-weight: 700; }
+        .cover-dob { position: absolute; top: ${coverPage?.secondName ? "172mm" : "168mm"}; left: 18mm; right: 18mm; text-align: center; color: #094e6a; font-size: 8pt; }
         h2 {
           margin: 14px 0 6px;
           color: #145c24;
@@ -866,6 +1111,7 @@ function buildCompactPdfHtml(title: string, sections: NumerologyExportSection[])
       </style>
     </head>
     <body>
+      ${cover}
       <h1>${escapeHtml(title)}</h1>
       ${body}
     </body>

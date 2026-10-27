@@ -164,6 +164,7 @@ export function NameFrequencyScreen() {
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
       <NumerologyExportButton
+        serverPdfPayload={{ dob, fullName, gender }}
         blink
         fixed
         title={`${t("Numerology Report")} - ${fullName}`}

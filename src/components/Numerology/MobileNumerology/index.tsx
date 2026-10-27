@@ -146,6 +146,7 @@ export function MobileNumerologyScreen() {
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
       <NumerologyExportButton
+        coverPage={{ name: fullName, dateOfBirth: dob }}
         blink
         fixed
         title={`${tx("Mobile Numerology")} - ${fullName}`}

@@ -125,6 +125,7 @@ export function CompatibilityRelationshipScreen() {
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
       <NumerologyExportButton
+        coverPage={{ name: personA.fullName, secondName: personB.fullName, dateOfBirth: personA.dob }}
         blink
         fixed
         title={`${t("Compatibility/Relationship")} - ${personA.fullName}`}

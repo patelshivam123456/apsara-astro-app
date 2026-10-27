@@ -33,9 +33,9 @@ import { styles } from "@/components/Numerology/Lushu-grid/styles";
 import { findRelationship, getRelationStatus, localizeDigitsInText } from "@/components/Numerology/Lushu-grid/utils";
 
 type CurrentVedicDashaNumbers = {
-  maha: number[];
-  antar: number[];
-  pratyantar: number[];
+  maha?: number;
+  antar?: number;
+  pratyantar?: number;
 };
 
 const vedicPlaneGrid = [
@@ -65,7 +65,7 @@ export function VedicGridScreen() {
   const payload = useMemo(() => ({ dob, fullName, gender }), [dob, fullName, gender]);
   const [vedicGrid, setVedicGrid] = useState<VedicGridResponse | null>(null);
   const [relationships, setRelationships] = useState<NumberRelationshipItem[]>([]);
-  const [currentDashaNumbers, setCurrentDashaNumbers] = useState<CurrentVedicDashaNumbers>({ maha: [], antar: [], pratyantar: [] });
+  const [currentDashaNumbers, setCurrentDashaNumbers] = useState<CurrentVedicDashaNumbers>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const currentVedicGrid = useMemo(
@@ -162,6 +162,7 @@ export function VedicGridScreen() {
         {error ? <Text style={styles.validation}>{error}</Text> : null}
       </ScrollView>
       <NumerologyExportButton
+        serverPdfPayload={payload}
         blink
         fixed
         title={`${t("Numerology Report")} - ${fullName}`}
@@ -194,9 +195,9 @@ const vedicStyles = StyleSheet.create({
 function CurrentDashaSummary({ values }: { values: CurrentVedicDashaNumbers }) {
   const { language, t } = useTranslation();
   const rows = [
-    { label: t("Maha Dasha"), value: formatDashaValues(values.maha) },
-    { label: t("Antar Dasha"), value: formatDashaValues(values.antar) },
-    { label: t("Pratyantar Dasha"), value: formatDashaValues(values.pratyantar) }
+    { label: t("Maha Dasha"), value: values.maha ?? "-" },
+    { label: t("Antar Dasha"), value: values.antar ?? "-" },
+    { label: t("Pratyantar Dasha"), value: values.pratyantar ?? "-" }
   ];
 
   return (
@@ -216,56 +217,48 @@ function CurrentDashaSummary({ values }: { values: CurrentVedicDashaNumbers }) {
   );
 }
 
-function formatDashaValues(values: number[]) {
-  return values.length ? values.join(" ") : "-";
-}
-
 async function loadCurrentDashaNumbers(dateOfBirth?: string): Promise<CurrentVedicDashaNumbers> {
   const dobDate = parseVedicDate(dateOfBirth);
-  if (!dobDate) return { maha: [], antar: [], pratyantar: [] };
+  if (!dobDate) return {};
 
-  const currentYear = new Date().getFullYear();
-  const yearStart = new Date(currentYear, 0, 1);
-  const yearEnd = new Date(currentYear, 11, 31);
+  const today = new Date();
+  const dashaEndDate = new Date(2060, 11, 31);
+  const pratyantarStartDate = new Date(2021, 0, 1);
+  const pratyantarFromDate = dobDate > pratyantarStartDate ? dobDate : pratyantarStartDate;
 
   const [dashaResponse, pratyantarResponse] = await Promise.all([
-    getDashaCalculation(formatVedicDate(dobDate), formatVedicDate(dobDate), formatVedicDate(new Date(2060, 11, 31))),
-    getPratyantarDasha(formatVedicDate(dobDate), formatVedicDate(yearStart), 1)
+    getDashaCalculation(formatVedicDate(dobDate), formatVedicDate(dobDate), formatVedicDate(dashaEndDate)),
+    getPratyantarDasha(formatVedicDate(dobDate), formatVedicDate(pratyantarFromDate), 10)
   ]);
 
-  const dashaNumbers = getCurrentMahadashaAntardashaNumbers(dashaResponse.mahadashas || [], yearStart, yearEnd);
-  const pratyantar = uniqueNumbers(
-    pratyantarResponse
-      .filter((item) => dateRangeOverlapsYear(item.effectiveStartDate || item.birthdayDate, item.effectiveEndDate || item.birthdayDate, yearStart, yearEnd))
-      .map((item) => item.pratyantarDashaNumber)
-  );
+  const dashaNumbers = getCurrentMahadashaAntardashaNumbers(dashaResponse.mahadashas || [], today);
+  const currentPratyantar = pratyantarResponse.find((item) =>
+    dateRangeContainsDate(item.effectiveStartDate || item.birthdayDate, item.effectiveEndDate || item.birthdayDate, today)
+  ) || pratyantarResponse.find((item) => Number(item.calculationYear) === today.getFullYear());
 
-  return { ...dashaNumbers, pratyantar };
+  return { ...dashaNumbers, pratyantar: currentPratyantar?.pratyantarDashaNumber };
 }
 
-function getCurrentMahadashaAntardashaNumbers(mahadashas: DashaMahadashaItem[], yearStart: Date, yearEnd: Date) {
-  const maha: Array<number | undefined> = [];
-  const antar: Array<number | undefined> = [];
-
-  mahadashas.forEach((mahadasha) => {
-    (mahadasha.antardashas || []).forEach((antardasha) => {
-      if (!dateRangeOverlapsYear(antardasha.startDate, antardasha.endDate, yearStart, yearEnd)) return;
-      maha.push(antardasha.mahadashaNumber ?? mahadasha.mahadashaNumber);
-      antar.push(antardasha.antardashaNumber);
-    });
-  });
-
-  return {
-    maha: uniqueNumbers(maha),
-    antar: uniqueNumbers(antar)
-  };
+function getCurrentMahadashaAntardashaNumbers(mahadashas: DashaMahadashaItem[], today: Date) {
+  for (const mahadasha of mahadashas) {
+    const antardasha = (mahadasha.antardashas || []).find((item) =>
+      dateRangeContainsDate(item.startDate, item.endDate, today)
+    );
+    if (antardasha) {
+      return {
+        maha: antardasha.mahadashaNumber ?? mahadasha.mahadashaNumber,
+        antar: antardasha.antardashaNumber
+      };
+    }
+  }
+  return {};
 }
 
 function buildCurrentVedicGrid(grid: VedicGridResponse["grid"], values: CurrentVedicDashaNumbers): VedicGridResponse["grid"] {
   const sourceRows = [grid?.topRow || [], grid?.middleRow || [], grid?.bottomRow || []];
   const rows = vedicPlaneGrid.map((row, rowIndex) => row.map((_cellNumber, colIndex) => String(sourceRows[rowIndex]?.[colIndex] || "").trim()));
 
-  [...values.maha, ...values.antar, ...values.pratyantar].forEach((value) => {
+  [values.maha, values.antar, values.pratyantar].filter((value): value is number => typeof value === "number").forEach((value) => {
     const position = findGridPosition(value);
     if (!position) return;
     const [rowIndex, colIndex] = position;
@@ -289,25 +282,18 @@ function findGridPosition(value: number) {
   return null;
 }
 
-function uniqueNumbers(values: Array<number | undefined>) {
-  const unique = new Set<number>();
-  values.forEach((value) => {
-    if (typeof value === "number" && Number.isFinite(value)) unique.add(value);
-  });
-  return Array.from(unique.values());
-}
-
-function dateRangeOverlapsYear(startValue: string | undefined, endValue: string | undefined, yearStart: Date, yearEnd: Date) {
+function dateRangeContainsDate(startValue: string | undefined, endValue: string | undefined, date: Date) {
   const startDate = parseVedicDate(startValue);
   const endDate = parseVedicDate(endValue);
   if (!startDate || !endDate) return false;
-  return startDate.getTime() <= yearEnd.getTime() && endDate.getTime() >= yearStart.getTime();
+  const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  return startDate.getTime() <= targetDate && endDate.getTime() >= targetDate;
 }
 
 function parseVedicDate(value?: string) {
   if (!value) return null;
   const trimmedValue = value.trim();
-  const displayMatch = trimmedValue.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  const displayMatch = trimmedValue.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (displayMatch) {
     const [, day, month, year] = displayMatch;
     return validVedicDate(Number(year), Number(month), Number(day));
