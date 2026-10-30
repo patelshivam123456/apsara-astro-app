@@ -14,13 +14,15 @@ import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
 import {
   DashaMahadashaItem,
+  getCurrentVedicGrid,
   getDashaCalculation,
   getNumberRelationships,
   getPratyantarDasha,
   getVedicGrid,
   NumberRelationshipItem,
   PratyantarDashaItem,
-  VedicGridResponse
+  VedicGridResponse,
+  CurrentVedicGridResponse
 } from "@/services/numerology.service";
 import { translateUniqueTexts } from "@/services/translation.service";
 
@@ -37,12 +39,6 @@ type CurrentVedicDashaNumbers = {
   antar?: number;
   pratyantar?: number;
 };
-
-const vedicPlaneGrid = [
-  [3, 1, 9],
-  [6, 7, 5],
-  [2, 8, 4]
-];
 
 export function VedicGridScreen() {
   const { language, t } = useTranslation();
@@ -64,14 +60,12 @@ export function VedicGridScreen() {
   const personBGender = String(params.personBGender || "Female");
   const payload = useMemo(() => ({ dob, fullName, gender }), [dob, fullName, gender]);
   const [vedicGrid, setVedicGrid] = useState<VedicGridResponse | null>(null);
+  const [currentVedicData, setCurrentVedicData] = useState<CurrentVedicGridResponse | null>(null);
   const [relationships, setRelationships] = useState<NumberRelationshipItem[]>([]);
   const [currentDashaNumbers, setCurrentDashaNumbers] = useState<CurrentVedicDashaNumbers>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const currentVedicGrid = useMemo(
-    () => buildCurrentVedicGrid(vedicGrid?.grid, currentDashaNumbers),
-    [currentDashaNumbers, vedicGrid?.grid]
-  );
+  const currentVedicGrid = currentVedicData?.currentVedicGrid;
 
   useEffect(() => {
     let mounted = true;
@@ -83,14 +77,20 @@ export function VedicGridScreen() {
         const response = await getVedicGrid(payload);
         if (!mounted) return;
         setVedicGrid(response);
+        const currentResponse = await getCurrentVedicGrid(payload);
+        if (!mounted) return;
+        setCurrentVedicData(currentResponse);
+        setCurrentDashaNumbers({
+          maha: currentResponse.currentDashaAndAntardashaNumber?.mahadashaNumber,
+          antar: currentResponse.currentDashaAndAntardashaNumber?.antardashaNumber,
+          pratyantar: currentResponse.currentPratyantarDashaNumber
+        });
         const personalityNo = Number(response.driverNumber);
         const destinyNo = Number(response.destinyNumber);
         const relationshipRows = Number.isFinite(personalityNo) && Number.isFinite(destinyNo)
           ? await getNumberRelationships(personalityNo, destinyNo)
           : [];
         if (mounted) setRelationships(relationshipRows);
-        const dashaNumbers = await loadCurrentDashaNumbers(response.dob || dob);
-        if (mounted) setCurrentDashaNumbers(dashaNumbers);
       } catch (err) {
         if (mounted) setError(getApiErrorMessage(err, "Unable to load vedic grid"));
       } finally {
@@ -157,6 +157,7 @@ export function VedicGridScreen() {
         />
         <RelationTable relationships={relationships} personalityNo={vedicGrid?.driverNumber} destinyNo={vedicGrid?.destinyNumber} />
         <VedicYogTable data={vedicGrid} />
+        <VedicYogTable data={null} title="Yog Present in Current Vedic Grid" currentYogs={currentVedicData?.currentVedicGridYogaList} />
         <DashaChart dateOfBirth={vedicGrid?.dob || dob} />
         <PratyantarDashaChart dateOfBirth={vedicGrid?.dob || dob} />
         {error ? <Text style={styles.validation}>{error}</Text> : null}
@@ -184,6 +185,9 @@ const vedicStyles = StyleSheet.create({
   yogCell: { borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#222", color: "#000", fontSize: 12, lineHeight: 15, fontWeight: "800", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 4, paddingVertical: 6 },
   yogImpactCell: { flex: 2.6, backgroundColor: "#fffff6", fontSize: 10, lineHeight: 13, fontWeight: "600", textAlign: "left" },
   yogNumberCell: { flex: 0.85 },
+  yogCurrentDetails: { color: "#2b7545", fontSize: 10, lineHeight: 16, fontWeight: "700", textAlign: "center" },
+  yogCurrentNumber: { color: "#e6533c", fontWeight: "800" },
+  yogCurrentType: { color: "#52645a", fontSize: 9, lineHeight: 15, fontWeight: "500" },
   yogLastCell: { borderRightWidth: 0 },
   currentDashaTable: { width: "100%", borderWidth: 1, borderColor: "#222", backgroundColor: "#fffff6", overflow: "hidden" },
   currentDashaRow: { minHeight: 34, flexDirection: "row", backgroundColor: "#fbff63" },
@@ -217,116 +221,31 @@ function CurrentDashaSummary({ values }: { values: CurrentVedicDashaNumbers }) {
   );
 }
 
-async function loadCurrentDashaNumbers(dateOfBirth?: string): Promise<CurrentVedicDashaNumbers> {
-  const dobDate = parseVedicDate(dateOfBirth);
-  if (!dobDate) return {};
-
-  const today = new Date();
-  const dashaEndDate = new Date(2060, 11, 31);
-  const pratyantarStartDate = new Date(2021, 0, 1);
-  const pratyantarFromDate = dobDate > pratyantarStartDate ? dobDate : pratyantarStartDate;
-
-  const [dashaResponse, pratyantarResponse] = await Promise.all([
-    getDashaCalculation(formatVedicDate(dobDate), formatVedicDate(dobDate), formatVedicDate(dashaEndDate)),
-    getPratyantarDasha(formatVedicDate(dobDate), formatVedicDate(pratyantarFromDate), 10)
-  ]);
-
-  const dashaNumbers = getCurrentMahadashaAntardashaNumbers(dashaResponse.mahadashas || [], today);
-  const currentPratyantar = pratyantarResponse.find((item) =>
-    dateRangeContainsDate(item.effectiveStartDate || item.birthdayDate, item.effectiveEndDate || item.birthdayDate, today)
-  ) || pratyantarResponse.find((item) => Number(item.calculationYear) === today.getFullYear());
-
-  return { ...dashaNumbers, pratyantar: currentPratyantar?.pratyantarDashaNumber };
-}
-
-function getCurrentMahadashaAntardashaNumbers(mahadashas: DashaMahadashaItem[], today: Date) {
-  for (const mahadasha of mahadashas) {
-    const antardasha = (mahadasha.antardashas || []).find((item) =>
-      dateRangeContainsDate(item.startDate, item.endDate, today)
-    );
-    if (antardasha) {
-      return {
-        maha: antardasha.mahadashaNumber ?? mahadasha.mahadashaNumber,
-        antar: antardasha.antardashaNumber
-      };
-    }
-  }
-  return {};
-}
-
-function buildCurrentVedicGrid(grid: VedicGridResponse["grid"], values: CurrentVedicDashaNumbers): VedicGridResponse["grid"] {
-  const sourceRows = [grid?.topRow || [], grid?.middleRow || [], grid?.bottomRow || []];
-  const rows = vedicPlaneGrid.map((row, rowIndex) => row.map((_cellNumber, colIndex) => String(sourceRows[rowIndex]?.[colIndex] || "").trim()));
-
-  [values.maha, values.antar, values.pratyantar].filter((value): value is number => typeof value === "number").forEach((value) => {
-    const position = findGridPosition(value);
-    if (!position) return;
-    const [rowIndex, colIndex] = position;
-    const currentValue = String(rows[rowIndex][colIndex] || "").trim();
-    rows[rowIndex][colIndex] = [currentValue, String(value)].filter(Boolean).join(" ");
-  });
-
-  return {
-    topRow: rows[0],
-    middleRow: rows[1],
-    bottomRow: rows[2]
-  };
-}
-
-function findGridPosition(value: number) {
-  const rows = vedicPlaneGrid;
-  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
-    const colIndex = rows[rowIndex].findIndex((cell) => cell === value);
-    if (colIndex >= 0) return [rowIndex, colIndex] as const;
-  }
-  return null;
-}
-
-function dateRangeContainsDate(startValue: string | undefined, endValue: string | undefined, date: Date) {
-  const startDate = parseVedicDate(startValue);
-  const endDate = parseVedicDate(endValue);
-  if (!startDate || !endDate) return false;
-  const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-  return startDate.getTime() <= targetDate && endDate.getTime() >= targetDate;
-}
-
-function parseVedicDate(value?: string) {
-  if (!value) return null;
-  const trimmedValue = value.trim();
-  const displayMatch = trimmedValue.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-  if (displayMatch) {
-    const [, day, month, year] = displayMatch;
-    return validVedicDate(Number(year), Number(month), Number(day));
-  }
-
-  const isoMatch = trimmedValue.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (!isoMatch) return null;
-  const [, year, month, day] = isoMatch;
-  return validVedicDate(Number(year), Number(month), Number(day));
-}
-
-function validVedicDate(year: number, month: number, day: number) {
-  const date = new Date(year, month - 1, day);
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function formatVedicDate(date: Date) {
-  return `${padVedicDate(date.getDate())}-${padVedicDate(date.getMonth() + 1)}-${date.getFullYear()}`;
-}
-
-function padVedicDate(value: number) {
-  return String(value).padStart(2, "0");
-}
-
 type VedicYogRow = {
   yog: string | number;
   impact: string;
+  absentNumber?: string | number;
+  yogaType?: string;
 };
 
-function VedicYogTable({ data }: { data: VedicGridResponse | null }) {
+function VedicYogTable({
+  data,
+  title = "Yog Present in Master Vedic Grid",
+  currentYogs
+}: {
+  data: VedicGridResponse | null;
+  title?: string;
+  currentYogs?: CurrentVedicGridResponse["currentVedicGridYogaList"];
+}) {
   const { language, t } = useTranslation();
-  const rows = useMemo(() => getVedicYogRows(data), [data]);
+  const rows = useMemo(() => currentYogs
+    ? currentYogs.map((item) => ({
+        yog: item.numberPresent || item.id || "-",
+        absentNumber: item.numberAbsent || "",
+        yogaType: item.yogaType || "-",
+        impact: item.prediction || ""
+      }))
+    : getVedicYogRows(data), [currentYogs, data]);
   const [translationMap, setTranslationMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
@@ -334,8 +253,9 @@ function VedicYogTable({ data }: { data: VedicGridResponse | null }) {
 
     async function translateRows() {
       const texts = [
-        "Yog Present in Current Vedic Grid",
+        title,
         "Yog",
+        ...(currentYogs ? ["Absent", "Type"] : []),
         "Probable Impact",
         ...rows.map((row) => row.impact)
       ].filter(Boolean);
@@ -347,14 +267,14 @@ function VedicYogTable({ data }: { data: VedicGridResponse | null }) {
     return () => {
       mounted = false;
     };
-  }, [language, rows]);
+  }, [language, rows, title]);
 
   if (!rows.length) return null;
   const tx = (text: string) => translationMap.get(text) || t(text);
 
   return (
     <View style={vedicStyles.yogPanel}>
-      <Text style={vedicStyles.yogTitle}>{tx("Yog Present in Current Vedic Grid")}</Text>
+      <Text style={vedicStyles.yogTitle}>{tx(title)}</Text>
       <View style={vedicStyles.yogRow}>
         <Text style={[vedicStyles.yogHeadCell, vedicStyles.yogNumberCell]}>{tx("Yog")}</Text>
         <Text style={[vedicStyles.yogHeadCell, vedicStyles.yogImpactCell, vedicStyles.yogLastCell]}>{tx("Probable Impact")}</Text>
@@ -362,7 +282,15 @@ function VedicYogTable({ data }: { data: VedicGridResponse | null }) {
       {rows.map((row, index) => (
         <View key={`${row.yog}-${index}`} style={vedicStyles.yogRow}>
           <Text style={[vedicStyles.yogCell, vedicStyles.yogNumberCell]}>
-            {localizeDigitsInText(row.yog || "-", language)}
+            {currentYogs ? (
+              <Text style={vedicStyles.yogCurrentDetails}>
+                {tx("Present No.")} <Text style={vedicStyles.yogCurrentNumber}>{localizeDigitsInText(row.yog || "-", language)}</Text>{"\n"}
+                {String(row.absentNumber || "").trim() ? <>
+                  {tx("Absent No.")} <Text style={vedicStyles.yogCurrentNumber}>{localizeDigitsInText(row.absentNumber, language)}</Text>{"\n"}
+                </> : null}
+                <Text style={vedicStyles.yogCurrentType}>{row.yogaType ? tx(row.yogaType) : "-"}</Text>
+              </Text>
+            ) : localizeDigitsInText(row.yog || "-", language)}
           </Text>
           <Text style={[vedicStyles.yogCell, vedicStyles.yogImpactCell, vedicStyles.yogLastCell]}>
             {row.impact ? tx(row.impact) : "-"}

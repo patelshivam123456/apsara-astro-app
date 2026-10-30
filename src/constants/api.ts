@@ -32,6 +32,7 @@ export const ENDPOINTS = {
   astrologers: "/authorization/info/get-all-astrologers",
   loShuGrid: "/astrology-services/home-page/lo-shu-grid",
   vedicGrid: "/astrology-services/home-page/vedic-grid",
+  currentVedicGrid: "/astrology-services/home-page/generate-current-vedic-grid",
   pythagoreanGrid: "/astrology-services/home-page/pythagorean-grid-details",
   pythagoreanNameTable: "/astrology-services/home-page/numerology/pythagorean/name-table",
   pythagoreanRunningAgeAlphabet: "/astrology-services/home-page/api/numerology/pythagorean/running-age-alphabet",

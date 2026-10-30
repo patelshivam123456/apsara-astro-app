@@ -107,6 +107,22 @@ export type VedicGridResponse = LoShuGridResponse & {
   yogPredictions?: NumerologyPredictionItem[] | Record<string, unknown>;
 };
 
+export type CurrentVedicGridResponse = {
+  currentDashaAndAntardashaNumber?: {
+    mahadashaNumber?: number;
+    antardashaNumber?: number;
+  };
+  currentVedicGrid?: LoShuGridResponse["grid"];
+  currentVedicGridYogaList?: Array<{
+    id?: number;
+    numberAbsent?: string;
+    numberPresent?: string;
+    prediction?: string;
+    yogaType?: string;
+  }>;
+  currentPratyantarDashaNumber?: number;
+};
+
 export type NumerologyPredictionItem = {
   name?: string;
   title?: string;
@@ -411,6 +427,11 @@ export async function getLoShuGrid(payload: NumerologyPayload) {
 export async function getVedicGrid(payload: NumerologyPayload) {
   const response = await astroApi.post<ApiResponse<VedicGridResponse>>(ENDPOINTS.vedicGrid, payload);
   return ((response as unknown as ApiResponse<VedicGridResponse>).data || response) as VedicGridResponse;
+}
+
+export async function getCurrentVedicGrid(payload: NumerologyPayload) {
+  const response = await astroApi.post<ApiResponse<CurrentVedicGridResponse>>(ENDPOINTS.currentVedicGrid, payload);
+  return ((response as unknown as ApiResponse<CurrentVedicGridResponse>).data || response) as CurrentVedicGridResponse;
 }
 
 export async function getPythagoreanGrid(payload: NumerologyPayload) {
