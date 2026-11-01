@@ -292,8 +292,8 @@ function ExpertRow({ astrologers }: { astrologers: Astrologer[] }) {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const pageWidth = Math.min(width, 430) - spacing.md * 2;
-  const cardWidth = (pageWidth - spacing.sm * 2) / 3;
-  const pages = chunkExperts(astrologers, 6);
+  const cardWidth = Math.floor((pageWidth - spacing.sm * 2) / 3);
+  const pages = chunkExperts(astrologers, 9);
 
   return (
     <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={styles.expertCarousel}>
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   sectionFilterBadge: { position: "absolute", top: -3, right: -3, backgroundColor: colors.danger },
   viewAll: { fontFamily: "serif", fontSize: 12, color: "#777" },
   expertCarousel: { alignItems: "flex-start" },
-  expertPage: { flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-start", columnGap: spacing.sm, rowGap: spacing.sm },
+  expertPage: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", columnGap: spacing.sm, rowGap: spacing.sm },
   expertCard: {
     minHeight: 154,
     borderRadius: 8,
