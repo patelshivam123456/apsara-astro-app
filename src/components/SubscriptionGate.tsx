@@ -1,78 +1,60 @@
-import { PropsWithChildren, useEffect } from "react";
+import { createContext, PropsWithChildren, useCallback, useContext, useState } from "react";
 import { View } from "react-native";
-import { router, usePathname } from "expo-router";
+import { router } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button, Dialog, Portal, Text } from "react-native-paper";
 
-import { getUserPublicId } from "@/utils/user";
+import { canUseSubscriptionFeature, getMyEntitlements, getPaymentErrorMessage } from "@/services/subscription.service";
 import { useAuthStore } from "@/store/auth.store";
-import {
-  getTrialInfo,
-  isSubscriptionActive,
-  useSubscriptionStore
-} from "@/store/subscription.store";
+import { getUserPublicId } from "@/utils/user";
 
-const exemptRoutes = [
-  "/",
-  "/onboarding",
-  "/subscription-plan",
-  "/payment-success",
-  "/payment-failed",
-  "/(auth)/login",
-  "/(auth)/register",
-  "/(auth)/reset-password"
-];
+type Feature = "numerology" | "kundaliDownload";
+const FeatureAccessContext = createContext<(feature: Feature) => Promise<boolean>>(async () => false);
+
+export function useFeatureAccess() {
+  return useContext(FeatureAccessContext);
+}
 
 export function SubscriptionGate({ children }: PropsWithChildren) {
-  const pathname = usePathname();
-  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
-  const isAuthLoaded = useAuthStore((state) => state.isAuthLoaded);
-  const user = useAuthStore((state) => state.user);
-  const accessToken = useAuthStore((state) => state.accessToken);
-  const userPublicId = getUserPublicId(user, accessToken);
-  const ensureTrial = useSubscriptionStore((state) => state.ensureTrial);
-  const trial = useSubscriptionStore((state) => state.trials[userPublicId]);
-  const subscription = useSubscriptionStore((state) => state.subscriptions[userPublicId]);
-  const trialInfo = getTrialInfo(trial);
-  const subscriptionActive = isSubscriptionActive(subscription);
-  const routeExempt = exemptRoutes.some((route) => pathname === route || pathname.startsWith("/(auth)"));
-  // Temporarily disabled: do not block the app behind the 5-day trial/subscription popup.
-  const shouldBlock = false;
-  // const shouldBlock = Boolean(
-  //   isAuthLoaded &&
-  //     isLoggedIn &&
-  //     userPublicId &&
-  //     !routeExempt &&
-  //     !trialInfo.trialActive &&
-  //     !subscriptionActive
-  // );
-
-  useEffect(() => {
-    // Temporarily disabled: do not start the 5-day free trial automatically.
-    // if (isLoggedIn && userPublicId) ensureTrial(userPublicId);
-  }, [ensureTrial, isLoggedIn, userPublicId]);
+  const queryClient = useQueryClient();
+  const [popup, setPopup] = useState<{ error?: string } | null>(null);
+  const requireFeature = useCallback(async (feature: Feature) => {
+    const { user, accessToken, isLoggedIn } = useAuthStore.getState();
+    if (!isLoggedIn || !accessToken) {
+      router.push("/(auth)/login");
+      return false;
+    }
+    try {
+      const entitlement = await queryClient.fetchQuery({
+        queryKey: ["feature-entitlements", getUserPublicId(user, accessToken)],
+        queryFn: getMyEntitlements,
+        staleTime: 0
+      });
+      // Ignore a check completed after logout/account switching.
+      if (useAuthStore.getState().accessToken !== accessToken) return false;
+      if (canUseSubscriptionFeature(entitlement, feature)) return true;
+      setPopup({});
+    } catch (error) {
+      setPopup({ error: getPaymentErrorMessage(error, "Unable to check plan access. Please try again.") });
+    }
+    return false;
+  }, [queryClient]);
 
   return (
-    <>
+    <FeatureAccessContext.Provider value={requireFeature}>
       {children}
       <Portal>
-        <Dialog visible={shouldBlock} dismissable={false}>
-          <Dialog.Icon icon="lock-alert" />
-          <Dialog.Title>Subscription Required</Dialog.Title>
+        <Dialog visible={popup !== null} onDismiss={() => setPopup(null)}>
+          <Dialog.Title>{popup?.error ? "Unable to check access" : "You have no active plan"}</Dialog.Title>
           <Dialog.Content>
-            <View style={{ gap: 8 }}>
-              <Text>
-                Your free trial has ended. Please choose a subscription plan to continue using Apsra
-                Astro.
-              </Text>
-            </View>
+            <View><Text>{popup?.error ?? "Upgrade your plan to use this feature."}</Text></View>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button mode="contained" onPress={() => router.replace("/subscription-plan")}>
-              Purchase Plan
-            </Button>
+            {!popup?.error ? <Button onPress={() => { setPopup(null); router.push("/subscription-plan"); }}>Upgrade Plan</Button> : null}
+            <Button onPress={() => setPopup(null)}>OK</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </>
+    </FeatureAccessContext.Provider>
   );
 }

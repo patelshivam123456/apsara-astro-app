@@ -1,5 +1,5 @@
 import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -58,6 +58,7 @@ export function KundaliPdfScreen() {
   const [placeError, setPlaceError] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [pickerValue, setPickerValue] = useState(new Date(1990, 0, 1));
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -143,7 +144,7 @@ export function KundaliPdfScreen() {
         <Button mode="text" icon="arrow-left" compact style={styles.headerAction} onPress={() => router.back()}>
           {t("Back")}
         </Button>
-        <Text variant="titleMedium" style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
+        <Text variant="titleMedium" style={styles.headerTitle} numberOfLines={1}>
           {t("Kundali")}
         </Text>
         <LanguageSelector />
@@ -159,7 +160,7 @@ export function KundaliPdfScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.hero}>
-          <Text variant="headlineSmall" style={styles.heroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
+          <Text variant="headlineSmall" style={styles.heroTitle} numberOfLines={2}>
             {t("Free Kundali Online By Date of Birth")}
           </Text>
           <Text style={styles.heroSubtitle}>{t("Get an instant & accurate Janam Kundli")}</Text>
@@ -208,7 +209,7 @@ export function KundaliPdfScreen() {
                   value={formatDisplayDate(form)}
                   placeholder="Select birth date"
                   error={submitted && Boolean(errors.day || errors.month || errors.year)}
-                  onPress={() => setShowDatePicker(true)}
+                  onPress={() => { Keyboard.dismiss(); setPickerValue(parseFormDate(form) || new Date(1990, 0, 1)); setShowTimePicker(false); setShowDatePicker(true); }}
                 />
                 <FieldError visible={submitted} message={errors.day || errors.month || errors.year} />
               </View>
@@ -220,7 +221,7 @@ export function KundaliPdfScreen() {
                   value={formatDisplayTime(form)}
                   placeholder="Select time, e.g. 10:30 AM"
                   error={submitted && Boolean(errors.hour || errors.min || errors.sec)}
-                  onPress={() => setShowTimePicker(true)}
+                  onPress={() => { Keyboard.dismiss(); setPickerValue(parseFormTime(form)); setShowDatePicker(false); setShowTimePicker(true); }}
                 />
                 <FieldError visible={submitted} message={errors.hour || errors.min || errors.sec} />
               </View>
@@ -247,7 +248,7 @@ export function KundaliPdfScreen() {
               </View>
             ) : null}
 
-            {showDatePicker ? (
+            {showDatePicker && Platform.OS !== "ios" ? (
               <DateTimePicker
                 value={parseFormDate(form) || new Date(1990, 0, 1)}
                 mode="date"
@@ -262,7 +263,7 @@ export function KundaliPdfScreen() {
               />
             ) : null}
 
-            {showTimePicker ? (
+            {showTimePicker && Platform.OS !== "ios" ? (
               <DateTimePicker
                 value={parseFormTime(form)}
                 mode="time"
@@ -292,6 +293,45 @@ export function KundaliPdfScreen() {
           </View>
         </View>
       </KeyboardAwareScrollView>
+      {Platform.OS === "ios" ? (
+        <Modal
+          visible={showDatePicker || showTimePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => { setShowDatePicker(false); setShowTimePicker(false); }}
+        >
+          <View style={styles.pickerOverlay}>
+            <Pressable accessibilityLabel={t("Cancel")} style={StyleSheet.absoluteFill} onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }} />
+            <SafeAreaView edges={["bottom", "left", "right"]} style={[styles.pickerSheet, { height: showDatePicker ? 470 : 350 }]}>
+              <View style={styles.pickerToolbar}>
+                <Button onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}>{t("Cancel")}</Button>
+                <Text style={styles.pickerTitle}>{t(showDatePicker ? "Birth Date" : "Birth Time")}</Text>
+                <Button onPress={() => {
+                  if (showDatePicker) setDateParts(pickerValue, setForm);
+                  else setTimeParts(pickerValue, setForm);
+                  setShowDatePicker(false);
+                  setShowTimePicker(false);
+                }}>{t("Done")}</Button>
+              </View>
+              <ScrollView bounces={false} contentContainerStyle={styles.pickerBody}>
+                {showDatePicker || showTimePicker ? <DateTimePicker
+                  key={showDatePicker ? "birth-date" : "birth-time"}
+                  value={pickerValue}
+                  mode={showDatePicker ? "date" : "time"}
+                  display={showDatePicker ? "inline" : "spinner"}
+                  minimumDate={showDatePicker ? minimumBirthDate : undefined}
+                  maximumDate={showDatePicker ? new Date() : undefined}
+                  themeVariant="light"
+                  textColor={colors.ink}
+                  accentColor={colors.amber}
+                  style={styles.iosPicker}
+                  onValueChange={(_, selectedDate) => setPickerValue(selectedDate)}
+                /> : null}
+              </ScrollView>
+            </SafeAreaView>
+          </View>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -451,7 +491,13 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#fbfbef" },
   header: { minHeight: 58, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
   headerAction: { width: 86, marginLeft: -8 },
-  headerTitle: { flex: 1, color: colors.ink, fontWeight: "800", textAlign: "center" },
+  headerTitle: { flex: 1, minWidth: 0, fontSize: 20, lineHeight: 28, color: colors.ink, fontWeight: "800", textAlign: "center" },
+  pickerOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.35)" },
+  pickerSheet: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "85%", paddingBottom: spacing.sm },
+  pickerToolbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  pickerTitle: { fontSize: 16, fontWeight: "800", color: colors.ink },
+  pickerBody: { padding: spacing.sm },
+  iosPicker: { width: "100%" },
   formScroller: { flex: 1 },
   content: { alignSelf: "center", width: "100%", maxWidth: 1160, padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg },
   hero: { alignItems: "center", gap: spacing.xs },
@@ -466,7 +512,7 @@ const styles = StyleSheet.create({
   twoColumnRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
   column: { flex: 1, minWidth: 210, gap: spacing.xs },
   fieldBlock: { gap: spacing.xs },
-  fieldLabel: { color: colors.cocoa, fontSize: 11, lineHeight: 15, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase" },
+  fieldLabel: { color: colors.cocoa, fontSize: 12, lineHeight: 15, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase" },
   required: { color: colors.danger },
   input: { backgroundColor: colors.surface },
   inputOutline: { borderRadius: 8, borderColor: colors.border },

@@ -1,3 +1,4 @@
+import { useFeatureAccess } from "@/components/SubscriptionGate";
 import { useMemo, useRef, useState } from "react";
 import { Animated, Image, ImageBackground, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,7 +16,7 @@ import {
 } from "@/components/AstrologerFilters";
 import { AstrologerBottomNav, AstrologerSideDrawer } from "@/components/AstrologerNavigation";
 import { LanguageSelector } from "@/components/LanguageSelector";
-import { SubscriptionStatusCard } from "@/components/SubscriptionStatusCard";
+import { ApiSubscriptionStatusCard as SubscriptionStatusCard } from "@/components/ApiSubscriptionStatusCard";
 import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 import { useAstrologers } from "@/hooks/useAstrologers";
@@ -50,6 +51,7 @@ const fallbackExperts: Astrologer[] = [
 ];
 
 export function AstrologerDashboardScreen() {
+  const requireFeature = useFeatureAccess();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [comingSoonService, setComingSoonService] = useState("");
   const [filters, setFilters] = useState<AstrologerFilterState>(defaultAstrologerFilters);
@@ -142,7 +144,10 @@ export function AstrologerDashboardScreen() {
               return (
               <Pressable
                 key={service.label}
-                onPress={service.route ? () => router.push(service.route as never) : () => showComingSoon(service.label)}
+                onPress={service.route ? async () => {
+                  if (service.route?.includes("numerology") && !(await requireFeature("numerology"))) return;
+                  router.push(service.route as never);
+                } : () => showComingSoon(service.label)}
                 style={({ pressed }) => [
                   styles.serviceItem,
                   !enabled && styles.serviceItemMuted,

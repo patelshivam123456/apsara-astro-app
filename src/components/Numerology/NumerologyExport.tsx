@@ -1,3 +1,4 @@
+import { useFeatureAccess } from "@/components/SubscriptionGate";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Animated, Platform, Pressable, StyleSheet } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
@@ -37,6 +38,7 @@ type NumerologyExportButtonProps = {
 
 export function NumerologyExportButton({ blink, fileName, fixed, sections, title, serverPdfPayload, coverPage }: NumerologyExportButtonProps) {
   const { t } = useTranslation();
+  const requireFeature = useFeatureAccess();
   const [exporting, setExporting] = useState(false);
   const pulse = useMemo(() => new Animated.Value(1), []);
 
@@ -59,6 +61,7 @@ export function NumerologyExportButton({ blink, fileName, fixed, sections, title
   const exportReport = async () => {
     try {
       setExporting(true);
+      if (!(await requireFeature("numerology"))) return;
       const safeBaseName = fileName.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-|-$/g, "") || "numerology-report";
       if (serverPdfPayload) {
         const response = await getNumerologyPdf(serverPdfPayload);

@@ -66,6 +66,8 @@ export const ENDPOINTS = {
   kundaliJaimini: "https://staging.apsraastro.in/api/astro-proxy/astrology-services/kundali/v1/jaimini",
   kundaliPdf: "/astrology-services/kundali/v1/pdf",
   paymentInitiate: "/transactions/payment/v1/initiate",
+  myTransactions: "/transactions/payment/v1/my-transactions",
+  myEntitlements: "/transactions/subscription/v1/my-entitlements",
   paymentAcknowledge: "/transactions/payment/v1/payment-acknowledge",
   matchMakingPdf: "/astrology-services/third-party/match-making-pdf",
   matchMakingOthers: "/astrology-services/match-making/v1/others",

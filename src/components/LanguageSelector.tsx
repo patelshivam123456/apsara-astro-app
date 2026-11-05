@@ -44,12 +44,12 @@ export function LanguageSelector() {
 const styles = StyleSheet.create({
   wrap: { position: "relative", zIndex: 30 },
   iconButton: { minWidth: 44, height: 32, borderRadius: 16, borderWidth: 1, borderColor: "#c8e7c7", backgroundColor: "#fff", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2, paddingHorizontal: 5 },
-  shortCode: { color: "#145c24", fontSize: 10, fontWeight: "900" },
+  shortCode: { color: "#145c24", fontSize: 12, fontWeight: "900" },
   menu: { position: "absolute", right: 0, top: 40, width: 190, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff", padding: spacing.sm, gap: 4, shadowColor: "#000", shadowOpacity: 0.22, shadowRadius: 5, elevation: 8 },
   menuTitle: { color: colors.cocoa, fontSize: 12, fontWeight: "900", marginBottom: 2 },
   languageRow: { borderRadius: 6, paddingHorizontal: spacing.sm, paddingVertical: 7 },
   languageRowActive: { backgroundColor: "#d9f6d8" },
   languageText: { color: colors.ink, fontSize: 14, fontWeight: "900" },
   languageTextActive: { color: "#145c24" },
-  languageSubText: { color: colors.cocoa, fontSize: 10, marginTop: 1 }
+  languageSubText: { color: colors.cocoa, fontSize: 12, marginTop: 1 }
 });

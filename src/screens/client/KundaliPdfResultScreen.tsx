@@ -1,8 +1,11 @@
+import { useFeatureAccess } from "@/components/SubscriptionGate";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { SvgCss, SvgCssUri } from "react-native-svg/css";
+import { getChartSvg, prepareChartSvg } from "@/utils/chartSvg";
 import { router } from "expo-router";
 import { Button, Text } from "react-native-paper";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -29,6 +32,7 @@ const reportKeys: Record<Exclude<KundaliTab, "Basic">, keyof NonNullable<ReturnT
 };
 
 export function KundaliPdfResultScreen() {
+  const requireFeature = useFeatureAccess();
   const { language, t } = useTranslation();
   const insets = useSafeAreaInsets();
   const result = useKundaliStore((state) => state.result);
@@ -79,6 +83,7 @@ export function KundaliPdfResultScreen() {
 
     try {
       setDownloadingPdf(true);
+      if (!(await requireFeature("kundaliDownload"))) return;
       const response = await downloadVerifiedKundaliPdf({ ...request, language });
       setResult(result || {}, response.request);
       const fileName = `${safeFileName(response.request.fullName || "kundali")}-kundali.pdf`;
@@ -97,7 +102,7 @@ export function KundaliPdfResultScreen() {
         <Button mode="text" icon="arrow-left" compact style={styles.headerAction} onPress={() => router.back()}>
           {t("Back")}
         </Button>
-        <Text variant="titleMedium" style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
+        <Text variant="titleMedium" style={styles.headerTitle} numberOfLines={1}>
           {t("Kundali")}
         </Text>
         <LanguageSelector />
@@ -109,7 +114,7 @@ export function KundaliPdfResultScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.hero}>
-          <Text variant="headlineSmall" style={styles.title} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
+          <Text variant="headlineSmall" style={styles.title} numberOfLines={2}>
             {details?.full_name ? `${details.full_name}'s ${t("Kundali")}` : t("Kundali")}
           </Text>
           <Text style={styles.subtitle}>{formatBirthLine(details, request)}</Text>
@@ -262,7 +267,7 @@ function InfoCard({ rows, title }: { rows: { label: string; value?: string | num
       {rows.map((row, index) => (
         <View key={`${row.label}-${index}`} style={styles.infoRow}>
           <Text style={styles.infoLabel}>{t(row.label)}</Text>
-          <Text style={styles.infoValue} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.68}>{row.value ?? "-"}</Text>
+          <Text style={styles.infoValue} numberOfLines={2}>{row.value ?? "-"}</Text>
         </View>
       ))}
     </View>
@@ -366,7 +371,7 @@ function getPlanetTableWidth(columns: string[]) {
 
 function PlanetCell({ column, last = false, value }: { column: string; last?: boolean; value?: string | number }) {
   return (
-    <Text style={[styles.planetCell, { width: getPlanetColumnWidth(column) }, last && styles.lastCell]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.62}>
+    <Text style={[styles.planetCell, { width: getPlanetColumnWidth(column) }, last && styles.lastCell]} numberOfLines={2}>
       {value ?? "-"}
     </Text>
   );
@@ -491,13 +496,13 @@ function MiniDashaTable({ columns, rows }: { columns: string[]; rows: string[][]
     <View style={styles.miniDashaTable}>
       <View style={styles.dataRow}>
         {columns.map((column) => (
-          <Text key={column} style={[styles.dataCell, styles.simpleDataCell, styles.dataHeadCell]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{formatKey(column)}</Text>
+          <Text key={column} style={[styles.dataCell, styles.simpleDataCell, styles.dataHeadCell]} >{formatKey(column)}</Text>
         ))}
       </View>
       {rows.map((row, rowIndex) => (
         <View key={rowIndex} style={styles.dataRow}>
           {columns.map((column, columnIndex) => (
-            <Text key={`${rowIndex}-${column}`} style={[styles.dataCell, styles.simpleDataCell]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{row[columnIndex] || "-"}</Text>
+            <Text key={`${rowIndex}-${column}`} style={[styles.dataCell, styles.simpleDataCell]} >{row[columnIndex] || "-"}</Text>
           ))}
         </View>
       ))}
@@ -525,12 +530,14 @@ type ReportSection = {
 
 function FlatReportTable({ rows }: { rows: FlatReportRow[] }) {
   const { width } = useWindowDimensions();
+  const [containerWidth, setContainerWidth] = useState(0);
+  const availableWidth = containerWidth || Math.max(1, width - spacing.lg * 4 - 2);
   if (!rows.length) return <Text style={styles.mutedInline}>No records found</Text>;
 
   const textRows = rows.filter((row) => !row.image);
   const imageRows = rows.filter((row) => row.image);
   const shouldScroll = textRows.some((row) => row.label.length > 22 || row.value.length > 80);
-  const tableWidth = shouldScroll ? 720 : Math.max(280, width - spacing.lg * 4);
+  const tableWidth = shouldScroll ? Math.max(720, availableWidth) : availableWidth;
 
   return (
     <>
@@ -542,7 +549,12 @@ function FlatReportTable({ rows }: { rows: FlatReportRow[] }) {
       ))}
 
       {textRows.length ? (
-        <ScrollView horizontal={shouldScroll} showsHorizontalScrollIndicator={false}>
+        <ScrollView
+          horizontal={shouldScroll}
+          style={{ width: "100%" }}
+          onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
+          showsHorizontalScrollIndicator={shouldScroll}
+        >
           <View style={[styles.table, { width: tableWidth }]}>
             <View style={styles.tableRow}>
               <Text style={[styles.tableKeyCell, styles.tableHeadCell, styles.tableHeadText]}>{formatKey("Details")}</Text>
@@ -567,13 +579,20 @@ function FlatReportTable({ rows }: { rows: FlatReportRow[] }) {
 
 function YogaTable({ rows }: { rows: YogaReportRow[] }) {
   const { width } = useWindowDimensions();
+  const [containerWidth, setContainerWidth] = useState(0);
+  const availableWidth = containerWidth || Math.max(1, width - spacing.lg * 4 - 2);
   const shouldScroll = rows.some((row) => row.content.length > 90 || row.yogaName.length > 24);
-  const tableWidth = shouldScroll ? 860 : Math.max(320, width - spacing.lg * 4);
+  const tableWidth = shouldScroll ? Math.max(860, availableWidth) : availableWidth;
 
   if (!rows.length) return <Text style={styles.mutedInline}>No records found</Text>;
 
   return (
-    <ScrollView horizontal={shouldScroll} showsHorizontalScrollIndicator={false}>
+    <ScrollView
+          horizontal={shouldScroll}
+          style={{ width: "100%" }}
+          onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
+          showsHorizontalScrollIndicator={shouldScroll}
+        >
       <View style={[styles.table, { width: tableWidth }]}>
         <View style={styles.tableRow}>
           <Text style={[styles.yogaNameCell, styles.tableHeadCell, styles.tableHeadText]}>{formatKey("Yoga Name")}</Text>
@@ -604,30 +623,41 @@ function YogaTable({ rows }: { rows: YogaReportRow[] }) {
 
 function DataTable({ columns, forceScroll = false, rows }: { columns: string[]; forceScroll?: boolean; rows: string[][] }) {
   const { width } = useWindowDimensions();
+  const [containerWidth, setContainerWidth] = useState(0);
+  const availableWidth = containerWidth || Math.max(1, width - spacing.lg * 4 - 2);
   const simpleDashaTable = isSimpleDashaColumns(columns);
   const shouldScroll = !simpleDashaTable && (forceScroll || columns.length > 4 || rows.some((row) => row.some((cell) => cell.length > 24)));
-  const visibleWidth = Math.max(320, width - spacing.lg * 4);
+  const visibleWidth = availableWidth;
   const columnWidths = simpleDashaTable
     ? []
     : shouldScroll
       ? columns.map((column, index) => getRequiredColumnWidth(column, rows.map((row) => row[index] || "")))
-      : columns.map(() => Math.max(104, Math.floor(visibleWidth / Math.max(columns.length, 1))));
-  const tableWidth = shouldScroll ? columnWidths.reduce((total, item) => total + item, 0) : visibleWidth;
+      : columns.map(() => visibleWidth / Math.max(columns.length, 1));
+  const naturalWidth = columnWidths.reduce((total, item) => total + item, 0);
+  const tableWidth = shouldScroll ? Math.max(visibleWidth, naturalWidth) : visibleWidth;
+  const fittedWidths = shouldScroll && naturalWidth > 0
+    ? columnWidths.map((columnWidth) => columnWidth * tableWidth / naturalWidth)
+    : columnWidths;
 
   if (!rows.length) return <Text style={styles.mutedInline}>No records found</Text>;
 
   return (
-    <ScrollView horizontal={shouldScroll} showsHorizontalScrollIndicator={false}>
+    <ScrollView
+          horizontal={shouldScroll}
+          style={{ width: "100%" }}
+          onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
+          showsHorizontalScrollIndicator={shouldScroll}
+        >
       <View style={[styles.dataTable, { width: tableWidth }]}>
         <View style={styles.dataRow}>
           {columns.map((column, columnIndex) => (
-            <Text key={`${column}-${columnIndex}`} style={[styles.dataCell, simpleDashaTable ? styles.simpleDataCell : { width: columnWidths[columnIndex] }, styles.dataHeadCell]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{formatKey(column)}</Text>
+            <Text key={`${column}-${columnIndex}`} style={[styles.dataCell, simpleDashaTable ? styles.simpleDataCell : { width: fittedWidths[columnIndex] }, styles.dataHeadCell]} >{formatKey(column)}</Text>
           ))}
         </View>
         {rows.map((row, rowIndex) => (
           <View key={rowIndex} style={styles.dataRow}>
             {columns.map((column, columnIndex) => (
-              <Text key={`${rowIndex}-${column}`} style={[styles.dataCell, simpleDashaTable ? styles.simpleDataCell : { width: columnWidths[columnIndex] }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{row[columnIndex] || "-"}</Text>
+              <Text key={`${rowIndex}-${column}`} style={[styles.dataCell, simpleDashaTable ? styles.simpleDataCell : { width: fittedWidths[columnIndex] }]} >{row[columnIndex] || "-"}</Text>
             ))}
           </View>
         ))}
@@ -886,6 +916,7 @@ function isHouseMap(value: unknown): value is Record<string, unknown> {
 
 function getImageFromRecord(value: unknown) {
   if (!isRecord(value)) return "";
+  if (Platform.OS === "ios" && typeof value.svg === "string" && value.svg.trim()) return value.svg;
   if (typeof value.base64_image === "string") return value.base64_image;
   if (typeof value.svg === "string") return value.svg;
   return "";
@@ -1072,17 +1103,36 @@ function flattenReportRows(value: unknown, prefix = ""): FlatReportRow[] {
 
   if (!isRecord(value)) return [{ label: prefix || "Value", value: String(value) }];
 
+  const preferSvg = Platform.OS === "ios" && typeof value.svg === "string" && Boolean(value.svg.trim());
   const hasBase64Image = typeof value.base64_image === "string";
   return Object.entries(value).flatMap(([key, item]) => {
     if (item === null || item === undefined || item === "") return [];
-    if (key === "svg" && hasBase64Image) return [];
+    if (key === "svg" && hasBase64Image && !preferSvg) return [];
+    if (key === "base64_image" && preferSvg) return [];
     if (key === "base64_image") return flattenReportRows(item, joinLabel(prefix, "Chart"));
     return flattenReportRows(item, joinLabel(prefix, key));
   });
 }
 function RemoteImage({ value }: { value: string }) {
   const uri = normalizeImageUri(value);
-  return <Image source={{ uri }} style={styles.reportImage} contentFit="contain" />;
+  const svg = getChartSvg(value);
+  const [failedValue, setFailedValue] = useState<string | null>(null);
+  const [chartSize, setChartSize] = useState(0);
+  const onError = () => setFailedValue(value);
+  if (failedValue === value) return <View style={[styles.reportImage, { justifyContent: "center", alignItems: "center" }]}>
+    <Text style={styles.mutedInline}>Unable to display chart.</Text>
+  </View>;
+  if (Platform.OS === "ios" && svg) {
+    return <View style={styles.reportImage} onLayout={(event) => setChartSize(event.nativeEvent.layout.width)}>
+      {chartSize > 0 ? <SvgCss xml={prepareChartSvg(svg)} width={chartSize} height={chartSize} preserveAspectRatio="xMidYMid meet" onError={onError} /> : null}
+    </View>;
+  }
+  if (Platform.OS === "ios" && /\.svg(?:[?#]|$)/i.test(uri)) {
+    return <View style={styles.reportImage}>
+      <SvgCssUri uri={uri} width="100%" height="100%" preserveAspectRatio="xMidYMid meet" onError={onError} />
+    </View>;
+  }
+  return <Image source={{ uri }} style={styles.reportImage} contentFit="contain" onError={onError} />;
 }
 
 function unwrapSingleSection(value: unknown) {
@@ -1096,7 +1146,7 @@ function isImageValue(value: string, label?: string) {
   const clean = value.trim();
   const labelText = String(label || "").toLowerCase();
   return (
-    clean.startsWith("<svg") ||
+    getChartSvg(clean) !== null ||
     clean.startsWith("data:image/") ||
     /\.(svg|png|jpe?g|webp)(\?|#|$)/i.test(clean) ||
     (/^https?:\/\//i.test(clean) && /(svg|chart|image|img|kundali|horoscope)/i.test(labelText))
@@ -1105,7 +1155,8 @@ function isImageValue(value: string, label?: string) {
 
 function normalizeImageUri(value: string) {
   const clean = value.trim();
-  if (clean.startsWith("<svg")) return toSvgDataUri(clean);
+  const svg = getChartSvg(clean);
+  if (svg) return toSvgDataUri(svg);
   return clean;
 }
 
@@ -1229,7 +1280,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#fbfbef" },
   header: { minHeight: 58, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
   headerAction: { width: 86, marginLeft: -8 },
-  headerTitle: { flex: 1, color: colors.ink, fontWeight: "800", textAlign: "center" },
+  headerTitle: { flex: 1, minWidth: 0, fontSize: 20, lineHeight: 28, color: colors.ink, fontWeight: "800", textAlign: "center" },
   content: { gap: spacing.lg },
   hero: { alignItems: "center", paddingHorizontal: spacing.lg, paddingTop: spacing.xl, gap: spacing.xs },
   title: { color: colors.amber, fontWeight: "900", lineHeight: 31, textAlign: "center" },
@@ -1245,7 +1296,7 @@ const styles = StyleSheet.create({
   imageBlock: { gap: spacing.sm },
   valueLabel: { color: colors.cocoa, fontSize: 12, lineHeight: 16, fontWeight: "900" },
   infoRow: { minHeight: 34, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  infoLabel: { flex: 1, color: colors.cocoa, fontSize: 10, lineHeight: 14, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
+  infoLabel: { flex: 1, color: colors.cocoa, fontSize: 12, lineHeight: 14, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
   infoValue: { flex: 1.2, color: colors.ink, fontSize: 13, lineHeight: 18, fontWeight: "800", textAlign: "right" },
   table: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: "hidden", backgroundColor: "#fff" },
   tableRow: { minHeight: 38, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border },
@@ -1259,7 +1310,7 @@ const styles = StyleSheet.create({
   yogaContentCell: { flex: 1.65, minWidth: 0, justifyContent: "center", padding: spacing.sm },
   dataTable: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: "hidden", backgroundColor: "#fff" },
   dataRow: { minHeight: 38, flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border },
-  dataCell: { width: 112, borderRightWidth: 1, borderRightColor: colors.border, color: colors.ink, fontSize: 11, lineHeight: 16, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 6, paddingVertical: 6 },
+  dataCell: { width: 112, borderRightWidth: 1, borderRightColor: colors.border, color: colors.ink, fontSize: 12, lineHeight: 16, fontWeight: "700", textAlign: "center", textAlignVertical: "center", paddingHorizontal: 6, paddingVertical: 6 },
   simpleDataCell: { flex: 1, width: undefined },
   dataHeadCell: { backgroundColor: "#354f82", color: "#fff", fontWeight: "900" },
   bhavGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
@@ -1269,14 +1320,14 @@ const styles = StyleSheet.create({
   rankPill: { minWidth: 64, borderRadius: 16, backgroundColor: "#ffffb8", color: "#9a7a00", fontSize: 12, lineHeight: 18, fontWeight: "900", textAlign: "center", paddingHorizontal: spacing.sm, paddingVertical: 3 },
   bhavMetricGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   bhavMetric: { width: "31%", minWidth: 96, minHeight: 74, borderRadius: 8, borderWidth: 1, borderColor: "#eadf8b", backgroundColor: "#fff", padding: spacing.sm, justifyContent: "center", gap: 5 },
-  bhavMetricLabel: { color: "#8a6b00", fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
+  bhavMetricLabel: { color: "#8a6b00", fontSize: 12, lineHeight: 13, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
   bhavMetricValue: { color: colors.ink, fontSize: 14, lineHeight: 18, fontWeight: "900" },
   dashaMiniGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
   dashaMiniCard: { flex: 1, minWidth: 310, borderRadius: 8, borderWidth: 1, borderColor: "#eadf8b", backgroundColor: "#fffef8", padding: spacing.md, gap: spacing.sm },
   dashaLargeCard: { borderRadius: 8, borderWidth: 1, borderColor: "#eadf8b", backgroundColor: "#fffef8", padding: spacing.md, gap: spacing.sm, marginTop: spacing.md },
   dashaCardTitle: { color: colors.ink, fontSize: 15, lineHeight: 20, fontWeight: "900" },
   dashaDate: { color: colors.cocoa, fontSize: 12, lineHeight: 16, fontWeight: "800" },
-  dashaKicker: { color: "#8a6b00", fontSize: 10, lineHeight: 13, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" },
+  dashaKicker: { color: "#8a6b00", fontSize: 12, lineHeight: 13, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" },
   miniDashaTable: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: "hidden", backgroundColor: "#fff" },
   planetTable: { width: 720, borderTopWidth: 1, borderLeftWidth: 1, borderColor: colors.border },
   planetRow: { minHeight: 40, flexDirection: "row" },
@@ -1286,7 +1337,7 @@ const styles = StyleSheet.create({
   planetIcon: { width: 22, height: 22, borderRadius: 11 },
   planetNameText: { color: colors.ink, fontSize: 12, lineHeight: 16, fontWeight: "800" },
   lastCell: { borderRightWidth: 0 },
-  reportImage: { width: "100%", height: 320, borderRadius: 8, backgroundColor: "#fff" },
+  reportImage: { width: "100%", aspectRatio: 1, borderRadius: 8, backgroundColor: "#fff" },
   muted: { marginHorizontal: spacing.lg, color: colors.cocoa },
   mutedInline: { color: colors.cocoa },
   errorText: { marginHorizontal: spacing.lg, color: colors.danger, fontWeight: "700" },

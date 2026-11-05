@@ -28,11 +28,25 @@ module.exports = {
       "./plugins/withCleartextTraffic",
       "expo-image",
       "expo-sharing",
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "./plugins/withIosSceneLifecycle"
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.apsaraastro.mobile"
+      bundleIdentifier: "com.apsaraastro.mobile",
+      infoPlist: {
+        UIApplicationSceneManifest: {
+          UIApplicationSupportsMultipleScenes: false,
+          UISceneConfigurations: {
+            UIWindowSceneSessionRoleApplication: [
+              {
+                UISceneConfigurationName: "Default Configuration",
+                UISceneDelegateClassName: "EXExpoAppSceneDelegate"
+              }
+            ]
+          }
+        }
+      }
     },
     android: {
       package: "com.apsaraastro.mobile",

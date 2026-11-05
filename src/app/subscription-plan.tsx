@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Button, Text } from "react-native-paper";
 
+import { ApiSubscriptionStatusCard } from "@/components/ApiSubscriptionStatusCard";
+import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { colors, spacing } from "@/constants/theme";
 import {
@@ -25,8 +27,7 @@ import { useAuthStore } from "@/store/auth.store";
 import {
   buildSubscriptionRecord,
   canSelectPlan,
-  getTrialInfo,
-  isSubscriptionActive,
+  SubscriptionRecord,
   useSubscriptionStore
 } from "@/store/subscription.store";
 import { getUserContact, getUserDisplayName, getUserPublicId } from "@/utils/user";
@@ -36,16 +37,17 @@ export default function SubscriptionPlanScreen() {
   const user = useAuthStore((state) => state.user);
   const accessToken = useAuthStore((state) => state.accessToken);
   const userPublicId = getUserPublicId(user, accessToken);
-  const trial = useSubscriptionStore((state) => state.trials[userPublicId]);
-  const subscription = useSubscriptionStore((state) => state.subscriptions[userPublicId]);
+  const access = useSubscriptionAccess(userPublicId);
+  const active = access.data?.kind === "active";
+  const planGridY = useRef(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollToPlans = () => scrollRef.current?.scrollTo({ y: planGridY.current, animated: true });
   const setActiveSubscription = useSubscriptionStore((state) => state.setActiveSubscription);
   const setLastPayment = useSubscriptionStore((state) => state.setLastPayment);
   const [loadingPlanId, setLoadingPlanId] = useState<SubscriptionPlanId | null>(null);
   const isWide = width >= 820;
   const isTablet = width >= 600;
   const columnWidth = isWide ? "23.5%" : isTablet ? "48%" : "100%";
-  const trialInfo = getTrialInfo(trial);
-  const active = isSubscriptionActive(subscription);
   const title = active ? "My Subscription" : "Choose Your Subscription Plan";
   const homeRoute = "/astrologer";
   const subtitle = active
@@ -128,7 +130,7 @@ export default function SubscriptionPlanScreen() {
           <LanguageSelector />
         </View>
       </View>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.hero}>
         <View style={styles.heroCopy}>
           <Text style={styles.kicker}>Apsra Astro Premium</Text>
@@ -142,38 +144,18 @@ export default function SubscriptionPlanScreen() {
         </View>
       </View>
 
-      {!active && trialInfo.trialActive ? (
-        <View style={styles.trialCard}>
-          <MaterialCommunityIcons name="creation" size={24} color={colors.amber} />
-          <View style={styles.flex}>
-            <Text style={styles.trialTitle}>{trialInfo.daysRemaining} Days Free Trial</Text>
-            <Text style={styles.muted}>Enjoy all available features during your free trial.</Text>
-          </View>
-        </View>
-      ) : null}
+      {userPublicId ? <ApiSubscriptionStatusCard userPublicId={userPublicId} onUpgrade={scrollToPlans} /> : null}
 
-      {active && subscription ? (
-        <View style={styles.activePlan}>
-          <View style={styles.activeHeader}>
-            <MaterialCommunityIcons name="crown" size={26} color={colors.success} />
-            <View style={styles.flex}>
-              <Text style={styles.activeTitle}>Active Plan</Text>
-              <Text style={styles.muted}>Status: {subscription.status}</Text>
-            </View>
-          </View>
-          <InfoRow label="Plan Name" value={subscription.planName} />
-          <InfoRow label="Plan ID" value={subscription.planId} />
-          <InfoRow label="Subscription Tenure" value={subscription.tenure} />
-          <InfoRow label="Start Date" value={formatDate(subscription.startDate)} />
-          <InfoRow label="Expiry Date" value={subscription.expiryDate ? formatDate(subscription.expiryDate) : "Not available"} />
-        </View>
-      ) : null}
-
-      <View style={styles.planGrid}>
+      <View style={styles.planGrid} onLayout={(event) => { planGridY.current = event.nativeEvent.layout.y; }}>
         {orderedSubscriptionPlanIds.map((planId) => {
           const plan = subscriptionPlans[planId];
           const detail = subscriptionPlanDetails[planId];
-          const action = canSelectPlan(subscription, planId);
+          const serverPlan = access.data?.plan;
+          const currentPlanId = serverPlan?.planId;
+          const current = active && typeof currentPlanId === "string" && currentPlanId in subscriptionPlans
+            ? { ...serverPlan, planId: currentPlanId, status: "Active", expiryDate: serverPlan?.expiresAt ?? serverPlan?.expiryDate } as SubscriptionRecord
+            : undefined;
+          const action = canSelectPlan(current, planId);
           const isPopular = planId === "AST-POPULAR-B68";
           const disabled = !userPublicId || !action.allowed || Boolean(loadingPlanId);
 
@@ -238,15 +220,6 @@ export default function SubscriptionPlanScreen() {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
-  );
-}
-
 function TrustItem({ icon, label }: { icon: keyof typeof MaterialCommunityIcons.glyphMap; label: string }) {
   return (
     <View style={styles.trustItem}>
@@ -259,14 +232,6 @@ function TrustItem({ icon, label }: { icon: keyof typeof MaterialCommunityIcons.
 function monthlyLabel(amount: number, tenure: string) {
   const months = Number(tenure.match(/^\d+/)?.[0] || 1);
   return `₹${Math.round(amount / months).toLocaleString("en-IN")} / month`;
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric"
-  });
 }
 
 const styles = StyleSheet.create({

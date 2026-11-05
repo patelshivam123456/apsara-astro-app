@@ -59,6 +59,87 @@ transactionApi.interceptors.request.use(async (config) => {
 
 transactionApi.interceptors.response.use((response) => response.data);
 
+export type SubscriptionAccess = {
+  kind: "trial" | "active" | "inactive";
+  daysRemaining: number;
+  plan: Record<string, unknown> | null;
+  expiredPlans: Record<string, unknown>[];
+};
+
+export type Entitlements = {
+  trial: { active: boolean; daysRemaining: number; expiresAt: string | null };
+  subscription: { active: boolean; plan: string | Record<string, unknown> | null; expiresAt: string | null };
+  features: { numerology: boolean; kundaliDownload: boolean };
+};
+
+export async function getMyEntitlements(): Promise<Entitlements> {
+  const response = await transactionApi.get<unknown, { success: boolean; data: Entitlements }>(ENDPOINTS.myEntitlements);
+  assertSuccessfulPaymentResponse(response, "Unable to load subscription access.");
+  if (!response.data?.trial || !response.data.subscription || !response.data.features) {
+    throw new Error("Invalid entitlements response.");
+  }
+  return response.data;
+}
+
+export function canUseSubscriptionFeature(entitlement: Entitlements, feature: "numerology" | "kundaliDownload") {
+  if (feature === "kundaliDownload") return entitlement.features.kundaliDownload === true;
+  return (entitlement.trial.active || entitlement.subscription.active) && entitlement.features.numerology === true;
+}
+
+export async function getSubscriptionAccess(): Promise<SubscriptionAccess> {
+  const transactions = await transactionApi.get<unknown, { success: boolean; data: Record<string, unknown>[] }>(ENDPOINTS.myTransactions);
+  assertSuccessfulPaymentResponse(transactions, "Unable to load subscription details.");
+  if (!Array.isArray(transactions.data)) throw new Error("Invalid transactions response.");
+
+  if (transactions.data.length) {
+    const plans = transactions.data.map(normalizeTransactionPlan);
+    const plan = plans.find((record) =>
+      record.current === true && record.paymentStatus === "SUCCESS" &&
+      record.subscriptionStatus === "ACTIVE" &&
+      (!record.expiryDate || new Date(String(record.expiryDate)).getTime() > Date.now())
+    );
+    const expiredPlans = plans.filter((record) => record.current !== true && (
+      record.subscriptionStatus === "EXPIRED" ||
+      (record.expiryDate && new Date(String(record.expiryDate)).getTime() <= Date.now())
+    ));
+    return { kind: plan ? "active" : "inactive", daysRemaining: 0, plan: plan ?? null, expiredPlans };
+  }
+
+  const entitlement = await getMyEntitlements();
+  if (entitlement.trial.active) {
+    return { kind: "trial", daysRemaining: entitlement.trial.daysRemaining, plan: null, expiredPlans: [] };
+  }
+  if (entitlement.subscription.active) {
+    const plan = entitlement.subscription.plan;
+    return {
+      kind: "active", daysRemaining: 0, expiredPlans: [],
+      plan: { ...(typeof plan === "object" && plan ? plan : { planName: plan }), expiresAt: entitlement.subscription.expiresAt }
+    };
+  }
+  return { kind: "inactive", daysRemaining: 0, plan: null, expiredPlans: [] };
+}
+
+function normalizeTransactionPlan(transaction: Record<string, unknown>): Record<string, unknown> {
+  const planId = String(transaction.planId ?? "") as SubscriptionPlanId;
+  return {
+    ...transaction,
+    planName: subscriptionPlanDetails[planId]?.name ?? transaction.planDescription ?? transaction.planId,
+    tenure: transaction.subscriptionTenure,
+    startDate: parseSubscriptionDate(transaction.subscriptionStartDate),
+    expiryDate: parseSubscriptionDate(transaction.subscriptionEndDate, true)
+  };
+}
+
+function parseSubscriptionDate(value: unknown, endOfDay = false) {
+  if (typeof value !== "string" || !value) return undefined;
+  const match = value.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (match) {
+    const [, day, month, year] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day), endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0).toISOString();
+  }
+  return Number.isNaN(Date.parse(value)) ? undefined : new Date(value).toISOString();
+}
+
 export function createPaymentInitiatePayload(
   userPublicId: string,
   planId: SubscriptionPlanId
