@@ -32,7 +32,7 @@ export function LoginScreen() {
   const [sendingReset, setSendingReset] = useState(false);
   const [message, setMessage] = useState("");
   const [registerChoiceOpen, setRegisterChoiceOpen] = useState(false);
-  const [loginChannel, setLoginChannel] = useState<"email" | "mobileNo">("email");
+  const [loginChannel, setLoginChannel] = useState<"email" | "mobileNo">("mobileNo");
   const [mobileNo, setMobileNo] = useState("");
   const [otp, setOtp] = useState("");
   const [otpOpen, setOtpOpen] = useState(false);
@@ -181,11 +181,11 @@ export function LoginScreen() {
           <Text style={styles.stepLabel}>{t("LOGIN")}</Text>
 
           <View style={styles.channelChoices}>
-            <Pressable accessibilityRole="button" onPress={() => setLoginChannel("email")} style={[styles.channelChoice, loginChannel === "email" && styles.channelChoiceActive]}>
-              <Text numberOfLines={2} adjustsFontSizeToFit style={[styles.channelChoiceText, loginChannel === "email" && styles.channelChoiceTextActive]}>{t("Login with email")}</Text>
-            </Pressable>
             <Pressable accessibilityRole="button" onPress={() => setLoginChannel("mobileNo")} style={[styles.channelChoice, loginChannel === "mobileNo" && styles.channelChoiceActive]}>
               <Text numberOfLines={2} adjustsFontSizeToFit style={[styles.channelChoiceText, loginChannel === "mobileNo" && styles.channelChoiceTextActive]}>{t("Login with mobile")}</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => setLoginChannel("email")} style={[styles.channelChoice, loginChannel === "email" && styles.channelChoiceActive]}>
+              <Text numberOfLines={2} adjustsFontSizeToFit style={[styles.channelChoiceText, loginChannel === "email" && styles.channelChoiceTextActive]}>{t("Login with email")}</Text>
             </Pressable>
           </View>
 

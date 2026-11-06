@@ -2,6 +2,7 @@ import { useFeatureAccess } from "@/components/SubscriptionGate";
 import { useEffect, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { SvgCss, SvgCssUri } from "react-native-svg/css";
@@ -16,6 +17,7 @@ import { colors, spacing } from "@/constants/theme";
 import { useTranslation } from "@/context/LanguageContext";
 import { getApiErrorMessage } from "@/services/apiClient";
 import { downloadVerifiedKundaliPdf, generateVerifiedKundaliReport, KundaliBasicAstroDetails, KundaliPlanet, KundaliReportResponse } from "@/services/kundali.service";
+import { useAuthStore } from "@/store/auth.store";
 import { useKundaliStore } from "@/store/kundali.store";
 
 const tabs = ["Basic", "Horoscope Charts", "Dasha", "Jaimini", "KP", "Bhinnashtakvarga", "Yogas", "Dosha"] as const;
@@ -76,6 +78,15 @@ export function KundaliPdfResultScreen() {
   }, [language, request, setResult]);
 
   const downloadPdf = async () => {
+    const { isLoggedIn, accessToken } = useAuthStore.getState();
+    if (!isLoggedIn || !accessToken) {
+      Alert.alert(t("Please login first"), t("Please login first to download your Kundali PDF."), [
+        { text: t("Cancel"), style: "cancel" },
+        { text: t("Login"), onPress: () => router.push("/(auth)/login") }
+      ]);
+      return;
+    }
+
     if (!request) {
       Alert.alert(t("Download PDF"), t("Please create a Kundali first."));
       return;
@@ -88,7 +99,9 @@ export function KundaliPdfResultScreen() {
       setResult(result || {}, response.request);
       const fileName = `${safeFileName(response.request.fullName || "kundali")}-kundali.pdf`;
       await savePdfToDownloads(fileName, response.fileBase64);
-      Alert.alert(t("Download PDF"), t("PDF downloaded successfully."));
+      if (Platform.OS !== "ios") {
+        Alert.alert(t("Download PDF"), t("PDF downloaded successfully."));
+      }
     } catch (error) {
       Alert.alert(t("Download PDF"), t(getApiErrorMessage(error, "Unable to download PDF file.")));
     } finally {
@@ -162,6 +175,22 @@ export function KundaliPdfResultScreen() {
 }
 
 async function savePdfToDownloads(fileName: string, fileBase64: string) {
+  if (Platform.OS === "ios") {
+    if (!FileSystem.cacheDirectory || !(await Sharing.isAvailableAsync())) {
+      throw new Error("Unable to open PDF sharing. Please try again.");
+    }
+    const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+    await FileSystem.writeAsStringAsync(fileUri, fileBase64, {
+      encoding: FileSystem.EncodingType.Base64
+    });
+    await Sharing.shareAsync(fileUri, {
+      mimeType: "application/pdf",
+      UTI: "com.adobe.pdf"
+    });
+    return;
+  }
+
+
   const initialUri = FileSystem.StorageAccessFramework.getUriForDirectoryInRoot("Download");
   const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
   if (!permissions.granted) throw new Error("Storage permission is required to download PDF.");

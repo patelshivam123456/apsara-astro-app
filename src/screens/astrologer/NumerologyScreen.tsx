@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { BackHandler, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { BackHandler, Keyboard, Modal, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -53,6 +54,7 @@ export function NumerologyScreen() {
   const [calculationOpen, setCalculationOpen] = useState(false);
   const [showDobPicker, setShowDobPicker] = useState(false);
   const [showPersonBDobPicker, setShowPersonBDobPicker] = useState(false);
+  const [pickerDate, setPickerDate] = useState(new Date(1990, 0, 1));
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
@@ -86,12 +88,12 @@ export function NumerologyScreen() {
 
   const isCompatibility = calculation === "compatibility-relationship";
   const isMobileNumerology = calculation === "mobile-numerology";
-  const hasPersonAData = fullName.trim().length > 1 && /^\d{2}-\d{2}-\d{4}$/.test(dob.trim()) && gender;
-  const hasPersonBData = personBFullName.trim().length > 1 && /^\d{2}-\d{2}-\d{4}$/.test(personBDob.trim()) && personBGender;
+  const hasPersonAData = fullName.trim().length > 1 && isValidDob(dob.trim()) && gender;
+  const hasPersonBData = personBFullName.trim().length > 1 && isValidDob(personBDob.trim()) && personBGender;
   const hasMobileData = /^\d{10}$/.test(mobileNumber.trim());
   const canSubmit =
     fullName.trim().length > 1 &&
-    /^\d{2}-\d{2}-\d{4}$/.test(dob.trim()) &&
+    isValidDob(dob.trim()) &&
     gender &&
     (isCompatibility
       ? hasPersonBData
@@ -183,7 +185,15 @@ export function NumerologyScreen() {
         <LanguageSelector />
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid={false}
+        extraScrollHeight={30}
+        extraHeight={140}
+      >
         <View style={styles.panel}>
           <View style={styles.formStack}>
             <FieldIcon icon="account" />
@@ -197,11 +207,11 @@ export function NumerologyScreen() {
           </View>
           <View style={styles.formStack}>
             <FieldIcon icon="calendar-month" />
-            <Pressable style={styles.dateSelect} onPress={() => setShowDobPicker(true)}>
+            <Pressable style={styles.dateSelect} onPress={() => { Keyboard.dismiss(); setPickerDate(parseDob(dob) || new Date(1990, 0, 1)); setShowDobPicker(true); }}>
               <Text style={[styles.dateSelectText, !dob && styles.placeholderText]}>{dob || t("Date of Birth (DD-MM-YYYY)")}</Text>
             </Pressable>
           </View>
-          {showDobPicker ? (
+          {showDobPicker && Platform.OS !== "ios" ? (
             <DateTimePicker
               value={parseDob(dob) || new Date(1990, 0, 1)}
               mode="date"
@@ -259,11 +269,11 @@ export function NumerologyScreen() {
               </View>
               <View style={styles.formStack}>
                 <FieldIcon icon="calendar-heart" />
-                <Pressable style={styles.dateSelect} onPress={() => setShowPersonBDobPicker(true)}>
+                <Pressable style={styles.dateSelect} onPress={() => { Keyboard.dismiss(); setPickerDate(parseDob(personBDob) || new Date(1990, 0, 1)); setShowPersonBDobPicker(true); }}>
                   <Text style={[styles.dateSelectText, !personBDob && styles.placeholderText]}>{personBDob || t("Date of Birth (DD-MM-YYYY)")}</Text>
                 </Pressable>
               </View>
-              {showPersonBDobPicker ? (
+              {showPersonBDobPicker && Platform.OS !== "ios" ? (
                 <DateTimePicker
                   value={parseDob(personBDob) || new Date(1990, 0, 1)}
                   mode="date"
@@ -303,8 +313,47 @@ export function NumerologyScreen() {
             </Pressable>
           </View>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
+      {Platform.OS === "ios" && (showDobPicker || showPersonBDobPicker) ? (
+        <Modal
+          visible={showDobPicker || showPersonBDobPicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => { setShowDobPicker(false); setShowPersonBDobPicker(false); }}
+        >
+          <View style={styles.pickerOverlay}>
+            <Pressable
+              accessibilityLabel={t("Cancel")}
+              style={StyleSheet.absoluteFill}
+              onPress={() => { setShowDobPicker(false); setShowPersonBDobPicker(false); }}
+            />
+            <SafeAreaView edges={["bottom", "left", "right"]} style={styles.pickerSheet}>
+              <View style={styles.pickerToolbar}>
+                <Button onPress={() => { setShowDobPicker(false); setShowPersonBDobPicker(false); }}>{t("Cancel")}</Button>
+                <Text>{t("Date of Birth")}</Text>
+                <Button onPress={() => {
+                  if (showPersonBDobPicker) setPersonBDob(formatDob(pickerDate));
+                  else setDob(formatDob(pickerDate));
+                  setShowDobPicker(false);
+                  setShowPersonBDobPicker(false);
+                }}>{t("Done")}</Button>
+              </View>
+              <DateTimePicker
+                value={pickerDate}
+                mode="date"
+                display="inline"
+                minimumDate={minimumDobDate}
+                maximumDate={new Date()}
+                themeVariant="light"
+                textColor={colors.ink}
+                style={styles.iosPicker}
+                onValueChange={(_, selectedDate) => setPickerDate(selectedDate)}
+              />
+            </SafeAreaView>
+          </View>
+        </Modal>
+      ) : null}
       <AstrologerBottomNav active="home" respectSafeArea />
     </SafeAreaView>
   );
@@ -326,15 +375,27 @@ function parseDob(value: string) {
   return date;
 }
 
+function isValidDob(value: string) {
+  const date = parseDob(value);
+  if (!date || formatDob(date) !== value || date < minimumDobDate) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date <= today;
+}
+
 function FieldIcon({ icon }: { icon: keyof typeof MaterialCommunityIcons.glyphMap }) {
   return (
-    <View style={styles.fieldIcon}>
+    <View pointerEvents="none" style={styles.fieldIcon}>
       <MaterialCommunityIcons name={icon} size={24} color="#111" />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  pickerOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.35)" },
+  pickerSheet: { backgroundColor: "#fff", borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: spacing.sm, minHeight: 450 },
+  pickerToolbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  iosPicker: { height: 370, width: "100%" },
   safe: { flex: 1, backgroundColor: "#f8f7f2" },
   header: {
     minHeight: 50,
@@ -351,7 +412,7 @@ const styles = StyleSheet.create({
   panel: { marginTop: spacing.lg, borderRadius: 12, backgroundColor: "#fffdf0", padding: spacing.lg, gap: spacing.lg, shadowColor: "#0d3440", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.16, shadowRadius: 8, elevation: 5 },
   formStack: { minHeight: 50, flexDirection: "row", alignItems: "center", borderRadius: 10, backgroundColor: "#fff", paddingHorizontal: 7, shadowColor: "#0d3440", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 3 },
   fieldIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#e8f8e8", alignItems: "center", justifyContent: "center", marginRight: spacing.sm },
-  input: { flex: 1, minHeight: 46, paddingVertical: 8, paddingHorizontal: 0, color: "#111", fontFamily: "serif", fontSize: 16, textAlignVertical: "center" },
+  input: { flex: 1, minHeight: 46, ...(Platform.OS === "ios" ? { height: 46 } : {}), paddingVertical: 8, paddingHorizontal: 0, color: "#111", fontFamily: "serif", fontSize: 16, textAlignVertical: "center" },
   dateSelect: { flex: 1, minHeight: 46, justifyContent: "center", paddingRight: spacing.sm },
   dateSelectText: { color: "#111", fontFamily: "serif", fontSize: 16, lineHeight: 22 },
   placeholderText: { color: "#9c9c9c" },

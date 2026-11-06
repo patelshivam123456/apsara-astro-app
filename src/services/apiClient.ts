@@ -14,6 +14,28 @@ type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 let refreshPromise: Promise<string | null> | null = null;
 
+const publicAstrologyPaths = new Set([
+  ENDPOINTS.dailyHoroscope,
+  ENDPOINTS.weeklyHoroscope,
+  ENDPOINTS.monthlyHoroscope,
+  ENDPOINTS.yearlyHoroscope,
+  ENDPOINTS.geolocation,
+  ENDPOINTS.kundaliVerify,
+  ENDPOINTS.kundaliBasic,
+  ENDPOINTS.kundaliYogas,
+  ENDPOINTS.kundaliDosha,
+  ENDPOINTS.kundaliBhinnashtakvarga,
+  ENDPOINTS.kundaliHoroscopeCharts,
+  ENDPOINTS.kundaliKp,
+  ENDPOINTS.kundaliDasha,
+  ENDPOINTS.kundaliJaimini
+].map((endpoint) => new URL(endpoint, ASTRO_API_BASE_URL).pathname));
+
+function isPublicAstrologyRequest(config: InternalAxiosRequestConfig) {
+  return publicAstrologyPaths.has(new URL(config.url || "", config.baseURL || ASTRO_API_BASE_URL).pathname);
+}
+
+
 function createClient(baseURL: string) {
   const client = axios.create({
     baseURL,
@@ -22,6 +44,12 @@ function createClient(baseURL: string) {
   });
 
   client.interceptors.request.use(async (config) => {
+    if (isPublicAstrologyRequest(config)) {
+      config.headers.delete("Authorization");
+      config.headers.delete("x-refresh-token");
+      return config;
+    }
+
     const [token, refreshToken] = await Promise.all([getAccessToken(), getRefreshToken()]);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -57,7 +85,7 @@ function createClient(baseURL: string) {
         });
       }
 
-      if (status !== 401 || !originalRequest || originalRequest._retry || isRefreshRequest) {
+      if (status !== 401 || !originalRequest || originalRequest._retry || isRefreshRequest || isPublicAstrologyRequest(originalRequest)) {
         return Promise.reject(error);
       }
 

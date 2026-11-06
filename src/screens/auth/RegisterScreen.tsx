@@ -712,7 +712,7 @@ function ClientRegisterScreen() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [signupChannel, setSignupChannel] = useState<"email" | "mobileNo">("email");
+  const [signupChannel, setSignupChannel] = useState<"email" | "mobileNo">("mobileNo");
   const [mobileNo, setMobileNo] = useState("");
   const [password, setPassword] = useState("");
   const [secure, setSecure] = useState(true);
@@ -824,11 +824,11 @@ function ClientRegisterScreen() {
             </Text>
             <Text style={styles.muted}>{t("Create your account and start your journey.")}</Text>
             <View style={styles.channelChoices}>
-              <Pressable accessibilityRole="button" onPress={() => setSignupChannel("email")} style={[styles.channelChoice, signupChannel === "email" && styles.channelChoiceActive]}>
-                <Text numberOfLines={2} adjustsFontSizeToFit style={[styles.channelChoiceText, signupChannel === "email" && styles.channelChoiceTextActive]}>{t("Signup with email")}</Text>
-              </Pressable>
               <Pressable accessibilityRole="button" onPress={() => setSignupChannel("mobileNo")} style={[styles.channelChoice, signupChannel === "mobileNo" && styles.channelChoiceActive]}>
                 <Text numberOfLines={2} adjustsFontSizeToFit style={[styles.channelChoiceText, signupChannel === "mobileNo" && styles.channelChoiceTextActive]}>{t("Signup with Mobile")}</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={() => setSignupChannel("email")} style={[styles.channelChoice, signupChannel === "email" && styles.channelChoiceActive]}>
+                <Text numberOfLines={2} adjustsFontSizeToFit style={[styles.channelChoiceText, signupChannel === "email" && styles.channelChoiceTextActive]}>{t("Signup with email")}</Text>
               </Pressable>
             </View>
             <Button
@@ -870,7 +870,7 @@ function ClientRegisterScreen() {
             {signupChannel === "email" ? <Text style={styles.muted}>{t("First letter capital, include a number and special character. Example: Apsra@123")}</Text> : null}
 
             <TouchableOpacity style={styles.captchaBox} onPress={() => setCaptchaChecked((value) => !value)}>
-              <Checkbox status={captchaChecked ? "checked" : "unchecked"} />
+              <Checkbox.Android status={captchaChecked ? "checked" : "unchecked"} />
               <Text style={styles.dropdownValue}>{t("I'm not a robot")}</Text>
             </TouchableOpacity>
 
@@ -1245,7 +1245,7 @@ function CheckGroup({
             style={[styles.checkItem, selected.includes(item) && styles.activeCheckItem, disabled && styles.disabledBox]}
             onPress={() => onToggle(item)}
           >
-            <Checkbox status={selected.includes(item) ? "checked" : "unchecked"} />
+            <Checkbox.Android status={selected.includes(item) ? "checked" : "unchecked"} />
             <Text style={styles.checkText}>{t(item)}</Text>
           </TouchableOpacity>
         ))}

@@ -513,7 +513,7 @@ function ConsultationModeSelector({
               onPress={() => onToggle(mode)}
               style={[styles.checkboxItem, checked && styles.checkboxItemChecked, !editable && styles.checkboxItemDisabled]}
             >
-              <Checkbox status={checked ? "checked" : "unchecked"} disabled={!editable} />
+              <Checkbox.Android status={checked ? "checked" : "unchecked"} disabled={!editable} />
               <Text style={styles.checkboxText}>{t(mode)}</Text>
             </Pressable>
           );
